@@ -1,9 +1,13 @@
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Repo root, so the backend reads the same .env docker-compose does regardless of CWD.
+DEFAULT_SECRET = "dev-only-change-me"
+
+# Repo root, so the backend reads the same .env docker-compose does regardless of
+# CWD. Assumes this file stays at backend/app/core/ — three levels down.
 ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
 
 
@@ -32,6 +36,17 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @model_validator(mode="after")
+    def reject_default_secret_outside_development(self) -> "Settings":
+        # secret_key signs the session cookie. Shipping the published default
+        # means anyone can forge a session, so fail at boot rather than serve.
+        if self.environment != "development" and self.secret_key == DEFAULT_SECRET:
+            raise ValueError(
+                "SECRET_KEY is still the default. Set a real value: "
+                'python -c "import secrets; print(secrets.token_urlsafe(32))"'
+            )
+        return self
 
 
 @lru_cache
