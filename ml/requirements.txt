@@ -1,0 +1,13 @@
+# Classifier training and evaluation. Runs standalone against a CSV — the API
+# does not import anything from this directory.
+scikit-learn==1.6.0
+pandas==2.2.3
+numpy==2.2.1
+transformers==4.47.1
+torch==2.5.1
+datasets==3.2.0
+evaluate==0.4.3
+matplotlib==3.10.0
+onnx==1.17.0
+onnxruntime==1.20.1
+optimum[onnxruntime]==1.23.3
