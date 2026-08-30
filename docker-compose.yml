@@ -1,0 +1,22 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: gabai-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-gabai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gabai}
+      POSTGRES_DB: ${POSTGRES_DB:-gabai}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # Makes `docker compose up --wait` block until Postgres accepts connections.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gabai} -d ${POSTGRES_DB:-gabai}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:
