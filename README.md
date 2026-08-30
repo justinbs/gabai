@@ -16,7 +16,7 @@ S.Y. 2026–2027. Partner Barangay: Barangay V "Singko", Amaya, Tanza, Cavite.
 | Frontend | React 19, TypeScript, Tailwind CSS v4, Vite |
 | Backend | FastAPI, SQLAlchemy 2.0, Alembic |
 | Database | PostgreSQL 16 |
-| Classifier | Hugging Face transformer; ONNX Runtime int8 at inference |
+| Classifier | Hugging Face transformer, fine-tuned; ONNX Runtime int8 at inference |
 
 ## Layout
 
@@ -66,7 +66,8 @@ npm run dev
 App at `http://localhost:5173`. Requests to `/api` are proxied to the backend, so
 the dev server is same-origin and session cookies work without extra configuration.
 
-The classifier is trained separately — see `ml/README.md`.
+The classifier is fine-tuned separately, and benchmarked against a TF-IDF + SVM
+baseline trained on the same split — see `ml/README.md`.
 
 ## Conventions
 
