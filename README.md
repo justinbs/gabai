@@ -1,7 +1,7 @@
 # GABAI
 
 Citizen service request management for a barangay LGU. Residents submit free-text
-requests in Filipino, English, or Taglish; a transformer classifies each
+requests in Filipino, English, or Taglish; a fine-tuned transformer classifies each
 one by category and urgency and routes it to the responsible handler. Predictions
 below a confidence threshold are diverted to a manual review queue instead of being
 routed automatically.
@@ -47,7 +47,7 @@ Backend:
 
 ```bash
 cd backend
-python -m venv .venv && source .venv/bin/activate
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 alembic upgrade head
 uvicorn app.main:app --reload
@@ -64,7 +64,9 @@ npm run dev
 ```
 
 App at `http://localhost:5173`. Requests to `/api` are proxied to the backend, so
-the dev server is same-origin and session cookies work without extra configuration.
+the dev server is same-origin. This mirrors production deliberately: session
+cookies are `SameSite=Lax`, so the app and API are served from one origin in
+every environment.
 
 The classifier is fine-tuned separately, and benchmarked against a TF-IDF + SVM
 baseline trained on the same split — see `ml/README.md`.
