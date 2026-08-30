@@ -181,8 +181,11 @@ paths:
         would otherwise scope them is exactly what is in doubt; every review
         decision is attributed in the audit log.
 
-        Default ordering puts high urgency first, then oldest first, which is the
-        order the staff queue is worked in.
+        Default ordering is role-dependent and chosen by the server, not the
+        client. Staff and admin get highest urgency first, then oldest first,
+        which is the order the queue is worked in. Citizens get newest first —
+        a resident opening their list is looking for the request they just
+        filed, not the most urgent one.
       parameters:
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Offset"
@@ -401,19 +404,27 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
-  /api/review-queue/{request_id}:
+  /api/requests/{request_id}/classification:
     parameters:
       - $ref: "#/components/parameters/RequestId"
     patch:
       tags: [review]
-      summary: Assign a final label and release for routing
+      summary: Set the final category and urgency
       description: |
-        Sets `final_category_id` and `final_urgency`, then routes the request
-        normally.
+        Staff and admin. Sets `final_category_id` and `final_urgency`, then
+        re-runs routing.
 
-        The model's prediction is never overwritten. The gap between predicted
-        and final is the correction record, and it is evidence for the evaluation
-        chapter — losing it would make human agreement unmeasurable.
+        Works on **any** request the caller can see, not only items in the review
+        queue — because the case where correction matters most is when the model
+        was confident and wrong, and that request never reaches the queue. The
+        model's original prediction is never overwritten, so every correction
+        stays measurable against it.
+
+        **Re-routing can hand the request to someone else.** Changing the
+        category re-runs the routing rules, so a request may be reassigned to a
+        different staff member — after which the correcting staff member no
+        longer sees it, because it is no longer theirs. That is intended: they
+        handed it off. The citizen is notified of the reassignment.
       requestBody:
         required: true
         content:
@@ -422,7 +433,8 @@ paths:
               $ref: "#/components/schemas/ReviewDecision"
       responses:
         "200":
-          description: Labelled and routed.
+          description: |
+            Labelled and routed. `assigned_staff` may differ from before the call.
           content:
             application/json:
               schema:
@@ -434,7 +446,9 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          description: Request is not awaiting review.
+          description: |
+            Request is `resolved` or `closed`. A finished request is not
+            relabelled — re-routing one would resurrect it into an active queue.
           content:
             application/json:
               schema:
