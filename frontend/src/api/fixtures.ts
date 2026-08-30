@@ -1,6 +1,7 @@
 import type {
   Category,
   Notification,
+  Role,
   ServiceRequest,
   User,
   UserSummary,
@@ -8,6 +9,11 @@ import type {
 
 // Sample data for the prototype. Typed against the generated schema, so a change
 // to openapi.yaml that these no longer satisfy fails the build.
+//
+// Names are invented. Do not use real barangay officials or interview subjects
+// here — this data gets screenshotted into the paper and shown to evaluation
+// respondents, and consent to be interviewed is not consent to appear as a user
+// account.
 //
 // Category names are PROVISIONAL — the group has not locked the list yet. They
 // live only here; nothing else in the app hardcodes a category.
@@ -66,7 +72,7 @@ export const categories: Category[] = [
 
 const byId = (id: number) => categories.find((c) => c.id === id)!;
 
-export const users: Record<string, User> = {
+export const users: Record<Role, User> = {
   citizen: {
     id: "8f1c1d2e-0000-4000-8000-000000000001",
     email: "maria.santos@example.com",
@@ -77,20 +83,32 @@ export const users: Record<string, User> = {
   },
   staff: {
     id: "8f1c1d2e-0000-4000-8000-000000000002",
-    email: "kgwd.arenal@example.com",
-    full_name: "Jaminne Arenal",
+    email: "ramon.delgado@example.com",
+    full_name: "Ramon Delgado",
     role: "staff",
     is_active: true,
     created_at: "2026-06-15T00:00:00Z",
   },
   admin: {
     id: "8f1c1d2e-0000-4000-8000-000000000003",
-    email: "secretary@example.com",
-    full_name: "Louella Reyes",
+    email: "teresa.ocampo@example.com",
+    full_name: "Teresa Ocampo",
     role: "admin",
     is_active: true,
     created_at: "2026-06-15T00:00:00Z",
   },
+};
+
+// A second handler, so reassignment is demonstrable. Correcting a category
+// re-runs routing and can move a request to a different officer — with only one
+// staff user that consequence is invisible.
+export const otherStaff: User = {
+  id: "8f1c1d2e-0000-4000-8000-000000000004",
+  email: "divina.bautista@example.com",
+  full_name: "Divina Bautista",
+  role: "staff",
+  is_active: true,
+  created_at: "2026-06-15T00:00:00Z",
 };
 
 const summary = (u: User): UserSummary => ({
@@ -100,7 +118,23 @@ const summary = (u: User): UserSummary => ({
 });
 
 const staff = summary(users.staff);
+const staffB = summary(otherStaff);
 const citizen = summary(users.citizen);
+
+// Who handles what. Mirrors routing_rules; the admin routing screen edits this.
+export const routing: Record<number, UserSummary> = {
+  1: staff, // Road & Infrastructure
+  2: staffB, // Public Health & Sanitation
+  3: staff, // Public Safety
+  4: staffB, // Utilities
+  5: staffB, // Social Welfare
+  6: staff, // Neighbor Dispute
+  7: staff, // Other
+};
+
+// Placeholder. The real checkpoint name is blocked on the model-choice gate, and
+// hardcoding one here would put an undecided choice into a screenshot.
+const MODEL_VERSION = "classifier-v1";
 
 // Hours ago, as an ISO string. Keeps the queue's "age" column plausible whenever
 // the prototype is opened.
@@ -119,12 +153,16 @@ type Seed = {
   hours: number;
   assigned: boolean;
   finalCategoryId?: number;
-  finalUrgency?: ServiceRequest["final_urgency"];
+  finalUrgency?: NonNullable<ServiceRequest["final_urgency"]>;
 };
 
 // Written to read like real barangay submissions: code-switched, unpunctuated,
 // misspelled, occasionally shouting. Clean text would make the classifier look
 // better than it is.
+//
+// Confidences obey the contract's own routing rule — anything whose lower score
+// falls under 0.70 is `under_review`, never `routed`. These numbers end up in
+// screenshots, so a routed request below threshold would contradict the paper.
 const seeds: Seed[] = [
   {
     id: 42, ref: "GAB-2026-00042",
@@ -165,7 +203,7 @@ const seeds: Seed[] = [
   {
     id: 36, ref: "GAB-2026-00036",
     text: "baradong kanal sa likod ng school tuwing umuulan binabaha agad hanggang tuhod",
-    categoryId: 4, urgency: "medium", catConf: 0.68, urgConf: 0.77,
+    categoryId: 4, urgency: "medium", catConf: 0.72, urgConf: 0.77,
     status: "routed", hours: 54, assigned: true,
   },
   {
@@ -177,7 +215,7 @@ const seeds: Seed[] = [
   {
     id: 34, ref: "GAB-2026-00034",
     text: "may mga tambay po sa may basketball court tuwing gabi naninigarilyo at umiinom nakakatakot dumaan",
-    categoryId: 3, urgency: "medium", catConf: 0.78, urgConf: 0.66,
+    categoryId: 3, urgency: "medium", catConf: 0.78, urgConf: 0.71,
     status: "routed", hours: 80, assigned: true,
   },
   {
@@ -198,6 +236,16 @@ const seeds: Seed[] = [
     categoryId: 5, urgency: "low", catConf: 0.88, urgConf: 0.81,
     status: "resolved", hours: 150, assigned: true,
   },
+  // Model confidently wrong, corrected by staff. Predicted Utilities; a human
+  // reclassified it as Road & Infrastructure. Exercises the predicted-vs-final
+  // split, which is the correction evidence Chapter 4 rests on.
+  {
+    id: 27, ref: "GAB-2026-00027",
+    text: "tuwing umuulan po hindi humuhupa yung tubig sa kanto namin kasi barado yung daluyan sa ilalim ng kalsada",
+    categoryId: 4, urgency: "medium", catConf: 0.76, urgConf: 0.8,
+    status: "routed", hours: 60, assigned: true,
+    finalCategoryId: 1, finalUrgency: "medium",
+  },
   // --- below threshold, sitting in the manual review queue -----------------
   {
     id: 30, ref: "GAB-2026-00030",
@@ -216,6 +264,14 @@ const seeds: Seed[] = [
     text: "matagal na po yung usapin namin ng kapitbahay tungkol sa hangganan ng lote pero wala pa ring aksyon",
     categoryId: 6, urgency: "medium", catConf: 0.49, urgConf: 0.41,
     status: "under_review", hours: 44, assigned: false,
+  },
+  // Near miss — 0.69 is the case that justifies tuning the threshold from data
+  // rather than picking 0.70 by feel.
+  {
+    id: 26, ref: "GAB-2026-00026",
+    text: "may sirang bahagi ng bakod sa may plaza matulis yung bakal baka may masugatan na bata",
+    categoryId: 1, urgency: "medium", catConf: 0.69, urgConf: 0.71,
+    status: "under_review", hours: 16, assigned: false,
   },
   // --- just submitted, classifier has not run yet --------------------------
   {
@@ -264,7 +320,7 @@ const historyFor = (s: Seed): ServiceRequest["status_history"] => {
     from_status: "classified",
     to_status: "routed",
     actor: null,
-    note: `Routed to ${staff.full_name}.`,
+    note: `Routed to ${routing[s.categoryId!].full_name}.`,
     created_at: ago(s.hours - 0.06),
   });
   if (s.status === "routed") return entries;
@@ -322,8 +378,11 @@ const toRequest = (s: Seed): ServiceRequest => {
     category: final ?? predicted,
     urgency: finalUrgency ?? s.urgency,
     status: s.status,
-    assigned_staff: s.assigned ? staff : null,
-    model_version: s.catConf === null ? null : "roberta-tagalog-base-v1",
+    assigned_staff:
+      s.assigned && (final ?? predicted)
+        ? routing[(final ?? predicted)!.id]
+        : null,
+    model_version: s.catConf === null ? null : MODEL_VERSION,
     classified_at: s.catConf === null ? null : ago(s.hours - 0.05),
     created_at: ago(s.hours),
     updated_at: ago(s.hours * 0.5),
@@ -346,29 +405,53 @@ const toRequest = (s: Seed): ServiceRequest => {
 
 export const requests: ServiceRequest[] = seeds.map(toRequest);
 
-export const notifications: Notification[] = [
+// The API scopes notifications server-side, so `Notification` carries no owner.
+// The prototype has to scope them somewhere, so ownership is tracked here.
+export type OwnedNotification = { userId: string; notification: Notification };
+
+export const notifications: OwnedNotification[] = [
   {
-    id: 1,
-    request_id: 42,
-    reference_number: "GAB-2026-00042",
-    message: "Your request has been routed to a barangay officer.",
-    is_read: false,
-    created_at: ago(3),
+    userId: users.citizen.id,
+    notification: {
+      id: 1,
+      request_id: 42,
+      reference_number: "GAB-2026-00042",
+      message: "Your request has been routed to a barangay officer.",
+      is_read: false,
+      created_at: ago(3),
+    },
   },
   {
-    id: 2,
-    request_id: 41,
-    reference_number: "GAB-2026-00041",
-    message: "Your request is now in progress.",
-    is_read: false,
-    created_at: ago(20),
+    userId: users.citizen.id,
+    notification: {
+      id: 2,
+      request_id: 41,
+      reference_number: "GAB-2026-00041",
+      message: "Your request is now in progress.",
+      is_read: false,
+      created_at: ago(20),
+    },
   },
   {
-    id: 3,
-    request_id: 33,
-    reference_number: "GAB-2026-00033",
-    message: "Your request has been resolved.",
-    is_read: true,
-    created_at: ago(30),
+    userId: users.citizen.id,
+    notification: {
+      id: 3,
+      request_id: 33,
+      reference_number: "GAB-2026-00033",
+      message: "Your request has been resolved.",
+      is_read: true,
+      created_at: ago(30),
+    },
+  },
+  {
+    userId: users.staff.id,
+    notification: {
+      id: 4,
+      request_id: 26,
+      reference_number: "GAB-2026-00026",
+      message: "A request needs manual classification.",
+      is_read: false,
+      created_at: ago(16),
+    },
   },
 ];
