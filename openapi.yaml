@@ -1,0 +1,1332 @@
+openapi: 3.1.0
+
+info:
+  title: GABAI API
+  version: 0.1.0
+  description: |
+    Citizen service request classification and routing for a barangay LGU.
+
+    Residents submit free-text requests; a classifier assigns a category and an
+    urgency level, each with its own confidence score. A request is auto-routed
+    only when `min(category_confidence, urgency_confidence)` meets the configured
+    threshold; otherwise it enters the manual review queue for a human to label.
+
+    **Conventions**
+
+    - JSON bodies use `snake_case`.
+    - Timestamps are ISO-8601 with a UTC offset (`2026-08-30T04:15:00Z`).
+    - List endpoints use offset pagination and return a `PaginatedResponse`.
+    - Errors use a single envelope; see `Error`.
+    - Authorization is enforced server-side on every endpoint. A client hiding a
+      control is not access control.
+    - Categories are **data, not an enum**. Never hardcode them; read
+      `GET /api/categories`.
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+  - url: /
+    description: Same origin as the deployed frontend
+
+tags:
+  - name: auth
+    description: Registration, session login, current user
+  - name: requests
+    description: Submission, listing, detail, status changes, attachments
+  - name: review
+    description: Manual review queue for low-confidence classifications
+  - name: categories
+  - name: notifications
+  - name: admin
+    description: Account management, routing configuration, audit log
+
+security:
+  - cookieAuth: []
+
+paths:
+  # ---------------------------------------------------------------- auth ----
+  /api/auth/register:
+    post:
+      tags: [auth]
+      summary: Register a citizen account
+      description: |
+        Self-registration always creates a `citizen`. Staff and admin accounts are
+        created by an admin via `POST /api/admin/users`; a `role` sent here is
+        ignored rather than honoured, so this endpoint cannot be used to escalate.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: Account created. Does not log the user in.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /api/auth/login:
+    post:
+      tags: [auth]
+      summary: Start a session
+      description: |
+        Sets an HttpOnly, Secure, SameSite=Lax session cookie. No token is
+        returned in the body, and nothing is stored in `localStorage` — a token
+        readable by JavaScript is XSS-exposed.
+
+        The body is form-encoded, not JSON, and the email goes in the `username`
+        field. This is the one deviation from the JSON convention: it matches the
+        `fastapi-users` default so the login route needs no custom code.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "204":
+          description: Session established; cookie set.
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              example: gabai_session=...; HttpOnly; Secure; SameSite=Lax; Path=/
+        "400":
+          description: Bad credentials, or the account is deactivated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/auth/logout:
+    post:
+      tags: [auth]
+      summary: End the session
+      responses:
+        "204":
+          description: Session cleared.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/auth/me:
+    get:
+      tags: [auth]
+      summary: Current user
+      responses:
+        "200":
+          description: The authenticated user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ------------------------------------------------------------ requests ----
+  /api/requests:
+    post:
+      tags: [requests]
+      summary: Submit a request
+      description: |
+        Persists the request and returns it immediately with status `submitted`
+        and a reference number. Classification runs after the response, so the
+        citizen never waits on inference; poll the detail endpoint (or watch
+        notifications) for the classified result.
+
+        Only authenticated citizens may submit.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestCreate"
+      responses:
+        "201":
+          description: Accepted and persisted. Not yet classified.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Request"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+    get:
+      tags: [requests]
+      summary: List requests, scoped to the caller's role
+      description: |
+        Scope is applied server-side and cannot be widened by query parameters:
+
+        - **citizen** — only their own requests
+        - **staff** — requests assigned to them, plus requests in a category they
+          hold an active routing rule for, plus everything in `under_review`. The
+          union matters twice: deactivating a rule must not strip a staff member
+          of requests already assigned to them, and a request awaiting manual
+          classification cannot be scoped by a category that does not exist yet.
+        - **admin** — all requests
+
+        The `under_review` clause is a deliberate widening of least privilege.
+        Unclassified requests are visible to all staff because the category that
+        would otherwise scope them is exactly what is in doubt; every review
+        decision is attributed in the audit log.
+
+        Default ordering puts high urgency first, then oldest first, which is the
+        order the staff queue is worked in.
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - name: status
+          in: query
+          description: Repeat the parameter to match any of several statuses.
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              $ref: "#/components/schemas/RequestStatus"
+        - name: category_id
+          in: query
+          schema:
+            type: integer
+        - name: urgency
+          in: query
+          schema:
+            $ref: "#/components/schemas/Urgency"
+        - name: q
+          in: query
+          description: Case-insensitive substring match on description and reference number.
+          schema:
+            type: string
+            maxLength: 200
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [urgency_desc, created_asc, created_desc, updated_desc]
+            default: urgency_desc
+      responses:
+        "200":
+          description: A page of requests.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedResponse"
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/RequestSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/requests/{request_id}:
+    parameters:
+      - $ref: "#/components/parameters/RequestId"
+    get:
+      tags: [requests]
+      summary: Request detail
+      description: |
+        Same role scoping as `GET /api/requests`, including the `under_review`
+        clause — otherwise every row in the review queue would 404 on click.
+
+        Returns 404, not 403, when the request exists but is outside the caller's
+        scope. A 403 would confirm the id is real and let a staff member map
+        requests outside their categories by probing ids.
+      responses:
+        "200":
+          description: The request, with its status history and attachments.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Request"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/requests/{request_id}/status:
+    parameters:
+      - $ref: "#/components/parameters/RequestId"
+    patch:
+      tags: [requests]
+      summary: Change status
+      description: |
+        Staff and admin only. Writes a `status_history` row and an audit entry,
+        and notifies the citizen. Illegal transitions are rejected with 409.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StatusUpdate"
+      responses:
+        "200":
+          description: Updated request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Request"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Not a legal transition from the current status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /api/requests/{request_id}/attachments:
+    parameters:
+      - $ref: "#/components/parameters/RequestId"
+    post:
+      tags: [requests]
+      summary: Attach a file
+      description: |
+        The owning citizen, or staff assigned to the request. MIME type and size
+        are validated server-side against the declared allowlist — the `accept`
+        attribute on a file input is a hint to the user, not a control.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Stored.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Attachment"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "413":
+          description: File exceeds the maximum size.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "415":
+          description: MIME type not allowed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/requests/{request_id}/attachments/{attachment_id}:
+    parameters:
+      - $ref: "#/components/parameters/RequestId"
+      - name: attachment_id
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      tags: [requests]
+      summary: Download an attachment
+      description: |
+        Scoped exactly as the parent request, so a file is never reachable by
+        anyone who cannot see the request itself. Served through the API rather
+        than as a static URL — `stored_path` is deliberately not exposed, so an
+        unguessable-URL scheme is not standing in for an access check.
+      responses:
+        "200":
+          description: File contents.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # -------------------------------------------------------- review queue ----
+  /api/review-queue:
+    get:
+      tags: [review]
+      summary: Requests awaiting manual classification
+      description: |
+        Staff and admin. Requests whose lower confidence score fell below the
+        threshold and which therefore have status `under_review`. Oldest first —
+        this queue is a backlog, and urgency here is not yet trustworthy.
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: A page of requests needing a human label.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedResponse"
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/RequestSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/review-queue/{request_id}:
+    parameters:
+      - $ref: "#/components/parameters/RequestId"
+    patch:
+      tags: [review]
+      summary: Assign a final label and release for routing
+      description: |
+        Sets `final_category_id` and `final_urgency`, then routes the request
+        normally.
+
+        The model's prediction is never overwritten. The gap between predicted
+        and final is the correction record, and it is evidence for the evaluation
+        chapter — losing it would make human agreement unmeasurable.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewDecision"
+      responses:
+        "200":
+          description: Labelled and routed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Request"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Request is not awaiting review.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  # ---------------------------------------------------------- categories ----
+  /api/categories:
+    get:
+      tags: [categories]
+      summary: List categories
+      description: |
+        The single source of category values for the whole system. Clients render
+        whatever this returns; the taxonomy can change without a frontend release.
+      parameters:
+        - name: include_inactive
+          in: query
+          description: Admin only. Retired categories still appear on historical requests.
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: Categories, ordered by name.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ------------------------------------------------------- notifications ----
+  /api/notifications:
+    get:
+      tags: [notifications]
+      summary: List the caller's notifications
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - name: unread_only
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: A page of notifications, newest first.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedResponse"
+                  - type: object
+                    required: [unread_count]
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Notification"
+                      unread_count:
+                        type: integer
+                        description: Total unread for this user, independent of paging.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/notifications/{notification_id}/read:
+    parameters:
+      - name: notification_id
+        in: path
+        required: true
+        schema:
+          type: integer
+    patch:
+      tags: [notifications]
+      summary: Mark as read
+      responses:
+        "200":
+          description: Updated notification.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Notification"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # --------------------------------------------------------------- admin ----
+  /api/admin/users:
+    get:
+      tags: [admin]
+      summary: List accounts
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - name: role
+          in: query
+          schema:
+            $ref: "#/components/schemas/Role"
+        - name: is_active
+          in: query
+          schema:
+            type: boolean
+        - name: q
+          in: query
+          description: Case-insensitive substring match on email and full name.
+          schema:
+            type: string
+            maxLength: 200
+      responses:
+        "200":
+          description: A page of accounts.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedResponse"
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+    post:
+      tags: [admin]
+      summary: Create an account with a role
+      description: The only way a staff or admin account comes into existence.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserCreate"
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /api/admin/users/{user_id}:
+    parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      tags: [admin]
+      summary: Update an account
+      description: |
+        Accounts are deactivated, never deleted — deleting one would orphan the
+        audit trail and the requests it acted on. Set `is_active: false` instead.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdate"
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /api/admin/routing-rules:
+    get:
+      tags: [admin]
+      summary: List routing rules
+      responses:
+        "200":
+          description: All rules, active and inactive.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RoutingRule"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+    put:
+      tags: [admin]
+      summary: Replace the routing table
+      description: |
+        Replaces the full set in one transaction, because the routing screen edits
+        the table as a whole. At most one active rule per category — routing must
+        be deterministic, and two active rules would leave the choice to
+        insertion order. Superseded rules are deactivated, not deleted.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rules]
+              properties:
+                rules:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/RoutingRuleInput"
+      responses:
+        "200":
+          description: The rules now in effect.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RoutingRule"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: More than one active rule for the same category.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /api/admin/audit-log:
+    get:
+      tags: [admin]
+      summary: Read the audit log
+      description: Append-only. There is no endpoint that edits or deletes an entry.
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - name: actor_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: action
+          in: query
+          schema:
+            type: string
+            maxLength: 100
+        - name: object_type
+          in: query
+          schema:
+            type: string
+            maxLength: 50
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: A page of entries, newest first.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedResponse"
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/AuditLogEntry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: gabai_session
+      description: |
+        HttpOnly session cookie set by `POST /api/auth/login`. Browsers attach it
+        automatically; send credentialed requests (`credentials: "include"` on
+        cross-origin fetches).
+
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    Offset:
+      name: offset
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    RequestId:
+      name: request_id
+      in: path
+      required: true
+      schema:
+        type: integer
+
+  responses:
+    Unauthorized:
+      description: No session, or the session has expired.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: Authenticated, but the role does not permit this action.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: |
+        No such resource, or it exists outside the caller's scope. The two are
+        deliberately indistinguishable.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Conflict:
+      description: Conflicts with existing state, e.g. the email is taken.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    ValidationError:
+      description: The body failed validation.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+    # ------------------------------------------------------ envelope ------
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: Stable machine-readable identifier. Safe to branch on.
+              examples: [not_found, forbidden, validation_error, invalid_transition]
+            message:
+              type: string
+              description: Human-readable, safe to show a barangay staff member.
+            details:
+              type: array
+              description: Per-field problems, present on validation errors.
+              items:
+                type: object
+                required: [field, message]
+                properties:
+                  field:
+                    type: string
+                    examples: [description]
+                  message:
+                    type: string
+                    examples: ["Field is required."]
+
+    PaginatedResponse:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items: {}
+        total:
+          type: integer
+          description: Total matching rows, ignoring limit and offset.
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    # --------------------------------------------------------- enums ------
+    Role:
+      type: string
+      enum: [citizen, staff, admin]
+
+    Urgency:
+      type: string
+      enum: [low, medium, high]
+      description: A learned model output, not derived from keywords or rules.
+
+    RequestStatus:
+      type: string
+      enum:
+        - submitted
+        - classified
+        - routed
+        - under_review
+        - in_progress
+        - resolved
+        - closed
+      description: |
+        `submitted` on creation. Then either `classified` → `routed` when both
+        confidence scores clear the threshold, or `under_review` when either does
+        not. From `routed`: `in_progress` → `resolved` → `closed`.
+
+    # --------------------------------------------------------- users ------
+    User:
+      type: object
+      required: [id, email, full_name, role, is_active, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: |
+            UUID rather than a sequential integer. This is the only table holding
+            personal data and its ids appear in URLs and audit records, so an
+            authorization slip must not degrade into enumerating every resident.
+        email:
+          type: string
+          format: email
+        full_name:
+          type: string
+          maxLength: 150
+        role:
+          $ref: "#/components/schemas/Role"
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    UserSummary:
+      type: object
+      description: Identity only. Used where a full user record would leak PII.
+      required: [id, full_name, role]
+      properties:
+        id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+        role:
+          $ref: "#/components/schemas/Role"
+
+    RegisterRequest:
+      type: object
+      required: [email, password, full_name]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 255
+        password:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 128
+        full_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          format: email
+          description: The account email. Named `username` by the auth library.
+        password:
+          type: string
+          format: password
+
+    UserCreate:
+      allOf:
+        - $ref: "#/components/schemas/RegisterRequest"
+        - type: object
+          required: [role]
+          properties:
+            role:
+              $ref: "#/components/schemas/Role"
+
+    UserUpdate:
+      type: object
+      description: Only the supplied fields change.
+      properties:
+        full_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        role:
+          $ref: "#/components/schemas/Role"
+        is_active:
+          type: boolean
+
+    # ---------------------------------------------------- categories ------
+    Category:
+      type: object
+      required: [id, slug, name, description, is_active]
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+          description: |
+            Stable machine identifier, and the exact label string used in the
+            training dataset. Changing it desynchronises the model from the
+            database.
+          examples: [road_infrastructure]
+        name:
+          type: string
+          description: Display label.
+        description:
+          type: [string, "null"]
+          description: What belongs in this category. Shown as help text.
+        is_active:
+          type: boolean
+
+    # ------------------------------------------------------ requests ------
+    RequestCreate:
+      type: object
+      required: [description]
+      properties:
+        description:
+          type: string
+          minLength: 10
+          maxLength: 5000
+          description: Free text in Filipino, English, or a mix.
+
+    RequestSummary:
+      type: object
+      description: List rows. Enough for the staff queue without loading history.
+      required:
+        - id
+        - reference_number
+        - description
+        - category
+        - urgency
+        - category_confidence
+        - urgency_confidence
+        - status
+        - assigned_staff
+        - created_at
+      properties:
+        id:
+          type: integer
+        reference_number:
+          type: string
+          examples: [GAB-2026-00042]
+        description:
+          type: string
+        category:
+          oneOf:
+            - $ref: "#/components/schemas/Category"
+            - type: "null"
+          description: Effective category — the human label if set, otherwise the prediction.
+        urgency:
+          oneOf:
+            - $ref: "#/components/schemas/Urgency"
+            - type: "null"
+          description: Effective urgency, same rule as `category`.
+        category_confidence:
+          type: [number, "null"]
+          format: float
+          minimum: 0
+          maximum: 1
+        urgency_confidence:
+          type: [number, "null"]
+          format: float
+          minimum: 0
+          maximum: 1
+          description: |
+            Carried on list rows so the staff queue can show confidence without a
+            detail fetch per row. Surfacing the score is a design requirement —
+            it makes the classifier legible to the operator rather than opaque.
+        status:
+          $ref: "#/components/schemas/RequestStatus"
+        assigned_staff:
+          oneOf:
+            - $ref: "#/components/schemas/UserSummary"
+            - type: "null"
+        created_at:
+          type: string
+          format: date-time
+
+    Request:
+      type: object
+      description: |
+        Nullable fields are always present in the response, carrying `null` when
+        unset. They are listed as required so a client cannot confuse "absent"
+        with "not yet classified".
+      required:
+        - id
+        - reference_number
+        - citizen
+        - description
+        - predicted_category
+        - predicted_urgency
+        - category_confidence
+        - urgency_confidence
+        - final_category
+        - final_urgency
+        - category
+        - urgency
+        - status
+        - assigned_staff
+        - model_version
+        - classified_at
+        - created_at
+        - updated_at
+        - resolved_at
+        - attachments
+        - status_history
+      properties:
+        id:
+          type: integer
+        reference_number:
+          type: string
+          description: |
+            Human-readable handle a resident can quote in person or by phone.
+            Drawn from a database sequence, so gaps after a rolled-back
+            transaction are expected and not a defect.
+          examples: [GAB-2026-00042]
+        citizen:
+          $ref: "#/components/schemas/UserSummary"
+        description:
+          type: string
+        predicted_category:
+          oneOf:
+            - $ref: "#/components/schemas/Category"
+            - type: "null"
+          description: Null until classification runs.
+        predicted_urgency:
+          oneOf:
+            - $ref: "#/components/schemas/Urgency"
+            - type: "null"
+        category_confidence:
+          type: [number, "null"]
+          format: float
+          minimum: 0
+          maximum: 1
+        urgency_confidence:
+          type: [number, "null"]
+          format: float
+          minimum: 0
+          maximum: 1
+          description: |
+            Scored independently of the category head. A request is auto-routed
+            only if `min(category_confidence, urgency_confidence)` meets the
+            threshold — one gate over both labels, so a request is never routed
+            on a label the model was unsure of.
+        final_category:
+          oneOf:
+            - $ref: "#/components/schemas/Category"
+            - type: "null"
+          description: |
+            Stays null unless a human sets it. Null therefore means "no human has
+            labelled this", which is distinct from "a human agreed with the
+            model" — collapsing the two would erase the correction record.
+        final_urgency:
+          oneOf:
+            - $ref: "#/components/schemas/Urgency"
+            - type: "null"
+        category:
+          oneOf:
+            - $ref: "#/components/schemas/Category"
+            - type: "null"
+          description: Effective value — `final_category` if set, otherwise `predicted_category`.
+        urgency:
+          oneOf:
+            - $ref: "#/components/schemas/Urgency"
+            - type: "null"
+          description: Effective value, same rule as `category`.
+        status:
+          $ref: "#/components/schemas/RequestStatus"
+        assigned_staff:
+          oneOf:
+            - $ref: "#/components/schemas/UserSummary"
+            - type: "null"
+        model_version:
+          type: [string, "null"]
+          description: |
+            Identifier of the exported model that produced the prediction, matching
+            the run name recorded during training. Without it, predictions made
+            before and after a retrain are indistinguishable.
+        classified_at:
+          type: [string, "null"]
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        resolved_at:
+          type: [string, "null"]
+          format: date-time
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/Attachment"
+        status_history:
+          type: array
+          description: Oldest first. Drives the citizen-facing status timeline.
+          items:
+            $ref: "#/components/schemas/StatusHistoryEntry"
+
+    StatusUpdate:
+      type: object
+      required: [to_status]
+      properties:
+        to_status:
+          type: string
+          enum: [in_progress, resolved, closed]
+          description: |
+            Deliberately narrower than `RequestStatus`. The earlier statuses are
+            set by the system during classification and routing, so a staff UI
+            should not be able to offer them — the illegal option is unrepresentable
+            in the client rather than rejected by the server at runtime.
+        note:
+          type: string
+          maxLength: 2000
+          description: Resolution note or reason. Shown to the citizen.
+
+    StatusHistoryEntry:
+      type: object
+      required: [id, from_status, to_status, actor, note, created_at]
+      properties:
+        id:
+          type: integer
+        from_status:
+          oneOf:
+            - $ref: "#/components/schemas/RequestStatus"
+            - type: "null"
+          description: Null on the first entry, which has no predecessor.
+        to_status:
+          $ref: "#/components/schemas/RequestStatus"
+        actor:
+          oneOf:
+            - $ref: "#/components/schemas/UserSummary"
+            - type: "null"
+          description: Null when the system made the transition, e.g. auto-routing.
+        note:
+          type: [string, "null"]
+        created_at:
+          type: string
+          format: date-time
+
+    ReviewDecision:
+      type: object
+      required: [final_category_id, final_urgency]
+      properties:
+        final_category_id:
+          type: integer
+        final_urgency:
+          $ref: "#/components/schemas/Urgency"
+        note:
+          type: string
+          maxLength: 2000
+
+    Attachment:
+      type: object
+      required: [id, filename, mime_type, size_bytes, uploaded_at]
+      properties:
+        id:
+          type: integer
+        filename:
+          type: string
+          description: Original name, sanitised. Never used as the storage path.
+        mime_type:
+          type: string
+        size_bytes:
+          type: integer
+        uploaded_at:
+          type: string
+          format: date-time
+
+    # --------------------------------------------- routing and audit ------
+    RoutingRule:
+      type: object
+      required: [id, category, staff, is_active]
+      properties:
+        id:
+          type: integer
+        category:
+          $ref: "#/components/schemas/Category"
+        staff:
+          $ref: "#/components/schemas/UserSummary"
+        is_active:
+          type: boolean
+
+    RoutingRuleInput:
+      type: object
+      required: [category_id, staff_id]
+      properties:
+        category_id:
+          type: integer
+        staff_id:
+          type: string
+          format: uuid
+
+    AuditLogEntry:
+      type: object
+      required: [id, actor, action, object_type, object_id, detail, ip_address, created_at]
+      properties:
+        id:
+          type: integer
+        actor:
+          oneOf:
+            - $ref: "#/components/schemas/UserSummary"
+            - type: "null"
+          description: Null when the system acted, e.g. auto-classification or auto-routing.
+        action:
+          type: string
+          examples: [request.status_changed, user.deactivated, routing_rules.replaced]
+        object_type:
+          type: string
+          examples: [request]
+        object_id:
+          type: [string, "null"]
+        detail:
+          type: [object, "null"]
+          additionalProperties: true
+          description: Action-specific context, e.g. before and after values.
+        ip_address:
+          type: [string, "null"]
+          description: |
+            Retained for attributability. Personal data under RA 10173, collected
+            because an audit trail that cannot be attributed is not an audit trail.
+        created_at:
+          type: string
+          format: date-time
+
+    # ------------------------------------------------- notifications ------
+    Notification:
+      type: object
+      required: [id, request_id, reference_number, message, is_read, created_at]
+      properties:
+        id:
+          type: integer
+        request_id:
+          type: [integer, "null"]
+          description: Null for notices not tied to a request.
+        reference_number:
+          type: [string, "null"]
+          description: Denormalised so the list renders without an extra fetch.
+        message:
+          type: string
+        is_read:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
