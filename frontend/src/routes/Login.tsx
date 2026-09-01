@@ -1,0 +1,127 @@
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+
+import { accounts } from "../api/client";
+import { Button, FOCUS_BUTTON, FOCUS_LINK } from "../components/ui";
+import { usePageTitle } from "../lib/usePageTitle";
+import { useSession } from "../session-context";
+
+const FIELD =
+  "mt-2 block w-full border-2 border-ink px-3 py-2 text-[19px] focus:outline-3 focus:outline-ink focus-visible:shadow-[0_0_0_4px_#ffdd00]";
+
+export function Login() {
+  usePageTitle("Sign in");
+  const { signIn } = useSession();
+  const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      // One message for both an unknown email and a deactivated account. The API
+      // returns a single 400 for both so the endpoint cannot be used to find out
+      // which emails exist.
+      const ok = await signIn(email);
+      if (!ok) {
+        setError("Can't sign you in, check your email and password");
+        return;
+      }
+      navigate("/");
+    } catch {
+      setError("Couldn't sign you in, try again");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-white px-4 py-12">
+      <main className="mx-auto max-w-md">
+        <h1 className="text-[36px] font-bold tracking-tight">GABAI</h1>
+        <p className="mt-1 text-[19px] text-muted">
+          Barangay V (Singko), Amaya, Tanza, Cavite
+        </p>
+
+        <form
+          onSubmit={submit}
+          noValidate
+          className="mt-8 border-t-2 border-ink pt-6"
+        >
+          <p
+            role="alert"
+            className={
+              error
+                ? "mb-4 border-l-4 border-danger bg-white p-3 font-bold text-danger"
+                : "sr-only"
+            }
+          >
+            {error}
+          </p>
+
+          <label htmlFor="email" className="block text-[19px] font-bold">
+            Email
+          </label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="username"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className={FIELD}
+          />
+
+          <label htmlFor="password" className="mt-5 block text-[19px] font-bold">
+            Password
+          </label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className={FIELD}
+          />
+
+          <Button type="submit" disabled={busy} className="mt-6">
+            {busy ? "Signing in" : "Sign in"}
+          </Button>
+        </form>
+
+        {/* Goes when the backend lands. The password is not checked yet. */}
+        <p className="mt-6">
+          <Link to="/register" className={`text-link underline ${FOCUS_LINK}`}>
+            Create an account
+          </Link>
+        </p>
+
+        <div className="mt-10 border-t border-rule pt-4">
+          <h2 className="font-bold">Accounts</h2>
+          <ul className="mt-2">
+            {accounts.map((a) => (
+              <li key={a.id} className="py-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmail(a.email);
+                    setPassword("barangay");
+                  }}
+                  className={`text-link underline ${FOCUS_BUTTON}`}
+                >
+                  {a.email}
+                </button>
+                <span className="ml-2 text-muted">{a.full_name}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </main>
+    </div>
+  );
+}
