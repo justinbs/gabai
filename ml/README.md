@@ -5,7 +5,7 @@ same input: **category** (multi-class) and **urgency** (low / medium / high).
 
 This directory is deliberately decoupled from the API. Everything runs as scripts
 against a CSV and writes metrics to `results/`. Nothing here imports from
-`backend/`, and `backend/` does not import from here — it loads only the exported
+`backend/`, and `backend/` does not import from here. It loads only the exported
 ONNX model.
 
 ## Layout
@@ -13,7 +13,7 @@ ONNX model.
 ```
 data/       labeled dataset + train/val/test splits (committed; fixed seed)
 scripts/    baseline, training, evaluation, quantization/export
-results/    metrics, confusion matrices, run logs (committed — these are results)
+results/    metrics, confusion matrices, run logs (committed, because they are results)
 ```
 
 Model weights and checkpoints are gitignored. Datasets, splits, and results are not.

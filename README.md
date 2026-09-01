@@ -6,7 +6,7 @@ one by category and urgency and routes it to the responsible handler. Prediction
 below a confidence threshold are diverted to a manual review queue instead of being
 routed automatically.
 
-Undergraduate thesis project — Mapúa University, School of Information Technology,
+Undergraduate thesis project, Mapúa University, School of Information Technology,
 S.Y. 2026–2027. Partner Barangay: Barangay V "Singko", Amaya, Tanza, Cavite.
 
 ## Stack
@@ -24,12 +24,12 @@ S.Y. 2026–2027. Partner Barangay: Barangay V "Singko", Amaya, Tanza, Cavite.
 frontend/          React SPA
 backend/           FastAPI application and migrations
 ml/                dataset, training, evaluation, ONNX export
-openapi.yaml       API contract — written before implementation
+openapi.yaml       API spec, written before implementation
 docker-compose.yml PostgreSQL for local development
 ```
 
 `openapi.yaml` is the source of truth for the API. Frontend types are generated
-from it (`npm run gen:api`), so a contract change that breaks the client fails at
+from it (`npm run gen:api`), so an API change that breaks the client fails at
 compile time rather than in the browser.
 
 ## Prerequisites
@@ -69,7 +69,7 @@ cookies are `SameSite=Lax`, so the app and API are served from one origin in
 every environment.
 
 The classifier is fine-tuned separately, and benchmarked against a TF-IDF + SVM
-baseline trained on the same split — see `ml/README.md`.
+baseline trained on the same split. See `ml/README.md`.
 
 ## Conventions
 

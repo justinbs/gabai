@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 DEFAULT_SECRET = "dev-only-change-me"
 
 # Repo root, so the backend reads the same .env docker-compose does regardless of
-# CWD. Assumes this file stays at backend/app/core/ — three levels down.
+# CWD. Assumes this file stays at backend/app/core/, three levels down.
 ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
 
 

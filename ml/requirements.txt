@@ -1,4 +1,4 @@
-# Classifier training and evaluation. Runs standalone against a CSV — the API
+# Classifier training and evaluation. Runs standalone against a CSV. The API
 # does not import anything from this directory.
 scikit-learn==1.6.0
 pandas==2.2.3
