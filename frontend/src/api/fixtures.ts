@@ -1,4 +1,5 @@
 import type {
+  AuditLogEntry,
   Category,
   Notification,
   Role,
@@ -11,11 +12,11 @@ import type {
 // to openapi.yaml that these no longer satisfy fails the build.
 //
 // Names are invented. Do not use real barangay officials or interview subjects
-// here — this data gets screenshotted into the paper and shown to evaluation
+// here. This data gets screenshotted into the paper and shown to evaluation
 // respondents, and consent to be interviewed is not consent to appear as a user
 // account.
 //
-// Category names are PROVISIONAL — the group has not locked the list yet. They
+// Category names are PROVISIONAL. The group has not locked the list yet. They
 // live only here; nothing else in the app hardcodes a category.
 
 export const categories: Category[] = [
@@ -65,7 +66,7 @@ export const categories: Category[] = [
     id: 7,
     slug: "other",
     name: "Other / General Inquiry",
-    description: "Anything that does not fit the categories above",
+    description: "Anything that doesn't fit above",
     is_active: true,
   },
 ];
@@ -100,7 +101,7 @@ export const users: Record<Role, User> = {
 };
 
 // A second handler, so reassignment is demonstrable. Correcting a category
-// re-runs routing and can move a request to a different officer — with only one
+// re-runs routing and can move a request to a different officer. With only one
 // staff user that consequence is invisible.
 export const otherStaff: User = {
   id: "8f1c1d2e-0000-4000-8000-000000000004",
@@ -160,7 +161,7 @@ type Seed = {
 // misspelled, occasionally shouting. Clean text would make the classifier look
 // better than it is.
 //
-// Confidences obey the contract's own routing rule — anything whose lower score
+// Confidences obey the routing rule. Anything whose lower score
 // falls under 0.70 is `under_review`, never `routed`. These numbers end up in
 // screenshots, so a routed request below threshold would contradict the paper.
 const seeds: Seed[] = [
@@ -265,7 +266,7 @@ const seeds: Seed[] = [
     categoryId: 6, urgency: "medium", catConf: 0.49, urgConf: 0.41,
     status: "under_review", hours: 44, assigned: false,
   },
-  // Near miss — 0.69 is the case that justifies tuning the threshold from data
+  // Near miss. 0.69 is the case that justifies tuning the threshold from data
   // rather than picking 0.70 by feel.
   {
     id: 26, ref: "GAB-2026-00026",
@@ -301,7 +302,7 @@ const historyFor = (s: Seed): ServiceRequest["status_history"] => {
       from_status: "submitted",
       to_status: "under_review",
       actor: null,
-      note: "Confidence below threshold. Sent for manual review.",
+      note: "Checking who should handle this",
       created_at: ago(s.hours - 0.05),
     });
     return entries;
@@ -320,7 +321,7 @@ const historyFor = (s: Seed): ServiceRequest["status_history"] => {
     from_status: "classified",
     to_status: "routed",
     actor: null,
-    note: `Routed to ${routing[s.categoryId!].full_name}.`,
+    note: null,
     created_at: ago(s.hours - 0.06),
   });
   if (s.status === "routed") return entries;
@@ -330,7 +331,7 @@ const historyFor = (s: Seed): ServiceRequest["status_history"] => {
     from_status: "routed",
     to_status: "in_progress",
     actor: staff,
-    note: "Nakita na po namin, aaksyunan namin ito.",
+    note: "Nakita na po namin, aayusin namin ito",
     created_at: ago(s.hours * 0.6),
   });
   if (s.status === "in_progress") return entries;
@@ -340,7 +341,7 @@ const historyFor = (s: Seed): ServiceRequest["status_history"] => {
     from_status: "in_progress",
     to_status: "resolved",
     actor: staff,
-    note: "Naayos na po. Salamat sa pag-report.",
+    note: "Naayos na po, salamat sa pag-report",
     created_at: ago(s.hours * 0.25),
   });
   if (s.status === "resolved") return entries;
@@ -387,18 +388,10 @@ const toRequest = (s: Seed): ServiceRequest => {
     created_at: ago(s.hours),
     updated_at: ago(s.hours * 0.5),
     resolved_at: resolved ? ago(s.hours * 0.25) : null,
-    attachments:
-      s.id === 42
-        ? [
-            {
-              id: 1,
-              filename: "butas-sa-kalsada.jpg",
-              mime_type: "image/jpeg",
-              size_bytes: 842_113,
-              uploaded_at: ago(s.hours),
-            },
-          ]
-        : [],
+    // Seeded requests carry no files. Nothing backs a fixture id in the object
+    // URL map, so a filename here would render as dead text under a Photos
+    // heading. Uploading on the submit screen exercises the real path.
+    attachments: [],
     status_history: historyFor(s),
   };
 };
@@ -416,7 +409,7 @@ export const notifications: OwnedNotification[] = [
       id: 1,
       request_id: 42,
       reference_number: "GAB-2026-00042",
-      message: "Your request has been routed to a barangay officer.",
+      message: "Ramon Delgado is handling your request",
       is_read: false,
       created_at: ago(3),
     },
@@ -427,7 +420,7 @@ export const notifications: OwnedNotification[] = [
       id: 2,
       request_id: 41,
       reference_number: "GAB-2026-00041",
-      message: "Your request is now in progress.",
+      message: "Ramon Delgado is working on your request",
       is_read: false,
       created_at: ago(20),
     },
@@ -438,7 +431,7 @@ export const notifications: OwnedNotification[] = [
       id: 3,
       request_id: 33,
       reference_number: "GAB-2026-00033",
-      message: "Your request has been resolved.",
+      message: "Your request is done",
       is_read: true,
       created_at: ago(30),
     },
@@ -449,9 +442,65 @@ export const notifications: OwnedNotification[] = [
       id: 4,
       request_id: 26,
       reference_number: "GAB-2026-00026",
-      message: "A request needs manual classification.",
+      message: "A request needs checking",
       is_read: false,
       created_at: ago(16),
     },
+  },
+];
+
+// Audit rows. Every mutating action writes one, which is the accountability
+// requirement in the paper. IP is kept because a trail nobody can attribute is
+// not a trail.
+export const auditLog: AuditLogEntry[] = [
+  {
+    id: 1,
+    actor: staff,
+    action: "request.reclassified",
+    object_type: "request",
+    object_id: "27",
+    detail: { from: "Utilities", to: "Road & Infrastructure" },
+    ip_address: "192.168.1.24",
+    created_at: ago(48),
+  },
+  {
+    id: 2,
+    actor: staff,
+    action: "request.status_changed",
+    object_type: "request",
+    object_id: "41",
+    detail: { from: "routed", to: "in_progress" },
+    ip_address: "192.168.1.24",
+    created_at: ago(16),
+  },
+  {
+    id: 3,
+    actor: summary(users.admin),
+    action: "user.created",
+    object_type: "user",
+    object_id: otherStaff.id,
+    detail: { role: "staff" },
+    ip_address: "192.168.1.10",
+    created_at: ago(72),
+  },
+  {
+    id: 4,
+    actor: summary(users.admin),
+    action: "routing_rules.replaced",
+    object_type: "routing_rules",
+    object_id: null,
+    detail: { rules: 7 },
+    ip_address: "192.168.1.10",
+    created_at: ago(70),
+  },
+  {
+    id: 5,
+    actor: null,
+    action: "request.auto_routed",
+    object_type: "request",
+    object_id: "42",
+    detail: { category: "Road & Infrastructure", lowest_score: 0.88 },
+    ip_address: null,
+    created_at: ago(3),
   },
 ];

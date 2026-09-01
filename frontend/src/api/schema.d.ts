@@ -63,7 +63,7 @@ export interface paths {
         /**
          * Start a session
          * @description Sets an HttpOnly, Secure, SameSite=Lax session cookie. No token is
-         *     returned in the body, and nothing is stored in `localStorage` — a token
+         *     returned in the body, and nothing is stored in `localStorage`. A token
          *     readable by JavaScript is XSS-exposed.
          *
          *     The body is form-encoded, not JSON, and the email goes in the `username`
@@ -192,21 +192,24 @@ export interface paths {
          * List requests, scoped to the caller's role
          * @description Scope is applied server-side and cannot be widened by query parameters:
          *
-         *     - **citizen** — only their own requests
-         *     - **staff** — requests assigned to them, plus requests in a category they
+         *     - **citizen**, only their own requests
+         *     - **staff**, requests assigned to them, plus requests in a category they
          *       hold an active routing rule for, plus everything in `under_review`. The
          *       union matters twice: deactivating a rule must not strip a staff member
          *       of requests already assigned to them, and a request awaiting manual
          *       classification cannot be scoped by a category that does not exist yet.
-         *     - **admin** — all requests
+         *     - **admin**, all requests
          *
          *     The `under_review` clause is a deliberate widening of least privilege.
          *     Unclassified requests are visible to all staff because the category that
          *     would otherwise scope them is exactly what is in doubt; every review
          *     decision is attributed in the audit log.
          *
-         *     Default ordering puts high urgency first, then oldest first, which is the
-         *     order the staff queue is worked in.
+         *     Default ordering is role-dependent and chosen by the server, not the
+         *     client. Staff and admin get highest urgency first, then oldest first,
+         *     which is the order the queue is worked in. Citizens get newest first, because
+         *     a resident opening their list is looking for the request they just
+         *     filed, not the most urgent one.
          */
         get: {
             parameters: {
@@ -296,7 +299,7 @@ export interface paths {
         /**
          * Request detail
          * @description Same role scoping as `GET /api/requests`, including the `under_review`
-         *     clause — otherwise every row in the review queue would 404 on click.
+         *     clause. Otherwise every row in the review queue would 404 on click.
          *
          *     Returns 404, not 403, when the request exists but is outside the caller's
          *     scope. A 403 would confirm the id is real and let a staff member map
@@ -409,7 +412,7 @@ export interface paths {
         /**
          * Attach a file
          * @description The owning citizen, or staff assigned to the request. MIME type and size
-         *     are validated server-side against the declared allowlist — the `accept`
+         *     are validated server-side against the declared allowlist. The `accept`
          *     attribute on a file input is a hint to the user, not a control.
          */
         post: {
@@ -482,7 +485,7 @@ export interface paths {
          * Download an attachment
          * @description Scoped exactly as the parent request, so a file is never reachable by
          *     anyone who cannot see the request itself. Served through the API rather
-         *     than as a static URL — `stored_path` is deliberately not exposed, so an
+         *     than as a static URL. `stored_path` is deliberately not exposed, so an
          *     unguessable-URL scheme is not standing in for an access check.
          */
         get: {
@@ -528,8 +531,8 @@ export interface paths {
         /**
          * Requests awaiting manual classification
          * @description Staff and admin. Requests whose lower confidence score fell below the
-         *     threshold and which therefore have status `under_review`. Oldest first —
-         *     this queue is a backlog, and urgency here is not yet trustworthy.
+         *     threshold and which therefore have status `under_review`. Oldest first, because
+         *     this queue is a backlog and urgency here is not yet trustworthy.
          */
         get: {
             parameters: {
@@ -566,7 +569,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/review-queue/{request_id}": {
+    "/api/requests/{request_id}/classification": {
         parameters: {
             query?: never;
             header?: never;
@@ -582,13 +585,21 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Assign a final label and release for routing
-         * @description Sets `final_category_id` and `final_urgency`, then routes the request
-         *     normally.
+         * Set the final category and urgency
+         * @description Staff and admin. Sets `final_category_id` and `final_urgency`, then
+         *     re-runs routing.
          *
-         *     The model's prediction is never overwritten. The gap between predicted
-         *     and final is the correction record, and it is evidence for the evaluation
-         *     chapter — losing it would make human agreement unmeasurable.
+         *     Works on **any** request the caller can see, not only items in the review
+         *     queue, because the case where correction matters most is when the model
+         *     was confident and wrong, and that request never reaches the queue. The
+         *     model's original prediction is never overwritten, so every correction
+         *     stays measurable against it.
+         *
+         *     **Re-routing can hand the request to someone else.** Changing the
+         *     category re-runs the routing rules, so a request may be reassigned to a
+         *     different staff member, after which the correcting staff member no
+         *     longer sees it, because it is no longer theirs. That is intended: they
+         *     handed it off. The citizen is notified of the reassignment.
          */
         patch: {
             parameters: {
@@ -605,7 +616,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description Labelled and routed. */
+                /** @description Labelled and routed. `assigned_staff` may differ from before the call. */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -617,7 +628,10 @@ export interface paths {
                 401: components["responses"]["Unauthorized"];
                 403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
-                /** @description Request is not awaiting review. */
+                /**
+                 * @description Request is `resolved` or `closed`. A finished request is not
+                 *     relabelled. Re-routing one would resurrect it into an active queue.
+                 */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -857,7 +871,7 @@ export interface paths {
         head?: never;
         /**
          * Update an account
-         * @description Accounts are deactivated, never deleted — deleting one would orphan the
+         * @description Accounts are deactivated, never deleted. Deleting one would orphan the
          *     audit trail and the requests it acted on. Set `is_active: false` instead.
          */
         patch: {
@@ -926,7 +940,7 @@ export interface paths {
         /**
          * Replace the routing table
          * @description Replaces the full set in one transaction, because the routing screen edits
-         *     the table as a whole. At most one active rule per category — routing must
+         *     the table as a whole. At most one active rule per category. Routing must
          *     be deterministic, and two active rules would leave the choice to
          *     insertion order. Superseded rules are deactivated, not deleted.
          */
@@ -1145,7 +1159,7 @@ export interface components {
             /** @example GAB-2026-00042 */
             reference_number: string;
             description: string;
-            /** @description Effective category — the human label if set, otherwise the prediction. */
+            /** @description Effective category. The human label if set, otherwise the prediction. */
             category: components["schemas"]["Category"] | null;
             /** @description Effective urgency, same rule as `category`. */
             urgency: components["schemas"]["Urgency"] | null;
@@ -1154,8 +1168,8 @@ export interface components {
             /**
              * Format: float
              * @description Carried on list rows so the staff queue can show confidence without a
-             *     detail fetch per row. Surfacing the score is a design requirement —
-             *     it makes the classifier legible to the operator rather than opaque.
+             *     detail fetch per row. Surfacing the score makes the classifier legible
+             *     to the operator rather than opaque.
              */
             urgency_confidence: number | null;
             status: components["schemas"]["RequestStatus"];
@@ -1188,18 +1202,18 @@ export interface components {
              * Format: float
              * @description Scored independently of the category head. A request is auto-routed
              *     only if `min(category_confidence, urgency_confidence)` meets the
-             *     threshold — one gate over both labels, so a request is never routed
+             *     threshold, one gate over both labels, so a request is never routed
              *     on a label the model was unsure of.
              */
             urgency_confidence: number | null;
             /**
              * @description Stays null unless a human sets it. Null therefore means "no human has
              *     labelled this", which is distinct from "a human agreed with the
-             *     model" — collapsing the two would erase the correction record.
+             *     model". Collapsing the two would erase the correction record.
              */
             final_category: components["schemas"]["Category"] | null;
             final_urgency: components["schemas"]["Urgency"] | null;
-            /** @description Effective value — `final_category` if set, otherwise `predicted_category`. */
+            /** @description Effective value. `final_category` if set, otherwise `predicted_category`. */
             category: components["schemas"]["Category"] | null;
             /** @description Effective value, same rule as `category`. */
             urgency: components["schemas"]["Urgency"] | null;
@@ -1227,7 +1241,7 @@ export interface components {
             /**
              * @description Deliberately narrower than `RequestStatus`. The earlier statuses are
              *     set by the system during classification and routing, so a staff UI
-             *     should not be able to offer them — the illegal option is unrepresentable
+             *     should not be able to offer them. The illegal option is unrepresentable
              *     in the client rather than rejected by the server at runtime.
              * @enum {string}
              */

@@ -7,6 +7,7 @@ import type {
   RequestStatus,
   RequestSummary,
   Role,
+  RoutingRule,
   ServiceRequest,
   Urgency,
   User,
@@ -14,15 +15,15 @@ import type {
 import { URGENCY_ORDER } from "./types";
 
 // Fixture-backed stand-in for the API. Covers the operations the prototype's
-// seven screens need — not all of openapi.yaml — and returns the same shapes, so
+// seven screens need, not all of openapi.yaml, and returns the same shapes, so
 // swapping this file for real fetch calls does not touch the screens.
 //
-// One exception: `login` takes a role, not credentials. The role switcher is
-// deliberate (it is how a demo and a respondent task scenario move between
-// roles), so the login screen is the one screen that changes at swap time.
+// `signIn` checks the email only. The real endpoint posts credentials and gets
+// back a session cookie, so the login screen is the one screen that changes when
+// the backend lands.
 //
 // Role scoping is applied here too. On the real system it is enforced
-// server-side and this layer would not be trusted — but the prototype has to
+// server-side and this layer would not be trusted. But the prototype has to
 // *show* the scoping rules, and one that displays another resident's request
 // would demo a system that leaks.
 
@@ -40,7 +41,27 @@ let nextNotificationId = 500;
 export const getCategories = () =>
   delay(fx.categories.filter((c) => c.is_active));
 
-export const login = (role: Role): Promise<User> => delay(fx.users[role]);
+// Every account, and the only list sign in reads. Registering adds to this, and
+// deactivating here is what stops someone signing in. Divina is included because
+// she handles six of the eighteen fixtures, so leaving her out made a third of
+// the sample data unreachable.
+let people: User[] = [...Object.values(fx.users), fx.otherStaff];
+
+// The four seeded accounts, for the list on the sign-in screen. Does not grow
+// with registrations, which is the point.
+export const accounts = [...people];
+
+const active = (u: User) => u.is_active;
+
+// Synchronous, for restoring a signed-in user on first render. Same
+// normalisation as sign in, so both lookups agree.
+export const userByEmail = (email: string): User | undefined =>
+  people.find((u) => u.email === email.trim().toLowerCase() && active(u));
+
+// Email decides the account. The password is not checked until the backend
+// exists, but a deactivated account is refused, so the admin control works.
+export const signIn = (email: string): Promise<User | null> =>
+  delay(userByEmail(email) ?? null);
 
 const toSummary = (r: ServiceRequest): RequestSummary => ({
   id: r.id,
@@ -55,8 +76,8 @@ const toSummary = (r: ServiceRequest): RequestSummary => ({
   created_at: r.created_at,
 });
 
-// The scope clause from GET /api/requests. The routing-rule half is omitted:
-// auto-routing sets `assigned_staff`, so in the prototype the two coincide and
+// The scope clause from GET /api/requests. The routing-rule half is omitted
+// because auto-routing sets `assigned_staff`, so in the prototype the two coincide and
 // no fixture defines routing rules.
 const visibleTo = (r: ServiceRequest, user: User): boolean => {
   if (user.role === "admin") return true;
@@ -117,9 +138,21 @@ export const getRequest = (
   return delay(found ?? null);
 };
 
+// Object URLs so an uploaded photo can actually be opened in the prototype. The
+// API stores files server-side and serves them by id, so this map goes away
+// with the swap to fetch.
+const files = new Map<number, string>();
+export const attachmentUrl = (id: number) => files.get(id);
+
+let nextAttachmentId = 900;
+
+export const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+export const MAX_FILE_BYTES = 5 * 1024 * 1024;
+
 export const submitRequest = (
   user: User,
   description: string,
+  uploads: File[] = [],
 ): Promise<ServiceRequest> => {
   const now = new Date().toISOString();
   const id = nextId++;
@@ -146,7 +179,17 @@ export const submitRequest = (
     created_at: now,
     updated_at: now,
     resolved_at: null,
-    attachments: [],
+    attachments: uploads.map((file) => {
+      const id = nextAttachmentId++;
+      files.set(id, URL.createObjectURL(file));
+      return {
+        id,
+        filename: file.name,
+        mime_type: file.type,
+        size_bytes: file.size,
+        uploaded_at: now,
+      };
+    }),
     status_history: [
       {
         id: nextHistoryId++,
@@ -162,10 +205,20 @@ export const submitRequest = (
   return delay(created);
 };
 
-export const listReviewQueue = (
+// Oldest first, not urgency first. The urgency shown here came from a prediction
+// the system was not confident about, so ordering by it would trust the number
+// this queue exists to doubt.
+export const listReviewQueue = async (
   user: User,
-): Promise<Paginated<RequestSummary>> =>
-  listRequests(user, { status: ["under_review"] });
+): Promise<Paginated<RequestSummary>> => {
+  const page = await listRequests(user, { status: ["under_review"] });
+  return {
+    ...page,
+    items: [...page.items].sort(
+      (a, b) => Date.parse(a.created_at) - Date.parse(b.created_at),
+    ),
+  };
+};
 
 export const updateStatus = (
   user: User,
@@ -198,25 +251,24 @@ export const updateStatus = (
   return delay(updated);
 };
 
-export type ReclassifyResult =
-  | { ok: true; request: ServiceRequest; reassignedTo: string | null }
-  | { ok: false; reason: "not_found" | "finished" };
-
-// Works on any visible request, not just the review queue — the case where
+// Works on any visible request, not just the review queue. The case where
 // correction matters most is a confident wrong prediction, which never reaches
 // the queue.
+//
+// Returns the updated request, exactly as the real endpoint does. Callers detect
+// a handoff by comparing `assigned_staff` before and after; a bespoke result
+// shape here would have no equivalent after the swap to fetch.
 export const reclassify = (
   user: User,
   id: number,
   category: Category,
   urgency: Urgency,
   note: string,
-): Promise<ReclassifyResult> => {
+): Promise<ServiceRequest | null> => {
   const target = store.find((r) => r.id === id && visibleTo(r, user));
-  if (!target) return delay({ ok: false as const, reason: "not_found" as const });
-  if (target.status === "resolved" || target.status === "closed") {
-    // Re-routing a finished request would resurrect it into an active queue.
-    return delay({ ok: false as const, reason: "finished" as const });
+  // Re-routing a finished request would resurrect it into an active queue.
+  if (!target || target.status === "resolved" || target.status === "closed") {
+    return delay(null);
   }
 
   const now = new Date().toISOString();
@@ -234,7 +286,7 @@ export const reclassify = (
     urgency,
     status: "routed",
     // Changing the category re-runs routing, which can hand the request to a
-    // different officer — after which the corrector no longer sees it.
+    // different officer, after which the corrector no longer sees it.
     assigned_staff: handler,
     updated_at: now,
     status_history: wasUnderReview
@@ -245,7 +297,7 @@ export const reclassify = (
             from_status: "under_review" as const,
             to_status: "routed" as const,
             actor: { id: user.id, full_name: user.full_name, role: user.role },
-            note: note.trim() || `Labelled ${category.name} / ${urgency}.`,
+            note: note.trim() || `Set to ${category.name} / ${urgency}`,
             created_at: now,
           },
         ]
@@ -262,7 +314,7 @@ export const reclassify = (
           id: nextNotificationId++,
           request_id: target.id,
           reference_number: target.reference_number,
-          message: "Your request has been reassigned to another office.",
+          message: "Your request went to another office",
           is_read: false,
           created_at: now,
         },
@@ -270,11 +322,7 @@ export const reclassify = (
     ];
   }
 
-  return delay({
-    ok: true as const,
-    request: updated,
-    reassignedTo: movedAway ? handler.full_name : null,
-  });
+  return delay(updated);
 };
 
 export const listNotifications = (
@@ -312,10 +360,99 @@ export const markNotificationRead = (
   return delay(updated);
 };
 
-export const resetFixtures = () => {
-  store = [...fx.requests];
-  notices = [...fx.notifications];
-  nextId = 44;
-  nextHistoryId = 100_000;
-  nextNotificationId = 500;
+// ---------------------------------------------------------------- admin ----
+
+let rules = { ...fx.routing };
+const auditRows = [...fx.auditLog];
+let nextUserSuffix = 5;
+
+export const listUsers = (): Promise<User[]> => delay([...people]);
+
+// Live lookup. `accounts` is the frozen snapshot for the sign-in list and must
+// not be used for this.
+export const findPerson = (id: string) => people.find((p) => p.id === id);
+
+// An admin who demotes or deactivates the last active admin locks everyone out
+// of account management. The API returns 409 for this; the UI refuses too so
+// the operator finds out before they click.
+export const isLastActiveAdmin = (user: User) =>
+  user.role === "admin" &&
+  people.filter((p) => p.role === "admin" && p.is_active).length === 1;
+
+export type UserDraft = { full_name: string; email: string; role: Role };
+
+export const createUser = (draft: UserDraft): Promise<User | null> => {
+  if (people.some((p) => p.email === draft.email.trim().toLowerCase())) {
+    return delay(null);
+  }
+  const created: User = {
+    id: `8f1c1d2e-0000-4000-8000-${String(nextUserSuffix++).padStart(12, "0")}`,
+    email: draft.email.trim().toLowerCase(),
+    full_name: draft.full_name.trim(),
+    role: draft.role,
+    is_active: true,
+    created_at: new Date().toISOString(),
+  };
+  people = [...people, created];
+  return delay(created);
 };
+
+export const updateUser = (
+  id: string,
+  patch: Partial<Pick<User, "role" | "is_active">>,
+): Promise<User | null> => {
+  const target = people.find((p) => p.id === id);
+  if (!target) return delay(null);
+  const wouldStrandAdmins =
+    isLastActiveAdmin(target) &&
+    (patch.is_active === false || (patch.role && patch.role !== "admin"));
+  if (wouldStrandAdmins) return delay(null);
+
+  const updated = { ...target, ...patch };
+  people = people.map((p) => (p.id === id ? updated : p));
+  return delay(updated);
+};
+
+export const listRoutingRules = (): Promise<RoutingRule[]> =>
+  delay(
+    fx.categories.map((category, i) => ({
+      id: i + 1,
+      category,
+      staff: rules[category.id],
+      is_active: true,
+    })),
+  );
+
+// One handler per category, so routing stays deterministic. The schema enforces
+// the same thing with a partial unique index.
+export const setRoutingRule = (
+  categoryId: number,
+  staffId: string,
+): Promise<boolean> => {
+  const handler = people.find((p) => p.id === staffId);
+  if (!handler) return delay(false);
+  rules = {
+    ...rules,
+    [categoryId]: {
+      id: handler.id,
+      full_name: handler.full_name,
+      role: handler.role,
+    },
+  };
+  return delay(true);
+};
+
+export type AuditFilters = { actorId?: string; action?: string };
+
+export const listAuditLog = (filters: AuditFilters = {}) => {
+  const matched = auditRows
+    .filter((r) => !filters.actorId || r.actor?.id === filters.actorId)
+    .filter((r) => !filters.action || r.action === filters.action)
+    .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+  return delay(matched);
+};
+
+export const auditActions = [...new Set(fx.auditLog.map((r) => r.action))];
+
+export const register = (draft: UserDraft): Promise<User | null> =>
+  createUser({ ...draft, role: "citizen" });
