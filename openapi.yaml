@@ -78,7 +78,7 @@ paths:
       summary: Start a session
       description: |
         Sets an HttpOnly, Secure, SameSite=Lax session cookie. No token is
-        returned in the body, and nothing is stored in `localStorage` — a token
+        returned in the body, and nothing is stored in `localStorage`. A token
         readable by JavaScript is XSS-exposed.
 
         The body is form-encoded, not JSON, and the email goes in the `username`
@@ -168,13 +168,13 @@ paths:
       description: |
         Scope is applied server-side and cannot be widened by query parameters:
 
-        - **citizen** — only their own requests
-        - **staff** — requests assigned to them, plus requests in a category they
+        - **citizen**, only their own requests
+        - **staff**, requests assigned to them, plus requests in a category they
           hold an active routing rule for, plus everything in `under_review`. The
           union matters twice: deactivating a rule must not strip a staff member
           of requests already assigned to them, and a request awaiting manual
           classification cannot be scoped by a category that does not exist yet.
-        - **admin** — all requests
+        - **admin**, all requests
 
         The `under_review` clause is a deliberate widening of least privilege.
         Unclassified requests are visible to all staff because the category that
@@ -183,7 +183,7 @@ paths:
 
         Default ordering is role-dependent and chosen by the server, not the
         client. Staff and admin get highest urgency first, then oldest first,
-        which is the order the queue is worked in. Citizens get newest first —
+        which is the order the queue is worked in. Citizens get newest first, because
         a resident opening their list is looking for the request they just
         filed, not the most urgent one.
       parameters:
@@ -243,7 +243,7 @@ paths:
       summary: Request detail
       description: |
         Same role scoping as `GET /api/requests`, including the `under_review`
-        clause — otherwise every row in the review queue would 404 on click.
+        clause. Otherwise every row in the review queue would 404 on click.
 
         Returns 404, not 403, when the request exists but is outside the caller's
         scope. A 403 would confirm the id is real and let a staff member map
@@ -305,7 +305,7 @@ paths:
       summary: Attach a file
       description: |
         The owning citizen, or staff assigned to the request. MIME type and size
-        are validated server-side against the declared allowlist — the `accept`
+        are validated server-side against the declared allowlist. The `accept`
         attribute on a file input is a hint to the user, not a control.
       requestBody:
         required: true
@@ -358,7 +358,7 @@ paths:
       description: |
         Scoped exactly as the parent request, so a file is never reachable by
         anyone who cannot see the request itself. Served through the API rather
-        than as a static URL — `stored_path` is deliberately not exposed, so an
+        than as a static URL. `stored_path` is deliberately not exposed, so an
         unguessable-URL scheme is not standing in for an access check.
       responses:
         "200":
@@ -380,8 +380,8 @@ paths:
       summary: Requests awaiting manual classification
       description: |
         Staff and admin. Requests whose lower confidence score fell below the
-        threshold and which therefore have status `under_review`. Oldest first —
-        this queue is a backlog, and urgency here is not yet trustworthy.
+        threshold and which therefore have status `under_review`. Oldest first, because
+        this queue is a backlog and urgency here is not yet trustworthy.
       parameters:
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Offset"
@@ -415,14 +415,14 @@ paths:
         re-runs routing.
 
         Works on **any** request the caller can see, not only items in the review
-        queue — because the case where correction matters most is when the model
+        queue, because the case where correction matters most is when the model
         was confident and wrong, and that request never reaches the queue. The
         model's original prediction is never overwritten, so every correction
         stays measurable against it.
 
         **Re-routing can hand the request to someone else.** Changing the
         category re-runs the routing rules, so a request may be reassigned to a
-        different staff member — after which the correcting staff member no
+        different staff member, after which the correcting staff member no
         longer sees it, because it is no longer theirs. That is intended: they
         handed it off. The citizen is notified of the reassignment.
       requestBody:
@@ -448,7 +448,7 @@ paths:
         "409":
           description: |
             Request is `resolved` or `closed`. A finished request is not
-            relabelled — re-routing one would resurrect it into an active queue.
+            relabelled. Re-routing one would resurrect it into an active queue.
           content:
             application/json:
               schema:
@@ -618,7 +618,7 @@ paths:
       tags: [admin]
       summary: Update an account
       description: |
-        Accounts are deactivated, never deleted — deleting one would orphan the
+        Accounts are deactivated, never deleted. Deleting one would orphan the
         audit trail and the requests it acted on. Set `is_active: false` instead.
       requestBody:
         required: true
@@ -667,7 +667,7 @@ paths:
       summary: Replace the routing table
       description: |
         Replaces the full set in one transaction, because the routing screen edits
-        the table as a whole. At most one active rule per category — routing must
+        the table as a whole. At most one active rule per category. Routing must
         be deterministic, and two active rules would leave the choice to
         insertion order. Superseded rules are deactivated, not deleted.
       requestBody:
@@ -1046,7 +1046,7 @@ components:
           oneOf:
             - $ref: "#/components/schemas/Category"
             - type: "null"
-          description: Effective category — the human label if set, otherwise the prediction.
+          description: Effective category. The human label if set, otherwise the prediction.
         urgency:
           oneOf:
             - $ref: "#/components/schemas/Urgency"
@@ -1064,8 +1064,8 @@ components:
           maximum: 1
           description: |
             Carried on list rows so the staff queue can show confidence without a
-            detail fetch per row. Surfacing the score is a design requirement —
-            it makes the classifier legible to the operator rather than opaque.
+            detail fetch per row. Surfacing the score makes the classifier legible
+            to the operator rather than opaque.
         status:
           $ref: "#/components/schemas/RequestStatus"
         assigned_staff:
@@ -1140,7 +1140,7 @@ components:
           description: |
             Scored independently of the category head. A request is auto-routed
             only if `min(category_confidence, urgency_confidence)` meets the
-            threshold — one gate over both labels, so a request is never routed
+            threshold, one gate over both labels, so a request is never routed
             on a label the model was unsure of.
         final_category:
           oneOf:
@@ -1149,7 +1149,7 @@ components:
           description: |
             Stays null unless a human sets it. Null therefore means "no human has
             labelled this", which is distinct from "a human agreed with the
-            model" — collapsing the two would erase the correction record.
+            model". Collapsing the two would erase the correction record.
         final_urgency:
           oneOf:
             - $ref: "#/components/schemas/Urgency"
@@ -1158,7 +1158,7 @@ components:
           oneOf:
             - $ref: "#/components/schemas/Category"
             - type: "null"
-          description: Effective value — `final_category` if set, otherwise `predicted_category`.
+          description: Effective value. `final_category` if set, otherwise `predicted_category`.
         urgency:
           oneOf:
             - $ref: "#/components/schemas/Urgency"
@@ -1208,7 +1208,7 @@ components:
           description: |
             Deliberately narrower than `RequestStatus`. The earlier statuses are
             set by the system during classification and routing, so a staff UI
-            should not be able to offer them — the illegal option is unrepresentable
+            should not be able to offer them. The illegal option is unrepresentable
             in the client rather than rejected by the server at runtime.
         note:
           type: string
