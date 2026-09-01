@@ -1,1 +1,35 @@
 @import "tailwindcss";
+
+/* GOV.UK Design System palette. Published for reuse and already contrast
+   tested, so we get the testing along with the values. Adopting an established
+   government design system is a better answer than choosing colours ourselves.
+
+   Do not add GDS Transport. That typeface is licensed for GOV.UK only and their
+   guidance says everyone else uses Helvetica or Arial. The system stack below
+   costs no bandwidth, which matters on the connections this has to work on. */
+@theme {
+  --color-ink: #0b0c0c;
+  --color-muted: #505a5f;
+  --color-rule: #b1b4b6;
+  --color-wash: #f3f2f1;
+  --color-brand: #00703c;
+  --color-brand-edge: #002d18;
+  --color-link: #1d70b8;
+  --color-danger: #d4351c;
+  --color-warn: #6b3200;
+  --color-focus: #ffdd00;
+
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+}
+
+/* Body text at 17px and resident-facing text at 19px. Larger than a typical web
+   app because the operators are on a shared laptop and the residents are not
+   all young. */
+body {
+  color: var(--color-ink);
+  background: #fff;
+  font-size: 17px;
+  line-height: 1.5;
+}
