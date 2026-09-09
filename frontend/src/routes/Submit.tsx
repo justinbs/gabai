@@ -4,18 +4,13 @@ import { Link, useNavigate } from "react-router-dom";
 import * as api from "../api/client";
 import { Button, FOCUS_LINK, PageHeading, Textarea } from "../components/ui";
 import { usePageTitle } from "../lib/usePageTitle";
-import { useUser } from "../session-context";
 import type { ServiceRequest } from "../api/types";
 
 const MIN_LENGTH = 10;
 const MAX_LENGTH = 5000;
 
-// Only this screen is bilingual, and every visible string on it is paired. Half
-// pairing teaches a reader the Tagalog is optional and then drops it where it
-// matters. This is where a misunderstanding costs a resident their request.
 export function Submit() {
   usePageTitle("Report a concern");
-  const user = useUser();
   const navigate = useNavigate();
   const fileInput = useRef<HTMLInputElement>(null);
   const [text, setText] = useState("");
@@ -25,7 +20,6 @@ export function Submit() {
   const [created, setCreated] = useState<ServiceRequest | null>(null);
 
   const reject = (message: string) => {
-    // Clear both, or the browser keeps showing filenames the app has dropped.
     setUploads([]);
     if (fileInput.current) fileInput.current.value = "";
     setError(message);
@@ -58,7 +52,7 @@ export function Submit() {
     setError(undefined);
     setBusy(true);
     try {
-      setCreated(await api.submitRequest(user, text.trim(), uploads));
+      setCreated(await api.submitRequest(text.trim(), uploads));
     } catch {
       setError("Didn't send, try again · Hindi naipadala, subukan po muli");
     } finally {
@@ -66,8 +60,6 @@ export function Submit() {
     }
   };
 
-  // The reference number is the receipt. It shows before classification runs, so
-  // the resident never waits on the model to know they were heard.
   if (created) {
     return (
       <>
@@ -93,8 +85,6 @@ export function Submit() {
           update
         </p>
 
-        {/* No timeframe. The barangay's only real number is the 30-day mediation
-            maximum and it doesn't cover most requests. */}
         <p className="mt-4 text-[19px]">
           How long depends on what you reported and how busy the office is
         </p>

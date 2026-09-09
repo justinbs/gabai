@@ -40,8 +40,6 @@ export function RequestDetail() {
   if (state.status === "error")
     return <ErrorState description={state.message} onRetry={reload} />;
 
-  // Null covers both "no such request" and "not yours". The API deliberately
-  // does not distinguish them, so neither does this screen.
   if (!state.data) {
     return (
       <ErrorState
@@ -51,8 +49,6 @@ export function RequestDetail() {
     );
   }
 
-  // Keyed so navigating between requests remounts: otherwise a note typed on one
-  // request survives into the next and gets attached to the wrong one.
   return (
     <Detail
       key={requestId}
@@ -96,8 +92,6 @@ function Detail({
         {isStaff && <UrgencyBadge urgency={request.urgency} />}
       </div>
 
-      {/* What the resident cannot see for themselves: who has it and what is
-          happening. This is what the citizen interview asked for. */}
       {!isStaff && <ResidentUpdate request={request} />}
 
       <div className="grid gap-5 lg:grid-cols-3">
@@ -141,7 +135,7 @@ function Detail({
                 <h3 className="font-bold">Photos</h3>
                 <ul className="mt-2 flex flex-wrap gap-4">
                   {request.attachments.map((file) => (
-                    <Attachment key={file.id} file={file} />
+                    <Attachment key={file.id} file={file} requestId={request.id} />
                   ))}
                 </ul>
               </div>
@@ -162,19 +156,15 @@ function Detail({
   );
 }
 
-// Images render inline. Anything else is a link, because a filename on its own
-// tells a staff member nothing about whether it is worth opening.
-function Attachment({ file }: { file: ServiceRequest["attachments"][number] }) {
-  const url = api.attachmentUrl(file.id);
+function Attachment({
+  file,
+  requestId,
+}: {
+  file: ServiceRequest["attachments"][number];
+  requestId: number;
+}) {
+  const url = api.attachmentUrl(requestId, file.id);
   const isImage = file.mime_type.startsWith("image/");
-
-  if (!url) {
-    return (
-      <li className="text-muted">
-        {file.filename} ({Math.round(file.size_bytes / 1024)} KB)
-      </li>
-    );
-  }
 
   return (
     <li>
@@ -197,15 +187,9 @@ function Attachment({ file }: { file: ServiceRequest["attachments"][number] }) {
   );
 }
 
-// The three things a resident wants and cannot work out from a timeline: where
-// their request is, whether a person has it, and whether they need to do
-// anything. No timeframe, because the barangay has no service level to promise
-// and inventing one would cost more trust than it buys.
 function ResidentUpdate({ request }: { request: ServiceRequest }) {
   const note = citizenStatusNote(request);
 
-  // Nothing here repeats the status badge. When the badge already names who has
-  // the request, this only says whether the resident has to act.
   const line =
     request.status === "submitted" || request.status === "classified"
       ? "Sorting this and passing it on"
@@ -229,9 +213,6 @@ function ResidentUpdate({ request }: { request: ServiceRequest }) {
   );
 }
 
-// Shows what the model said next to what a human decided. When they differ, that
-// difference is the correction record. It is not overwritten, and it is the
-// evidence the evaluation chapter draws on.
 function ClassificationPanel({ request }: { request: ServiceRequest }) {
   const corrected =
     request.final_category !== null &&
@@ -334,10 +315,6 @@ function Timeline({
 
 type NextStatus = "in_progress" | "resolved" | "closed";
 
-// The transition chain openapi.yaml documents. Nothing is offered from
-// `submitted`, `classified`, or `under_review`. A request must be classified
-// and routed before it can be worked, and offering "Close" beside the review
-// form would be a one-click way to skip the review itself.
 const NEXT_STATUS: Partial<Record<RequestStatus, { to: NextStatus; label: string }>> = {
   routed: { to: "in_progress", label: "Mark in progress" },
   in_progress: { to: "resolved", label: "Mark resolved" },
@@ -385,8 +362,6 @@ function StaffActions({
         Actions
       </h2>
 
-      {/* Always mounted. A live region added to the DOM at the same moment as its
-          text is routinely not announced. */}
       <p
         role="status"
         aria-live="polite"
@@ -440,9 +415,6 @@ function StaffActions({
   );
 }
 
-// Available on every request, not only review-queue items: the case where a
-// correction matters most is a confident wrong prediction, which never reaches
-// the queue.
 function Reclassify({
   request,
   user,
@@ -484,8 +456,6 @@ function Reclassify({
         setResult("Cannot be changed now");
         return;
       }
-      // A category change re-runs routing, so the request may have left this
-      // person's queue. Say so rather than letting it vanish.
       const movedAway = updated.assigned_staff?.id !== previousHandler;
       setResult(
         movedAway && updated.assigned_staff

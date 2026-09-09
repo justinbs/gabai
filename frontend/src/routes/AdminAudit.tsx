@@ -10,34 +10,38 @@ import {
 } from "../components/ui";
 import { fullDate } from "../lib/format";
 import { AUDIT_ACTION_LABELS } from "../api/types";
-import type { AuditLogEntry } from "../api/types";
+import type { AuditLogEntry, User } from "../api/types";
 import { useAsync } from "../lib/useAsync";
 import { usePageTitle } from "../lib/usePageTitle";
 
+const AUDIT_ACTIONS = Object.keys(AUDIT_ACTION_LABELS);
+
 // A raw id is what makes a row point at one exact thing, so it stays in the
-// title. The column shows something a person can read.
-const handle = (row: AuditLogEntry) => {
+// title. The column shows something a person can read. `people` is the
+// admin user list, fetched alongside the log so a "user" row can be resolved
+// to a real name.
+const handle = (row: AuditLogEntry, people: User[]) => {
   if (!row.object_id) return row.object_type.replace("_", " ");
   if (row.object_type === "request") return `Request ${row.object_id}`;
   if (row.object_type === "user") {
-    const person = api.findPerson(row.object_id);
+    const person = people.find((p) => p.id === row.object_id);
     return person ? person.full_name : "Account";
   }
   return `${row.object_type} ${row.object_id}`;
 };
 
-// `detail` is JSONB, so a value can be an object. Stringify rather than let it
-// render as [object Object].
 const format = (value: unknown) =>
   typeof value === "object" && value !== null ? JSON.stringify(value) : String(value);
 
-// Read only. Nothing in the app edits or deletes a row, because a trail that can
-// be changed is not a trail.
 export function AdminAudit() {
   usePageTitle("Audit log");
   const [action, setAction] = useState("");
   const { state, reload } = useAsync(
-    () => api.listAuditLog({ action: action || undefined }),
+    () =>
+      Promise.all([
+        api.listAuditLog({ action: action || undefined }),
+        api.listUsers(),
+      ]),
     [action],
   );
 
@@ -53,7 +57,7 @@ export function AdminAudit() {
           onChange={(e) => setAction(e.target.value)}
         >
           <option value="">All</option>
-          {api.auditActions.map((a) => (
+          {AUDIT_ACTIONS.map((a) => (
             <option key={a} value={a}>
               {AUDIT_ACTION_LABELS[a] ?? a}
             </option>
@@ -65,10 +69,10 @@ export function AdminAudit() {
       {state.status === "error" && (
         <ErrorState description={state.message} onRetry={reload} />
       )}
-      {state.status === "ready" && state.data.length === 0 && (
+      {state.status === "ready" && state.data[0].length === 0 && (
         <EmptyState title="Nothing logged" description="No actions match" />
       )}
-      {state.status === "ready" && state.data.length > 0 && (
+      {state.status === "ready" && state.data[0].length > 0 && (
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left">
             <caption className="sr-only">Audit log</caption>
@@ -83,14 +87,12 @@ export function AdminAudit() {
               </tr>
             </thead>
             <tbody>
-              {state.data.map((row) => (
+              {state.data[0].map((row) => (
                 <tr key={row.id} className="border-b border-rule">
                   <td className="whitespace-nowrap py-3 pr-4 align-top text-muted">
                     {fullDate(row.created_at)}
                   </td>
                   <td className="py-3 pr-4 align-top">
-                    {/* Null actor means the system did it, auto-classification
-                        and auto-routing both write rows with no human. */}
                     {row.actor ? row.actor.full_name : "System"}
                   </td>
                   <td className="py-3 pr-4 align-top">
@@ -100,7 +102,7 @@ export function AdminAudit() {
                     className="py-3 pr-4 align-top text-muted"
                     title={row.object_id ?? undefined}
                   >
-                    {handle(row)}
+                    {handle(row, state.data[1])}
                   </td>
                   <td className="py-3 pr-4 align-top text-muted">
                     {row.detail

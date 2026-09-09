@@ -27,8 +27,6 @@ export function AdminUsers() {
   const [refusal, setRefusal] = useState("");
 
   const report = (text: string, ok: boolean) => {
-    // A blocked write is not a success. Green text in a polite live region is
-    // the wrong channel for it.
     setMessage(ok ? text : "");
     setRefusal(ok ? "" : text);
     if (ok) reload();
@@ -83,19 +81,29 @@ function UserTable({
 }) {
   const [busy, setBusy] = useState<string>();
 
+  // Client-side heuristic only, computed from the list we just fetched —
+  // just so the button can warn before clicking. The server has final say
+  // (409) regardless, using its own live count at the moment of the request.
+  const activeAdminCount = users.filter((u) => u.role === "admin" && u.is_active).length;
+
   const change = async (
     user: User,
     patch: Partial<Pick<User, "role" | "is_active">>,
   ) => {
     setBusy(user.id);
-    const updated = await api.updateUser(user.id, patch);
-    setBusy(undefined);
-    onChanged(
-      updated
-        ? `Updated ${user.full_name}`
-        : "That's the last admin, someone else needs the role first",
-      Boolean(updated),
-    );
+    try {
+      const updated = await api.updateUser(user.id, patch);
+      onChanged(
+        updated
+          ? `Updated ${user.full_name}`
+          : "That's the last admin, someone else needs the role first",
+        Boolean(updated),
+      );
+    } catch {
+      onChanged("Didn't save, try again", false);
+    } finally {
+      setBusy(undefined);
+    }
   };
 
   return (
@@ -114,7 +122,7 @@ function UserTable({
         </thead>
         <tbody>
           {users.map((user) => {
-            const locked = api.isLastActiveAdmin(user);
+            const locked = user.role === "admin" && user.is_active && activeAdminCount === 1;
             return (
               <tr key={user.id} className="border-b border-rule">
                 <td className="py-3 pr-4 align-top">{user.full_name}</td>
@@ -144,8 +152,6 @@ function UserTable({
                   {user.is_active ? "Active" : "Inactive"}
                 </td>
                 <td className="py-3 align-top">
-                  {/* The last active admin cannot be demoted or deactivated, or
-                      nobody can reach this screen again. */}
                   {locked ? (
                     <span className="text-muted">Last admin</span>
                   ) : (
@@ -171,6 +177,7 @@ function UserTable({
 function NewUser({ onCreated }: { onCreated: (message: string) => void }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [role, setRole] = useState<Role>("staff");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -181,17 +188,27 @@ function NewUser({ onCreated }: { onCreated: (message: string) => void }) {
       setError("Name and email are both needed");
       return;
     }
-    setError("");
-    setBusy(true);
-    const created = await api.createUser({ full_name: name, email, role });
-    setBusy(false);
-    if (!created) {
-      setError("Someone already uses that email");
+    if (password.length < 8) {
+      setError("Password needs at least 8 characters");
       return;
     }
-    setName("");
-    setEmail("");
-    onCreated(`Added ${created.full_name}`);
+    setError("");
+    setBusy(true);
+    try {
+      const created = await api.createUser({ full_name: name, email, password, role });
+      if (!created) {
+        setError("Someone already uses that email");
+        return;
+      }
+      setName("");
+      setEmail("");
+      setPassword("");
+      onCreated(`Added ${created.full_name}`);
+    } catch {
+      setError("Didn't save, try again");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -209,7 +226,7 @@ function NewUser({ onCreated }: { onCreated: (message: string) => void }) {
         {error}
       </p>
 
-      <div className="mt-4 grid gap-4 sm:grid-cols-3">
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <div>
           <label htmlFor="name" className="block text-[19px] font-bold">
             Name
@@ -230,6 +247,18 @@ function NewUser({ onCreated }: { onCreated: (message: string) => void }) {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            className={FIELD}
+          />
+        </div>
+        <div>
+          <label htmlFor="new-password" className="block text-[19px] font-bold">
+            Temporary password
+          </label>
+          <input
+            id="new-password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
             className={FIELD}
           />
         </div>

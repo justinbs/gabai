@@ -1,17 +1,15 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import * as api from "../api/client";
 import { EmptyState, ErrorState, Loading, PageHeading } from "../components/ui";
 import { useAsync } from "../lib/useAsync";
 import { usePageTitle } from "../lib/usePageTitle";
-import type { RoutingRule, User } from "../api/types";
+import type { Category, RoutingRule, User } from "../api/types";
 
-// Categories come from the API, never from a list in here. The taxonomy is not
-// locked yet and this screen renders whatever it is given.
 export function AdminRouting() {
   usePageTitle("Routing");
   const { state, reload } = useAsync(
-    () => Promise.all([api.listRoutingRules(), api.listUsers()]),
+    () => Promise.all([api.getCategories(), api.listUsers(), api.listRoutingRules()]),
     [],
   );
   const [message, setMessage] = useState("");
@@ -40,8 +38,9 @@ export function AdminRouting() {
       )}
       {state.status === "ready" && state.data[0].length > 0 && (
         <Rules
-          rules={state.data[0]}
+          categories={state.data[0]}
           staff={state.data[1].filter((u) => u.role !== "citizen")}
+          currentRules={state.data[2]}
           onSaved={(text) => {
             setMessage(text);
             reload();
@@ -53,28 +52,58 @@ export function AdminRouting() {
 }
 
 function Rules({
-  rules,
+  categories,
   staff,
+  currentRules,
   onSaved,
 }: {
-  rules: RoutingRule[];
+  categories: Category[];
   staff: User[];
+  currentRules: RoutingRule[];
   onSaved: (message: string) => void;
 }) {
-  const [busy, setBusy] = useState<number>();
+  // One dropdown value per category, seeded from whatever's currently active.
+  // A category with no rule yet defaults to the first available staff member,
+  // so every dropdown always shows a real selection matching what gets sent.
+  const initial = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const category of categories) {
+      const existing = currentRules.find((r) => r.category.id === category.id && r.is_active);
+      map.set(category.id, existing?.staff.id ?? staff[0]?.id ?? "");
+    }
+    return map;
+  }, [categories, currentRules, staff]);
 
-  // One handler per category. Two would make routing depend on insertion order,
-  // and the schema enforces the same thing with a partial unique index.
-  const assign = async (
-    categoryId: number,
-    staffId: string,
-    name: string,
-    category: string,
-  ) => {
-    setBusy(categoryId);
-    const ok = await api.setRoutingRule(categoryId, staffId);
-    setBusy(undefined);
-    onSaved(ok ? `${name} now handles ${category}` : "Didn't save, try again");
+  const [selections, setSelections] = useState(initial);
+  const [busy, setBusy] = useState(false);
+
+  const assign = async (categoryId: number, staffId: string) => {
+    const next = new Map(selections);
+    next.set(categoryId, staffId);
+    setSelections(next);
+
+    setBusy(true);
+    try {
+      const rules = Array.from(next.entries())
+        .filter(([, sid]) => sid)
+        .map(([catId, sid]) => ({ categoryId: catId, staffId: sid }));
+      const result = await api.replaceRoutingRules(rules);
+      if (!result) {
+        onSaved("Didn't save, try again");
+        return;
+      }
+      const category = categories.find((c) => c.id === categoryId);
+      const handler = staff.find((s) => s.id === staffId);
+      onSaved(
+        category && handler
+          ? `${handler.full_name} now handles ${category.name}`
+          : "Saved",
+      );
+    } catch {
+      onSaved("Didn't save, try again");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -89,47 +118,36 @@ function Rules({
           </tr>
         </thead>
         <tbody>
-          {rules.map((rule) => (
-            <tr key={rule.id} className="border-b border-rule">
-              <td className="py-3 pr-4 align-top font-bold">
-                {rule.category.name}
-              </td>
-              <td className="py-3 pr-4 align-top text-muted">
-                {rule.category.description}
-              </td>
-              <td className="py-3 align-top">
-                <label className="sr-only" htmlFor={`rule-${rule.id}`}>
-                  Handler for {rule.category.name}
-                </label>
-                <select
-                  id={`rule-${rule.id}`}
-                  value={rule.staff.id}
-                  disabled={busy === rule.category.id}
-                  onChange={(e) => {
-                    const picked = staff.find((s) => s.id === e.target.value);
-                    if (picked) {
-                      assign(
-                        rule.category.id,
-                        picked.id,
-                        picked.full_name,
-                        rule.category.name,
-                      );
-                    }
-                  }}
-                  className="border-2 border-ink bg-white px-2 py-1 focus:outline-3 focus:outline-ink"
-                >
-                  {staff
-                    .filter((s) => s.is_active || s.id === rule.staff.id)
-                    .map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.full_name}
-                        {s.is_active ? "" : " (deactivated)"}
-                      </option>
-                    ))}
-                </select>
-              </td>
-            </tr>
-          ))}
+          {categories.map((category) => {
+            const selected = selections.get(category.id) ?? "";
+            return (
+              <tr key={category.id} className="border-b border-rule">
+                <td className="py-3 pr-4 align-top font-bold">{category.name}</td>
+                <td className="py-3 pr-4 align-top text-muted">{category.description}</td>
+                <td className="py-3 align-top">
+                  <label className="sr-only" htmlFor={`rule-${category.id}`}>
+                    Handler for {category.name}
+                  </label>
+                  <select
+                    id={`rule-${category.id}`}
+                    value={selected}
+                    disabled={busy}
+                    onChange={(e) => assign(category.id, e.target.value)}
+                    className="border-2 border-ink bg-white px-2 py-1 focus:outline-3 focus:outline-ink"
+                  >
+                    {staff
+                      .filter((s) => s.is_active || s.id === selected)
+                      .map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.full_name}
+                          {s.is_active ? "" : " (deactivated)"}
+                        </option>
+                      ))}
+                  </select>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

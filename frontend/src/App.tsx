@@ -15,18 +15,16 @@ import { SessionProvider } from "./session";
 import { useSession } from "./session-context";
 import type { Role } from "./api/types";
 
-// Navigation convenience, not access control. The server enforces scope on every
-// endpoint. What the role check does prevent is a citizen reaching a staff
-// screen by typing the URL, which would show them the queue table and the
-// confidence scores residents are deliberately never given.
 function Protected({ roles }: { roles: Role[] }) {
-  const { user } = useSession();
+  const { user, initializing } = useSession();
+  if (initializing) return null;
   if (!user) return <Navigate to="/" replace />;
   return roles.includes(user.role) ? <AppShell /> : <Navigate to="/" replace />;
 }
 
 function Landing() {
-  const { user } = useSession();
+  const { user, initializing } = useSession();
+  if (initializing) return null;
   if (!user) return <Login />;
   return <Navigate to={user.role === "citizen" ? "/requests" : "/queue"} replace />;
 }
@@ -60,7 +58,6 @@ export default function App() {
             <Route path="/admin/audit" element={<AdminAudit />} />
           </Route>
 
-          {/* Both audiences read this one. It branches on role internally. */}
           <Route element={<Protected roles={EVERYONE} />}>
             <Route path="/requests/:id" element={<RequestDetail />} />
           </Route>

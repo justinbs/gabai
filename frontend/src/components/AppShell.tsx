@@ -2,6 +2,7 @@ import { NavLink, Outlet } from "react-router-dom";
 
 import { Button, FOCUS_LINK } from "./ui";
 import { useSession } from "../session-context";
+import { NotificationBell } from "./NotificationBell";
 
 // Nav is role-scoped, but that is presentation only. The real system enforces
 // every rule server-side, hiding a link is not access control.
@@ -72,7 +73,8 @@ export function AppShell() {
             ))}
           </ul>
         </nav>
-        <Button variant="secondary" className="ml-auto" onClick={signOut}>
+        <NotificationBell />
+        <Button variant="secondary" onClick={signOut}>
           Sign out
         </Button>
       </div>

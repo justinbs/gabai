@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
-import { accounts } from "../api/client";
-import { Button, FOCUS_BUTTON, FOCUS_LINK } from "../components/ui";
+import { Button, FOCUS_LINK } from "../components/ui";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useSession } from "../session-context";
 
@@ -23,10 +22,7 @@ export function Login() {
     setBusy(true);
     setError("");
     try {
-      // One message for both an unknown email and a deactivated account. The API
-      // returns a single 400 for both so the endpoint cannot be used to find out
-      // which emails exist.
-      const ok = await signIn(email);
+      const ok = await signIn(email, password);
       if (!ok) {
         setError("Can't sign you in, check your email and password");
         return;
@@ -94,33 +90,11 @@ export function Login() {
           </Button>
         </form>
 
-        {/* Goes when the backend lands. The password is not checked yet. */}
         <p className="mt-6">
           <Link to="/register" className={`text-link underline ${FOCUS_LINK}`}>
             Create an account
           </Link>
         </p>
-
-        <div className="mt-10 border-t border-rule pt-4">
-          <h2 className="font-bold">Accounts</h2>
-          <ul className="mt-2">
-            {accounts.map((a) => (
-              <li key={a.id} className="py-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmail(a.email);
-                    setPassword("barangay");
-                  }}
-                  className={`text-link underline ${FOCUS_BUTTON}`}
-                >
-                  {a.email}
-                </button>
-                <span className="ml-2 text-muted">{a.full_name}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
       </main>
     </div>
   );

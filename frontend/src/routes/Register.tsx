@@ -9,10 +9,6 @@ import { useSession } from "../session-context";
 const FIELD =
   "mt-2 block w-full border-2 border-ink px-3 py-2 text-[19px] focus:outline-3 focus:outline-ink focus-visible:shadow-[0_0_0_4px_#ffdd00]";
 
-// Only registered residents can submit, so this is where the flow starts.
-//
-// The password is checked for length and then dropped. There is nothing to hash
-// yet, so `api.register` does not take one. That signature changes at the swap.
 export function Register() {
   usePageTitle("Create an account");
   const { signIn } = useSession();
@@ -40,18 +36,12 @@ export function Register() {
     setError("");
     setBusy(true);
     try {
-      const created = await api.register({
-        full_name: name,
-        email,
-        role: "citizen",
-      });
+      const created = await api.register({ full_name: name, email, password });
       if (!created) {
         setError("Someone already uses that email · May gumagamit na nito");
         return;
       }
-      // signIn returns false if it cannot find the account. Ignoring that is
-      // what let this screen silently bounce people back to sign in.
-      const ok = await signIn(created.email);
+      const ok = await signIn(created.email, password);
       if (!ok) {
         setError("Account made, please sign in · Nagawa na, mag-sign in po");
         return;
@@ -66,15 +56,9 @@ export function Register() {
     <div className="min-h-screen bg-white px-4 py-12">
       <main className="mx-auto max-w-md">
         <h1 className="text-[36px] font-bold tracking-tight">Create an account</h1>
-        <p className="mt-1 text-[19px] text-muted">
-          Gumawa ng account
-        </p>
+        <p className="mt-1 text-[19px] text-muted">Gumawa ng account</p>
 
-        <form
-          onSubmit={submit}
-          noValidate
-          className="mt-8 border-t-2 border-ink pt-6"
-        >
+        <form onSubmit={submit} noValidate className="mt-8 border-t-2 border-ink pt-6">
           <p
             role="alert"
             className={
@@ -89,12 +73,7 @@ export function Register() {
           <label htmlFor="name" className="block text-[19px] font-bold">
             Full name · Buong pangalan
           </label>
-          <input
-            id="name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className={FIELD}
-          />
+          <input id="name" value={name} onChange={(e) => setName(e.target.value)} className={FIELD} />
 
           <label htmlFor="email" className="mt-5 block text-[19px] font-bold">
             Email
