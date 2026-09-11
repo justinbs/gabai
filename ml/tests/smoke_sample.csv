@@ -1,0 +1,43 @@
+text,category,urgency,source
+"may malaking butas sa kalsada malapit sa barangay hall delikado na baka may madisgrasya",road_infrastructure,high,synthetic
+"yung streetlight sa kanto namin patay na mahigit isang buwan madilim sobra pag gabi",road_infrastructure,medium,synthetic
+"sirang bahagi ng tulay papuntang sitio 3 pakiayos naman po",road_infrastructure,medium,synthetic
+"pwede po bang pa gravel yung daan sa likod ng chapel putik kasi",road_infrastructure,low,synthetic
+"NABUWAL YUNG POSTE SA TABI NG DAAN KANINA LANG DELIKADO",road_infrastructure,high,synthetic
+"tanong lang po kung kelan matatapos yung road repair sa main road",road_infrastructure,low,synthetic
+"hindi na naman kinuha yung basura namin 2 weeks na po amoy na amoy",public_health_sanitation,high,synthetic
+"maraming lamok dito sa amin kasi may stagnant water sa bakanteng lote",public_health_sanitation,high,synthetic
+"pwede po ba magpaschedule ng fogging sa area namin",public_health_sanitation,medium,synthetic
+"yung health center po ba may bakante pang slot para sa check up ni nanay",public_health_sanitation,low,synthetic
+"may nagtatapon ng basura sa creek tuwing madaling araw",public_health_sanitation,medium,synthetic
+"ang baho po ng kanal sa harap ng bahay namin matagal na",public_health_sanitation,medium,synthetic
+"may mga tambay na umiinom tuwing gabi sa waiting shed maingay at nakakatakot",public_safety,medium,synthetic
+"MAY NAKITA AKONG SUSPICIOUS NA TAO NA PALIGID LIGID SA BAHAY NG KAPITBAHAY",public_safety,high,synthetic
+"maraming askal sa kalye baka may makagat",public_safety,medium,synthetic
+"pwede po ba pataas yung curfew monitoring dito samin",public_safety,low,synthetic
+"nasunog yung kable sa poste kanina may spark pa",public_safety,high,synthetic
+"tanong ko lang po kung may barangay tanod ba na naka assign sa sitio 5",public_safety,low,synthetic
+"wala kaming tubig 3 days na po ano po nangyari",utilities,high,synthetic
+"brownout na naman dito buong araw wala kaming kuryente",utilities,high,synthetic
+"barado yung drainage kaya bumabaha kahit maliit lang ulan",utilities,medium,synthetic
+"mahina yung water pressure sa area namin tuwing umaga",utilities,low,synthetic
+"kelan po ang next scheduled maintenance ng tubig",utilities,low,synthetic
+"umapaw yung kanal kanina hanggang tuhod yung baha sa daan",utilities,high,synthetic
+"pwede po bang magtanong kung kelan yung next na ayuda para sa senior citizen salamat po",social_welfare,low,synthetic
+"kailangan po namin ng indigency certificate para sa ospital urgent po",social_welfare,high,synthetic
+"paano po mag apply ng pwd id para sa anak ko",social_welfare,low,synthetic
+"wala pong natanggap na relief goods yung pamilya namin nung huling distribution",social_welfare,medium,synthetic
+"may tulong po ba para sa mga nawalan ng trabaho",social_welfare,medium,synthetic
+"senior po si tatay pwede po bang ma-include sa monthly assistance",social_welfare,low,synthetic
+"yung kapitbahay namin sobrang lakas ng videoke hanggang madaling araw",neighbor_dispute,medium,synthetic
+"may away po sa kabilang bahay parang nagsasaktan na sila pakitingnan po",neighbor_dispute,high,synthetic
+"nakapasok yung bakod ng katabi namin sa lote namin gusto ko po magpa survey",neighbor_dispute,low,synthetic
+"yung umuupa sa taas ayaw umalis kahit tapos na kontrata",neighbor_dispute,medium,synthetic
+"laging nagtatapon ng tubig yung kapitbahay sa bakuran namin",neighbor_dispute,low,synthetic
+"nagbabantaan na po sila kahapon natatakot ako",neighbor_dispute,high,synthetic
+"magandang umaga po tanong ko lang kung anong oras bukas ang barangay hall",other,low,synthetic
+"pano po kumuha ng barangay clearance ano requirements",other,low,synthetic
+"may nawawala pong aso namin baka nakita nyo",other,low,synthetic
+"salamat po sa mabilis na aksyon sa request ko last week",other,low,synthetic
+"saan po ba nagfifile ng reklamo tungkol sa negosyo na walang permit",other,medium,synthetic
+"urgent po may naiwan akong bag sa barangay hall kanina",other,medium,synthetic

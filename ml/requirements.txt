@@ -3,7 +3,8 @@
 scikit-learn==1.6.0
 pandas==2.2.3
 numpy==2.2.1
-transformers==4.47.1
+# The optimum onnxruntime extra caps this below 4.47
+transformers==4.46.3
 torch==2.5.1
 datasets==3.2.0
 evaluate==0.4.3

@@ -32,6 +32,31 @@ text,category,urgency,source
 "may malaking butas sa kalsada malapit sa barangay hall delikado na",road_infrastructure,high,synthetic
 ```
 
-`source` is `real` or `synthetic`, so performance can be reported per subset.
+The barangay declined to share its records on
+privacy grounds, so every entry is authored by the proponents and `source` reads
+`synthetic` throughout. That is stated in Chapter 3 as a limitation.
+
 Splits are stratified 70/15/15 with a fixed seed and committed as files, so every
 run is reproducible.
+
+## Running it
+
+Python 3.12. The baseline needs only scikit-learn, pandas, numpy and matplotlib;
+the rest of `requirements.txt` is for fine-tuning and export.
+
+```bash
+python scripts/make_splits.py data/requests.csv   # writes train/val/test.csv
+python scripts/baseline.py                        # TF-IDF + linear SVM
+python scripts/threshold_sweep.py                 # picks the threshold, on val
+```
+
+`scripts/common.py` holds the label sets and the metrics. The transformer run
+imports the same `score()` so both models are measured identically. Diverge here
+and the comparison in Chapter 4 stops being a comparison.
+
+### `tests/smoke_sample.csv`
+
+42 rows, written to prove the scripts run. **Not the dataset.** Far too small to
+train anything, and no number produced from it means anything. It exists so the
+harness can be exercised before the real file lands, and so a broken script fails
+today rather than the week the data arrives. Delete it once `requests.csv` is in.
