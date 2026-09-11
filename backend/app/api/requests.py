@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 
 from fastapi import (
     APIRouter,
+    BackgroundTasks,
     Depends,
     HTTPException,
     Query,
@@ -14,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.audit import notify, write_audit
+from app.classification import classify_and_route
 from app.db.session import get_db
 from app.models.enums import RequestStatus, Urgency
 from app.models.request import Request
@@ -67,6 +69,7 @@ async def _reload(db: AsyncSession, request_id: int) -> Request:
 @router.post("", response_model=RequestRead, status_code=201)
 async def submit_request(
     payload: RequestCreate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role(Role.citizen)),
 ):
@@ -93,6 +96,10 @@ async def submit_request(
     )
 
     await db.commit()
+
+    # After the response, so the resident gets a reference number without
+    # waiting on inference.
+    background_tasks.add_task(classify_and_route, request.id)
     return await _reload(db, request.id)
 
 
@@ -262,16 +269,20 @@ async def set_classification(
             )
         )
     ).scalar_one_or_none()
+    # Only claim routed when somebody actually owns it. Writing routed with no
+    # assignee puts a request outside every staff member's scope, which is how
+    # it would vanish for everyone but an admin.
     if rule is not None:
         request.assigned_staff_id = rule.staff_id
-
-    request.status = RequestStatus.routed
+        request.status = RequestStatus.routed
+    else:
+        request.status = RequestStatus.under_review
 
     db.add(
         StatusHistoryEntry(
             request_id=request.id,
             from_status=from_status,
-            to_status=RequestStatus.routed,
+            to_status=request.status,
             actor_id=user.id,
             note=payload.note,
         )
