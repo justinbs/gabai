@@ -51,10 +51,22 @@ python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\act
 pip install -r requirements.txt
 alembic upgrade head
 python -m app.seed          # creates the first admin, see .env.example
-uvicorn app.main:app --reload
+python run.py               # Windows needs this, not uvicorn directly
 ```
 
 API at `http://localhost:8000`, interactive docs at `/docs`.
+
+On a server, run the migration and the seed the same way, then start it with
+uvicorn directly:
+
+```bash
+alembic upgrade head
+python -m app.seed
+uvicorn app.main:app --host 0.0.0.0 --workers 2
+```
+
+Two workers, not more. The classifier loads once per worker, so on a 1 GB
+instance a third copy of the model costs more memory than it buys in throughput.
 
 Frontend:
 

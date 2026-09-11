@@ -16,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.core.eventloop import use_selector_loop_on_windows
 from app.db.session import AsyncSessionLocal
 from app.models.category import Category
 from app.models.routing_rule import RoutingRule
@@ -127,4 +128,5 @@ async def seed() -> None:
 
 
 if __name__ == "__main__":
+    use_selector_loop_on_windows()
     asyncio.run(seed())
