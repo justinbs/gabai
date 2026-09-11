@@ -24,7 +24,19 @@ class Settings(BaseSettings):
     environment: str = "development"
     cors_origins: str = "http://localhost:5173"
 
+    # Placeholder. The real value comes from the threshold sweep in ml/.
     confidence_threshold: float = 0.70
+
+    # Read by `python -m app.seed` only. A fresh database has no admin and no way
+    # to make one through the API, so the first one comes from here.
+    seed_admin_email: str | None = None
+    seed_admin_password: str | None = None
+    seed_admin_name: str = "Administrator"
+
+    # Demo seats for evaluation week. Off by default because the repo is public
+    # and these accounts are documented in the README.
+    seed_demo: bool = False
+    seed_demo_password: str | None = None
 
     @property
     def database_url(self) -> str:
