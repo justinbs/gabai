@@ -1,10 +1,14 @@
+from contextlib import asynccontextmanager
+
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
+from app.inference import classifier
 from app.models.user import User
-from app.schemas.user import UserCreate, UserRead
+from app.schemas.user import UserRead
 from app.users import auth_backend, current_active_user, fastapi_users
+from app.api.auth_register import router as register_router
 from app.api.categories import router as categories_router
 from app.api.requests import router as requests_router
 from app.api.admin_routing import router as routing_router
@@ -16,10 +20,20 @@ from app.api.attachments import router as attachments_router
 
 settings = get_settings()
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Once per worker, never per request. Keep workers at 1 or 2 on a small
+    # instance: each one holds its own copy of the model.
+    classifier.load()
+    yield
+
+
 app = FastAPI(
     title="GABAI API",
     description="Citizen service request classification and routing.",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -29,8 +43,6 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE"],
     allow_headers=["Content-Type"],
 )
-
-from app.api.auth_register import router as register_router
 
 app.include_router(register_router)
 app.include_router(

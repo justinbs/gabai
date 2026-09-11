@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 from app.db.session import get_db
 from app.models.audit_log import AuditLogEntry
 from app.models.user import Role, User
-from app.schemas.audit import AuditLogEntryRead, PaginatedAuditLog
+from app.schemas.audit import PaginatedAuditLog
 from app.users import require_role
 
 router = APIRouter(prefix="/api/admin/audit-log", tags=["admin"])
