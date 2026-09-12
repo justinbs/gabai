@@ -1,0 +1,95 @@
+%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#ffffff','primaryBorderColor':'#000000','primaryTextColor':'#000000','lineColor':'#000000','secondaryColor':'#ffffff','tertiaryColor':'#ffffff','attributeBackgroundColorOdd':'#ffffff','attributeBackgroundColorEven':'#ffffff'}}}%%
+erDiagram
+    users {
+        UUID id PK
+        varchar email UK
+        varchar hashed_password
+        boolean is_active
+        boolean is_superuser
+        boolean is_verified
+        varchar full_name
+        enum role
+        timestamp created_at
+    }
+    categories {
+        int id PK
+        varchar slug UK
+        varchar name
+        varchar description
+        boolean is_active
+    }
+    requests {
+        int id PK
+        varchar reference_number UK
+        UUID citizen_id FK
+        text description
+        int predicted_category_id FK
+        enum predicted_urgency
+        float category_confidence
+        float urgency_confidence
+        int final_category_id FK
+        enum final_urgency
+        enum status
+        UUID assigned_staff_id FK
+        varchar model_version
+        timestamp classified_at
+        timestamp created_at
+        timestamp updated_at
+        timestamp resolved_at
+    }
+    routing_rules {
+        int id PK
+        int category_id FK
+        UUID staff_id FK
+        boolean is_active
+    }
+    attachments {
+        int id PK
+        int request_id FK
+        varchar filename
+        varchar stored_path
+        varchar mime_type
+        int size_bytes
+        timestamp uploaded_at
+    }
+    notifications {
+        int id PK
+        UUID user_id FK
+        int request_id FK
+        varchar reference_number
+        text message
+        boolean is_read
+        timestamp created_at
+    }
+    status_history_entries {
+        int id PK
+        int request_id FK
+        enum from_status
+        enum to_status
+        UUID actor_id FK
+        text note
+        timestamp created_at
+    }
+    audit_log_entries {
+        int id PK
+        UUID actor_id FK
+        varchar action
+        varchar object_type
+        varchar object_id
+        jsonb detail
+        varchar ip_address
+        timestamp created_at
+    }
+
+    users ||--o{ requests : "citizen_id"
+    users ||--o{ requests : "assigned_staff_id"
+    categories ||--o{ requests : "predicted_category_id"
+    categories ||--o{ requests : "final_category_id"
+    categories ||--o{ routing_rules : "category_id"
+    users ||--o{ routing_rules : "staff_id"
+    requests ||--o{ attachments : "request_id"
+    users ||--o{ notifications : "user_id"
+    requests ||--o{ notifications : "request_id"
+    requests ||--o{ status_history_entries : "request_id"
+    users ||--o{ status_history_entries : "actor_id"
+    users ||--o{ audit_log_entries : "actor_id"
