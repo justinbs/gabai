@@ -23,8 +23,9 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Once per worker, never per request. Keep workers at 1 or 2 on a small
-    # instance: each one holds its own copy of the model.
+    # Once per worker, never per request. One worker on a small instance: each
+    # holds its own copy of both models, and onnxruntime releases the GIL so a
+    # single worker still handles concurrent requests.
     classifier.load()
     yield
 

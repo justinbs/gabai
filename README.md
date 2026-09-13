@@ -62,11 +62,12 @@ uvicorn directly:
 ```bash
 alembic upgrade head
 python -m app.seed
-uvicorn app.main:app --host 0.0.0.0 --workers 2
+uvicorn app.main:app --host 0.0.0.0 --workers 1
 ```
 
-Two workers, not more. The classifier loads once per worker, so on a 1 GB
-instance a third copy of the model costs more memory than it buys in throughput.
+One worker. The classifier loads a model per head per worker, so a second worker
+doubles the model memory. onnxruntime releases the GIL and inference runs in a
+threadpool, so one worker still serves concurrent requests.
 
 Frontend:
 

@@ -24,6 +24,7 @@ from starlette.concurrency import run_in_threadpool
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.inference import classifier
+from app.models.category import Category
 from app.models.enums import RequestStatus
 from app.models.request import Request
 from app.models.routing_rule import RoutingRule
@@ -31,6 +32,16 @@ from app.models.status_history import StatusHistoryEntry
 
 settings = get_settings()
 log = logging.getLogger(__name__)
+
+
+async def _category_id_for(db: AsyncSession, slug: str | None) -> int | None:
+    # The model returns a slug. Ids come from the database, never from a constant
+    # here, so the taxonomy stays in one place.
+    if slug is None:
+        return None
+    return (
+        await db.execute(select(Category.id).where(Category.slug == slug))
+    ).scalar_one_or_none()
 
 
 async def _handler_for(db: AsyncSession, category_id: int):
@@ -61,7 +72,14 @@ async def classify_and_route(request_id: int) -> None:
             log.exception("classification failed for request %s", request_id)
             return
 
-        request.predicted_category_id = prediction.category_id
+        category_id = await _category_id_for(db, prediction.category_slug)
+        if prediction.category_slug and category_id is None:
+            log.warning(
+                "model returned unknown category %s, sending to review",
+                prediction.category_slug,
+            )
+
+        request.predicted_category_id = category_id
         request.predicted_urgency = prediction.urgency
         request.category_confidence = prediction.category_confidence
         request.urgency_confidence = prediction.urgency_confidence
@@ -72,8 +90,8 @@ async def classify_and_route(request_id: int) -> None:
         # of the category but not the urgency is still not safe to route alone.
         confidence = min(prediction.category_confidence, prediction.urgency_confidence)
         handler = None
-        if confidence >= settings.confidence_threshold and prediction.category_id:
-            handler = await _handler_for(db, prediction.category_id)
+        if confidence >= settings.confidence_threshold and category_id:
+            handler = await _handler_for(db, category_id)
 
         if handler is None:
             request.status = RequestStatus.under_review

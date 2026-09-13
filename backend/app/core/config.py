@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     # Placeholder. The real value comes from the threshold sweep in ml/.
     confidence_threshold: float = 0.70
 
+    # Where the exported ONNX models live. Relative paths resolve from backend/.
+    # Missing is fine: requests go to manual review instead.
+    model_dir: str = "models"
+
     # Read by `python -m app.seed` only. A fresh database has no admin and no way
     # to make one through the API, so the first one comes from here.
     seed_admin_email: str | None = None

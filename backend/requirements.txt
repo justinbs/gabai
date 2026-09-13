@@ -8,6 +8,12 @@ psycopg[binary]==3.2.3
 fastapi-users[sqlalchemy]==14.0.1
 python-multipart==0.0.20
 
+# Inference. Not torch or transformers: the model ships as ONNX and only needs a
+# runtime and a tokenizer, which is what keeps this small enough for a 1 GB box.
+onnxruntime==1.20.1
+tokenizers==0.20.3
+numpy==2.2.1
+
 # Dev
 pytest==8.3.4
 httpx==0.28.1
