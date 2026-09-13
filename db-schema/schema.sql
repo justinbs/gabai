@@ -1,4 +1,3 @@
-
 CREATE TYPE role AS ENUM ('citizen', 'staff', 'admin');
 CREATE TYPE urgency AS ENUM ('low', 'medium', 'high');
 CREATE TYPE request_status AS ENUM (
