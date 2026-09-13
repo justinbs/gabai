@@ -6,6 +6,8 @@ numpy==2.2.1
 # The optimum onnxruntime extra caps this below 4.47
 transformers==4.46.3
 torch==2.5.1
+# Trainer refuses to start without it
+accelerate==1.2.1
 datasets==3.2.0
 evaluate==0.4.3
 matplotlib==3.10.0

@@ -44,3 +44,8 @@ backend/uploads/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Trained and exported models. Hundreds of MB, rebuilt by ml/scripts, and this
+# repo is public.
+ml/models/
+backend/models/
