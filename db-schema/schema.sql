@@ -1,5 +1,4 @@
--- GABAI database schema, generated from the current Alembic migrations.
--- Paste into Lucidchart: File > Import Data > SQL (PostgreSQL) to generate the ERD.
+
 
 CREATE TYPE role AS ENUM ('citizen', 'staff', 'admin');
 CREATE TYPE urgency AS ENUM ('low', 'medium', 'high');
@@ -54,8 +53,6 @@ CREATE TABLE routing_rules (
     staff_id    UUID NOT NULL REFERENCES users(id),
     is_active   BOOLEAN NOT NULL
 );
--- Partial unique index (not expressible in plain SQL import, add manually if needed):
--- one active routing rule per category: UNIQUE (category_id) WHERE is_active
 
 CREATE TABLE attachments (
     id          SERIAL PRIMARY KEY,
