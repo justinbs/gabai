@@ -1,0 +1,16 @@
+# Keep the build context small and never ship local state into an image.
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Runtime data, not code. Both are mounted as volumes instead.
+uploads/
+models/
+
+# Never. .env holds the real secret key and database password.
+.env
+.env.*

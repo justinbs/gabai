@@ -1,0 +1,38 @@
+# Replace with your domain before copying this to /etc/caddy/Caddyfile.
+# Caddy fetches and renews the certificate on its own, so there is no certbot
+# and no cron job.
+gabai.example.com {
+	encode gzip
+
+	# The API. Same origin as the site on purpose: the session cookie is
+	# SameSite=Lax, so a browser would not send it to a different host and
+	# every signed-in request would fail.
+	handle /api/* {
+		# The upload endpoint reads the whole body before checking its size, so
+		# cap it here where it costs nothing. Keeps a large POST from being
+		# buffered inside a 720 MB Python process.
+		request_body {
+			max_size 10MB
+		}
+		reverse_proxy 127.0.0.1:8000
+	}
+
+	# Everything else is the built React app. try_files sends unknown paths to
+	# index.html so client-side routes like /requests/12 work on a hard refresh
+	# instead of 404ing.
+	handle {
+		root * /srv/gabai/dist
+		try_files {path} /index.html
+		file_server
+	}
+
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+
+	log {
+		output file /var/log/caddy/gabai.log
+	}
+}

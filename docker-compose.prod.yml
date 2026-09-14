@@ -1,0 +1,34 @@
+# Production stack. Use alongside the base file:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Caddy is not here. It runs on the host so it can serve the built frontend from
+# /srv/gabai/dist and manage its own certificates, and so restarting the API
+# never interrupts HTTPS.
+
+services:
+  db:
+    # Not published. Only the api container reaches it, over the compose network.
+    ports: !override []
+
+  api:
+    build: ./backend
+    container_name: gabai-api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # The database lives at the compose service name, not localhost.
+      POSTGRES_HOST: db
+      ENVIRONMENT: production
+    volumes:
+      # Attachments and models are state, not image content. Mounting them means
+      # a retrained model is a file swap and a restart.
+      - ./backend/uploads:/app/uploads
+      - ./backend/models:/app/models:ro
+    ports:
+      # Loopback only. Caddy on the host proxies to it; nothing reaches it from
+      # the internet directly.
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy

@@ -85,6 +85,23 @@ every environment.
 The classifier is fine-tuned separately, and benchmarked against a TF-IDF + SVM
 baseline trained on the same split. See `ml/README.md`.
 
+## Deployment architecture
+
+One host runs the whole system. Caddy terminates TLS and serves the built React
+app, proxying `/api/*` to the API on loopback. The API and Postgres run as
+containers, and Postgres publishes no port, so it is reachable only over the
+container network. Attachments and the exported models are mounted from disk
+rather than built into the image, which makes a retrained model a file copy and
+a restart.
+
+The site and the API share one origin deliberately. The session cookie is
+`SameSite=Lax`, so a browser would not send it to a separately hosted frontend
+and every signed-in request would fail.
+
+Keeping the classifier in the API process means there is no second service to
+deploy or pay for. Quantizing it to int8 takes each head from 679 MB to 171 MB,
+which is what lets the whole system run on a small CPU-only instance.
+
 ## Conventions
 
 - Conventional commits (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:`)
