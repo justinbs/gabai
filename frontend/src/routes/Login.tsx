@@ -36,12 +36,19 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-white px-4 py-12">
-      <main className="mx-auto max-w-md">
-        <h1 className="text-[36px] font-bold tracking-tight">GABAI</h1>
+  <div className="min-h-screen bg-white px-4 py-12">
+    <main className="mx-auto max-w-md">
+      <div className="flex flex-col items-center text-center">
+        <img
+          src="/barangay-logo.jpg"
+          alt="Barangay V logo"
+          className="h-40 w-40 object-contain"
+        />
+        <h1 className="mt-3 text-[24px] font-bold tracking-tight">GABAI</h1>
         <p className="mt-1 text-[19px] text-muted">
           Barangay V (Singko), Amaya, Tanza, Cavite
         </p>
+      </div>
 
         <form
           onSubmit={submit}

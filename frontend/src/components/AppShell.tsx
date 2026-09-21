@@ -40,6 +40,11 @@ export function AppShell() {
           which place. */}
       <header className="bg-ink">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3">
+          <img
+            src="/barangay-logo.jpg"
+            alt="Barangay V logo"
+            className="h-10 w-10 object-contain"
+          />
           <span className="text-xl font-bold tracking-tight text-white">
             GABAI
           </span>
