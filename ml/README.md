@@ -16,7 +16,9 @@ scripts/    baseline, training, evaluation, quantization/export
 results/    metrics, confusion matrices, run logs (committed, because they are results)
 ```
 
-Model weights and checkpoints are gitignored. Datasets, splits, and results are not.
+Model weights and checkpoints are gitignored. Datasets, splits and results
+normally are not, but the draft-run files are ignored for now. Remove those
+two lines from `.gitignore` when the real dataset lands.
 
 ## Setup
 

@@ -49,3 +49,8 @@ desktop.ini
 # repo is public.
 ml/models/
 backend/models/
+
+# Draft-run artifacts from the pipeline test. The real dataset and splits do
+# get committed later, per ml/README.md, so remove these two lines then.
+ml/data/*.csv
+ml/results/*.json

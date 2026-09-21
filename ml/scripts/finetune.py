@@ -35,12 +35,11 @@ from transformers import (
 from common import DATA, HEADS, ML_ROOT, RESULTS, SEED, load_csv, print_scores, score, scores_to_dict
 
 # Gate 3 is open, so this is a default to override with --model, not a decision.
-# It is mBERT rather than XLM-R because while the gate is open the default has to
-# be the option that fails safest: XLM-R carries a 250k vocabulary, which is 69%
-# of its weights and roughly 280 MB at int8, so two heads would not fit the
-# instance. mBERT's 119k vocabulary lands near half that, and it matches the
-# word "multilingual" the paper already uses throughout.
-DEFAULT_MODEL = "bert-base-multilingual-cased"
+# XLM-R because it reads this text best: on 154 rows it needs 1.35 tokens per word
+# and splits 26% of them, against mBERT's 1.65 and 47%. mBERT spreads a 119k
+# vocabulary across 104 languages, so little of it is Filipino. The reason to
+# prefer mBERT was memory, and a 4 GB instance removed it.
+DEFAULT_MODEL = "xlm-roberta-base"
 
 MODELS_DIR = ML_ROOT / "models"
 

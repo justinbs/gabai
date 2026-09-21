@@ -31,8 +31,4 @@ gabai.example.com {
 		X-Frame-Options DENY
 		Referrer-Policy strict-origin-when-cross-origin
 	}
-
-	log {
-		output file /var/log/caddy/gabai.log
-	}
 }
