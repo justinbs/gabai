@@ -18,6 +18,11 @@ export interface paths {
          * @description Self-registration always creates a `citizen`. Staff and admin accounts are
          *     created by an admin via `POST /api/admin/users`; a `role` sent here is
          *     ignored rather than honoured, so this endpoint cannot be used to escalate.
+         *
+         *     The account starts with `approval_status: pending`. It can sign in, but
+         *     until staff approve it through `PATCH /api/registrations/{user_id}`,
+         *     every route except `/api/auth/me`, password change and logout answers
+         *     403. Only someone holding the password learns the account is pending.
          */
         post: {
             parameters: {
@@ -151,7 +156,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Current user */
+        /**
+         * Current user
+         * @description Works while `must_change_password` is set, so the client can tell the
+         *     person to change it. Everything else except `PUT /api/auth/password` and
+         *     logout answers 403 until they do.
+         */
         get: {
             parameters: {
                 query?: never;
@@ -175,6 +185,260 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change your own password
+         * @description Changes the password of the signed-in account. An admin changing someone
+         *     else's password uses `POST /api/admin/users/{user_id}/password` instead.
+         *
+         *     No audit row is written. Changing your own password crosses no
+         *     privilege boundary.
+         *
+         *     Existing session cookies stay valid until they expire. The session is
+         *     signed rather than stored server-side, so there is nothing to revoke.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PasswordChange"];
+                };
+            };
+            responses: {
+                /** @description Password changed. */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description The current password is wrong. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                422: components["responses"]["ValidationError"];
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/forgot-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email a password reset link
+         * @description Always 202, whether or not the address has an account, so the form
+         *     can't be used to find out who's registered. A link goes out only to a
+         *     confirmed address, since an unconfirmed one might belong to someone
+         *     else. One email per address every two minutes. The link carries the
+         *     token after `#` so it never reaches server logs, and it stops working
+         *     once the password changes.
+         *
+         *     Paths under `/api/auth` that are verbs come from the auth library, like
+         *     login and logout. Everything written for this system is a noun.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["EmailOnly"];
+                };
+            };
+            responses: {
+                /** @description Accepted. */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set a new password from an emailed link
+         * @description Same password rules as everywhere else. Clears `must_change_password`,
+         *     since the person chose this one. Existing sessions stay valid.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PasswordReset"];
+                };
+            };
+            responses: {
+                /** @description Password changed. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /**
+                 * @description `detail` is `RESET_PASSWORD_BAD_TOKEN` for an expired or used link,
+                 *     or an object `{code: RESET_PASSWORD_INVALID_PASSWORD, reason}` when
+                 *     the new password breaks the rules.
+                 */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/request-verify-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email a link to confirm the address
+         * @description Always 202. Sent automatically at sign-up; this resends it. Same
+         *     two-minute limit per address. The link lasts 24 hours.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["EmailOnly"];
+                };
+            };
+            responses: {
+                /** @description Accepted. */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm an email address from the emailed link */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["TokenOnly"];
+                };
+            };
+            responses: {
+                /** @description Confirmed. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["User"];
+                    };
+                };
+                /** @description `VERIFY_USER_BAD_TOKEN` or `VERIFY_USER_ALREADY_VERIFIED`. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -776,6 +1040,118 @@ export interface paths {
         };
         trace?: never;
     };
+    "/api/registrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List resident sign-ups by approval status
+         * @description Staff and admins. Citizens only, oldest first, so whoever signed up
+         *     first gets checked first. Defaults to `pending`.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    limit?: components["parameters"]["Limit"];
+                    offset?: components["parameters"]["Offset"];
+                    status?: "pending" | "rejected";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description A page of sign-ups. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PaginatedResponse"] & {
+                            items?: components["schemas"]["User"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/registrations/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Approve or turn down a resident sign-up
+         * @description Staff and admins. Citizens only. A turned-down sign-up can be approved
+         *     later, so a mistake is not permanent. An approved account can't be
+         *     turned down here, since that would let staff lock residents out, which
+         *     is an admin's call through `PATCH /api/admin/users/{user_id}`. Approving
+         *     needs a confirmed email while `REQUIRE_VERIFIED_EMAIL` is on, 409
+         *     otherwise. Writes an audit row, `user.approved` or `user.rejected`.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    user_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RegistrationDecision"];
+                };
+            };
+            responses: {
+                /** @description Decided. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["User"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                /** @description No citizen account with that id. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                409: components["responses"]["Conflict"];
+            };
+        };
+        trace?: never;
+    };
     "/api/admin/users": {
         parameters: {
             query?: never;
@@ -905,6 +1281,60 @@ export interface paths {
                 422: components["responses"]["ValidationError"];
             };
         };
+        trace?: never;
+    };
+    "/api/admin/users/{user_id}/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset an account password
+         * @description Issues a temporary password and returns it once, in this response. It is
+         *     never stored unhashed and never appears in the audit log, which any admin
+         *     can read. The admin reads it to the account holder, who changes it.
+         *
+         *     Writes an audit row with action `user.password_reset` and no detail.
+         *     Sets `must_change_password`. The temporary password can still sign in,
+         *     but that session can only change the password until it's replaced.
+         *
+         *     An admin may reset their own account, so there is no 409 here.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    user_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Password reset. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TemporaryPassword"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/admin/routing-rules": {
@@ -1072,6 +1502,27 @@ export interface components {
             limit: number;
             offset: number;
         };
+        EmailOnly: {
+            /** Format: email */
+            email: string;
+        };
+        TokenOnly: {
+            token: string;
+        };
+        PasswordReset: {
+            token: string;
+            /** Format: password */
+            password: string;
+        };
+        RegistrationDecision: {
+            /** @enum {string} */
+            approval_status: "approved" | "rejected";
+        };
+        /**
+         * @description Staff and admin accounts are always `approved`.
+         * @enum {string}
+         */
+        ApprovalStatus: "pending" | "approved" | "rejected";
         /** @enum {string} */
         Role: "citizen" | "staff" | "admin";
         /**
@@ -1099,6 +1550,20 @@ export interface components {
             full_name: string;
             role: components["schemas"]["Role"];
             is_active: boolean;
+            /** @description The person clicked the link emailed to this address. */
+            is_verified: boolean;
+            approval_status: components["schemas"]["ApprovalStatus"];
+            /**
+             * @description Purok or street, as the resident typed it at sign-up. Only there so
+             *     staff can confirm the person lives in the barangay. Null for staff
+             *     and admin accounts.
+             */
+            residence?: string | null;
+            /**
+             * @description Set when an admin creates the account or resets its password, cleared
+             *     when the person sets their own. Enforced server-side.
+             */
+            must_change_password: boolean;
             /** Format: date-time */
             created_at: string;
         };
@@ -1115,6 +1580,8 @@ export interface components {
             /** Format: password */
             password: string;
             full_name: string;
+            /** @description Purok or street, so staff can confirm residency. */
+            residence?: string;
         };
         LoginRequest: {
             /**
@@ -1125,7 +1592,13 @@ export interface components {
             /** Format: password */
             password: string;
         };
-        UserCreate: components["schemas"]["RegisterRequest"] & {
+        /** @description Admin-created accounts are approved from the start. */
+        UserCreate: {
+            /** Format: email */
+            email: string;
+            /** Format: password */
+            password: string;
+            full_name: string;
             role: components["schemas"]["Role"];
         };
         /** @description Only the supplied fields change. */
@@ -1133,6 +1606,23 @@ export interface components {
             full_name?: string;
             role?: components["schemas"]["Role"];
             is_active?: boolean;
+        };
+        PasswordChange: {
+            /** Format: password */
+            current_password: string;
+            /** Format: password */
+            new_password: string;
+        };
+        /**
+         * @description Returned once and never again. The plaintext exists only in this response
+         *     body; the stored value is hashed like any other password.
+         */
+        TemporaryPassword: {
+            /**
+             * @description Ten characters from an alphabet with `0`, `O`, `1`, `l` and `I`
+             *     removed, because someone reads this aloud at a shared desk.
+             */
+            temporary_password: string;
         };
         Category: {
             id: number;
@@ -1332,7 +1822,11 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description Authenticated, but the role does not permit this action. */
+        /**
+         * @description Authenticated, but not allowed. The role does not permit this action,
+         *     the account is still waiting for approval, or it is on a temporary
+         *     password and has to change it first.
+         */
         Forbidden: {
             headers: {
                 [name: string]: unknown;

@@ -37,6 +37,8 @@ tags:
     description: Manual review queue for low-confidence classifications
   - name: categories
   - name: notifications
+  - name: registrations
+    description: Staff approving residents who signed up
   - name: admin
     description: Account management, routing configuration, audit log
 
@@ -53,6 +55,11 @@ paths:
         Self-registration always creates a `citizen`. Staff and admin accounts are
         created by an admin via `POST /api/admin/users`; a `role` sent here is
         ignored rather than honoured, so this endpoint cannot be used to escalate.
+
+        The account starts with `approval_status: pending`. It can sign in, but
+        until staff approve it through `PATCH /api/registrations/{user_id}`,
+        every route except `/api/auth/me`, password change and logout answers
+        403. Only someone holding the password learns the account is pending.
       security: []
       requestBody:
         required: true
@@ -120,6 +127,10 @@ paths:
     get:
       tags: [auth]
       summary: Current user
+      description: |
+        Works while `must_change_password` is set, so the client can tell the
+        person to change it. Everything else except `PUT /api/auth/password` and
+        logout answers 403 until they do.
       responses:
         "200":
           description: The authenticated user.
@@ -129,6 +140,135 @@ paths:
                 $ref: "#/components/schemas/User"
         "401":
           $ref: "#/components/responses/Unauthorized"
+
+  /api/auth/password:
+    put:
+      tags: [auth]
+      summary: Change your own password
+      description: |
+        Changes the password of the signed-in account. An admin changing someone
+        else's password uses `POST /api/admin/users/{user_id}/password` instead.
+
+        No audit row is written. Changing your own password crosses no
+        privilege boundary.
+
+        Existing session cookies stay valid until they expire. The session is
+        signed rather than stored server-side, so there is nothing to revoke.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordChange"
+      responses:
+        "204":
+          description: Password changed.
+        "400":
+          description: The current password is wrong.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /api/auth/forgot-password:
+    post:
+      tags: [auth]
+      summary: Email a password reset link
+      description: |
+        Always 202, whether or not the address has an account, so the form
+        can't be used to find out who's registered. A link goes out only to a
+        confirmed address, since an unconfirmed one might belong to someone
+        else. One email per address every two minutes. The link carries the
+        token after `#` so it never reaches server logs, and it stops working
+        once the password changes.
+
+        Paths under `/api/auth` that are verbs come from the auth library, like
+        login and logout. Everything written for this system is a noun.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailOnly"
+      responses:
+        "202":
+          description: Accepted.
+
+  /api/auth/reset-password:
+    post:
+      tags: [auth]
+      summary: Set a new password from an emailed link
+      description: |
+        Same password rules as everywhere else. Clears `must_change_password`,
+        since the person chose this one. Existing sessions stay valid.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordReset"
+      responses:
+        "200":
+          description: Password changed.
+        "400":
+          description: |
+            `detail` is `RESET_PASSWORD_BAD_TOKEN` for an expired or used link,
+            or an object `{code: RESET_PASSWORD_INVALID_PASSWORD, reason}` when
+            the new password breaks the rules.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/auth/request-verify-token:
+    post:
+      tags: [auth]
+      summary: Email a link to confirm the address
+      description: |
+        Always 202. Sent automatically at sign-up; this resends it. Same
+        two-minute limit per address. The link lasts 24 hours.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailOnly"
+      responses:
+        "202":
+          description: Accepted.
+
+  /api/auth/verify:
+    post:
+      tags: [auth]
+      summary: Confirm an email address from the emailed link
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TokenOnly"
+      responses:
+        "200":
+          description: Confirmed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          description: |
+            `VERIFY_USER_BAD_TOKEN` or `VERIFY_USER_ALREADY_VERIFIED`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   # ------------------------------------------------------------ requests ----
   /api/requests:
@@ -539,6 +679,86 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  # ------------------------------------------------------- registrations ----
+  /api/registrations:
+    get:
+      tags: [registrations]
+      summary: List resident sign-ups by approval status
+      description: |
+        Staff and admins. Citizens only, oldest first, so whoever signed up
+        first gets checked first. Defaults to `pending`.
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, rejected]
+            default: pending
+      responses:
+        "200":
+          description: A page of sign-ups.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedResponse"
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/registrations/{user_id}:
+    parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      tags: [registrations]
+      summary: Approve or turn down a resident sign-up
+      description: |
+        Staff and admins. Citizens only. A turned-down sign-up can be approved
+        later, so a mistake is not permanent. An approved account can't be
+        turned down here, since that would let staff lock residents out, which
+        is an admin's call through `PATCH /api/admin/users/{user_id}`. Approving
+        needs a confirmed email while `REQUIRE_VERIFIED_EMAIL` is on, 409
+        otherwise. Writes an audit row, `user.approved` or `user.rejected`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegistrationDecision"
+      responses:
+        "200":
+          description: Decided.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: No citizen account with that id.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
   # --------------------------------------------------------------- admin ----
   /api/admin/users:
     get:
@@ -643,6 +863,41 @@ paths:
           $ref: "#/components/responses/Conflict"
         "422":
           $ref: "#/components/responses/ValidationError"
+
+  /api/admin/users/{user_id}/password:
+    parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags: [admin]
+      summary: Reset an account password
+      description: |
+        Issues a temporary password and returns it once, in this response. It is
+        never stored unhashed and never appears in the audit log, which any admin
+        can read. The admin reads it to the account holder, who changes it.
+
+        Writes an audit row with action `user.password_reset` and no detail.
+        Sets `must_change_password`. The temporary password can still sign in,
+        but that session can only change the password until it's replaced.
+
+        An admin may reset their own account, so there is no 409 here.
+      responses:
+        "200":
+          description: Password reset.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TemporaryPassword"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /api/admin/routing-rules:
     get:
@@ -798,7 +1053,10 @@ components:
           schema:
             $ref: "#/components/schemas/Error"
     Forbidden:
-      description: Authenticated, but the role does not permit this action.
+      description: |
+        Authenticated, but not allowed. The role does not permit this action,
+        the account is still waiting for approval, or it is on a temporary
+        password and has to change it first.
       content:
         application/json:
           schema:
@@ -870,7 +1128,47 @@ components:
         offset:
           type: integer
 
+    EmailOnly:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+
+    TokenOnly:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+
+    PasswordReset:
+      type: object
+      required: [token, password]
+      properties:
+        token:
+          type: string
+        password:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 128
+
+    RegistrationDecision:
+      type: object
+      required: [approval_status]
+      properties:
+        approval_status:
+          type: string
+          enum: [approved, rejected]
+
     # --------------------------------------------------------- enums ------
+    ApprovalStatus:
+      type: string
+      enum: [pending, approved, rejected]
+      description: Staff and admin accounts are always `approved`.
+
     Role:
       type: string
       enum: [citizen, staff, admin]
@@ -898,7 +1196,7 @@ components:
     # --------------------------------------------------------- users ------
     User:
       type: object
-      required: [id, email, full_name, role, is_active, created_at]
+      required: [id, email, full_name, role, is_active, is_verified, approval_status, must_change_password, created_at]
       properties:
         id:
           type: string
@@ -917,6 +1215,22 @@ components:
           $ref: "#/components/schemas/Role"
         is_active:
           type: boolean
+        is_verified:
+          type: boolean
+          description: The person clicked the link emailed to this address.
+        approval_status:
+          $ref: "#/components/schemas/ApprovalStatus"
+        residence:
+          type: [string, "null"]
+          description: |
+            Purok or street, as the resident typed it at sign-up. Only there so
+            staff can confirm the person lives in the barangay. Null for staff
+            and admin accounts.
+        must_change_password:
+          type: boolean
+          description: |
+            Set when an admin creates the account or resets its password, cleared
+            when the person sets their own. Enforced server-side.
         created_at:
           type: string
           format: date-time
@@ -951,6 +1265,11 @@ components:
           type: string
           minLength: 1
           maxLength: 150
+        residence:
+          type: string
+          minLength: 1
+          maxLength: 150
+          description: Purok or street, so staff can confirm residency.
 
     LoginRequest:
       type: object
@@ -965,13 +1284,25 @@ components:
           format: password
 
     UserCreate:
-      allOf:
-        - $ref: "#/components/schemas/RegisterRequest"
-        - type: object
-          required: [role]
-          properties:
-            role:
-              $ref: "#/components/schemas/Role"
+      description: Admin-created accounts are approved from the start.
+      type: object
+      required: [email, password, full_name, role]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 255
+        password:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 128
+        full_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        role:
+          $ref: "#/components/schemas/Role"
 
     UserUpdate:
       type: object
@@ -985,6 +1316,32 @@ components:
           $ref: "#/components/schemas/Role"
         is_active:
           type: boolean
+
+    PasswordChange:
+      type: object
+      required: [current_password, new_password]
+      properties:
+        current_password:
+          type: string
+          format: password
+        new_password:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 128
+
+    TemporaryPassword:
+      type: object
+      description: |
+        Returned once and never again. The plaintext exists only in this response
+        body; the stored value is hashed like any other password.
+      required: [temporary_password]
+      properties:
+        temporary_password:
+          type: string
+          description: |
+            Ten characters from an alphabet with `0`, `O`, `1`, `l` and `I`
+            removed, because someone reads this aloud at a shared desk.
 
     # ---------------------------------------------------- categories ------
     Category:
