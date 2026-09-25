@@ -66,7 +66,7 @@ export function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 z-10 mt-2 w-80 border-2 border-ink bg-white shadow-[0_3px_0_#0b0c0c]">
+        <div className="absolute right-0 z-10 mt-2 w-80 max-w-[calc(100vw-2rem)] border-2 border-ink bg-white shadow-[0_3px_0_#0b0c0c]">
           {items.length === 0 ? (
             <p className="p-4 text-muted">Nothing here yet</p>
           ) : (

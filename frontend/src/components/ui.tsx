@@ -1,4 +1,9 @@
-import type { ButtonHTMLAttributes, ReactNode, TextareaHTMLAttributes } from "react";
+import type {
+  ButtonHTMLAttributes,
+  InputHTMLAttributes,
+  ReactNode,
+  TextareaHTMLAttributes,
+} from "react";
 
 // Shared primitives. Squared corners, hairline rules, no cards and no shadows.
 // Colour appears only where it carries meaning, so the chrome stays black and
@@ -50,6 +55,37 @@ export function PageHeading({
         {title}
       </h1>
       {description && <p className="mt-1 text-[19px] text-muted">{description}</p>}
+    </div>
+  );
+}
+
+type InputProps = InputHTMLAttributes<HTMLInputElement> & {
+  label: string;
+  hint?: string;
+};
+
+// Every form using this reports errors in one line at the top, so there's no
+// per-field error here yet.
+export function Input({ label, hint, id, className = "", ...props }: InputProps) {
+  const fieldId = id ?? props.name ?? "input";
+  const hintId = `${fieldId}-hint`;
+
+  return (
+    <div className={className}>
+      <label htmlFor={fieldId} className="block text-[19px] font-bold">
+        {label}
+      </label>
+      {hint && (
+        <p id={hintId} className="mt-1 text-muted">
+          {hint}
+        </p>
+      )}
+      <input
+        id={fieldId}
+        aria-describedby={hint ? hintId : undefined}
+        className="mt-2 block w-full border-2 border-ink px-3 py-2 text-[19px] focus:outline-3 focus:outline-ink focus-visible:shadow-[0_0_0_4px_#ffdd00]"
+        {...props}
+      />
     </div>
   );
 }

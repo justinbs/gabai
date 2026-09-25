@@ -49,20 +49,47 @@ export const register = async (draft: {
   full_name: string;
   email: string;
   password: string;
+  residence: string;
 }): Promise<User | null> => {
   try {
     return await http.post<User>("/api/auth/register", {
       email: draft.email.trim().toLowerCase(),
       password: draft.password,
       full_name: draft.full_name.trim(),
+      residence: draft.residence.trim(),
     });
   } catch (err) {
+    // 409 means the email is taken. A 422 is the password policy and carries its
+    // own message, so it's thrown for the screen to show.
     if (err instanceof ApiError && (err.status === 409 || err.status === 400)) {
       return null;
     }
     throw err;
   }
 };
+
+// Throws ApiError: 400 wrong current password, 422 new one fails the policy.
+export const changePassword = (currentPassword: string, newPassword: string) =>
+  http.put<void>("/api/auth/password", {
+    current_password: currentPassword,
+    new_password: newPassword,
+  });
+
+// All four are the auth library's routes. The two "send" ones are always 202,
+// whether or not the address has an account.
+export const requestPasswordEmail = (email: string) =>
+  http.post<void>("/api/auth/forgot-password", { email: email.trim().toLowerCase() });
+
+// Throws ApiError 400: message is RESET_PASSWORD_BAD_TOKEN, or a policy reason.
+export const setPasswordFromLink = (token: string, password: string) =>
+  http.post<void>("/api/auth/reset-password", { token, password });
+
+export const requestVerifyEmail = (email: string) =>
+  http.post<void>("/api/auth/request-verify-token", { email: email.trim().toLowerCase() });
+
+// Throws ApiError 400: VERIFY_USER_BAD_TOKEN or VERIFY_USER_ALREADY_VERIFIED.
+export const verifyEmail = (token: string) =>
+  http.post<User>("/api/auth/verify", { token });
 
 // ---------------------------------------------------------- categories ----
 
@@ -189,6 +216,22 @@ export const markNotificationRead = async (
   }
 };
 
+// ------------------------------------------------------- registrations ----
+
+export const listRegistrations = async (
+  status: "pending" | "rejected" = "pending",
+): Promise<User[]> => {
+  const page = await http.get<Paginated<User>>(
+    `/api/registrations?status=${status}&limit=100`,
+  );
+  return page.items;
+};
+
+// Throws ApiError 409 with the reason: already approved, or email not
+// confirmed yet. 404 when it isn't a resident's account.
+export const decideRegistration = (id: string, decision: "approved" | "rejected") =>
+  http.patch<User>(`/api/registrations/${id}`, { approval_status: decision });
+
 // ------------------------------------------------------- admin: users -----
 
 export type UserDraft = { full_name: string; email: string; password: string; role: Role };
@@ -212,6 +255,13 @@ export const createUser = async (draft: UserDraft): Promise<User | null> => {
     if (err instanceof ApiError && err.status === 409) return null;
     throw err;
   }
+};
+
+export const resetPassword = async (id: string): Promise<string> => {
+  const body = await http.post<{ temporary_password: string }>(
+    `/api/admin/users/${id}/password`,
+  );
+  return body.temporary_password;
 };
 
 export const updateUser = async (

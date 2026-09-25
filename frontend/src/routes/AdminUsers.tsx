@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import * as api from "../api/client";
+import { ApiError } from "../api/http";
 import {
   Button,
   EmptyState,
   ErrorState,
+  Input,
   Loading,
   PageHeading,
   Select,
@@ -12,19 +14,27 @@ import {
 import { fullDate } from "../lib/format";
 import { useAsync } from "../lib/useAsync";
 import { usePageTitle } from "../lib/usePageTitle";
+import { useUser } from "../session-context";
 import { ROLE_LABELS } from "../api/types";
 import type { Role, User } from "../api/types";
 
 const ROLES: Role[] = ["citizen", "staff", "admin"];
-
-const FIELD =
-  "mt-2 block w-full border-2 border-ink px-3 py-2 text-[19px] focus:outline-3 focus:outline-ink focus-visible:shadow-[0_0_0_4px_#ffdd00]";
 
 export function AdminUsers() {
   usePageTitle("Accounts");
   const { state, reload } = useAsync(() => api.listUsers(), []);
   const [message, setMessage] = useState("");
   const [refusal, setRefusal] = useState("");
+  // Shown once. Leaving the page loses it, and that's the point.
+  const [issued, setIssued] = useState<{ name: string; password: string } | null>(null);
+  const issuedRef = useRef<HTMLDivElement>(null);
+
+  // The reset button can be far down the table. Focus scrolls the password into
+  // view and gets a screen reader to read it, which a live region that mounts
+  // with its text already in it often doesn't.
+  useEffect(() => {
+    if (issued) issuedRef.current?.focus();
+  }, [issued]);
 
   const report = (text: string, ok: boolean) => {
     setMessage(ok ? text : "");
@@ -35,6 +45,25 @@ export function AdminUsers() {
   return (
     <>
       <PageHeading title="Accounts" />
+
+      {issued && (
+        <div
+          ref={issuedRef}
+          tabIndex={-1}
+          className="mb-6 border-l-4 border-brand pl-4 focus:outline-3 focus:outline-ink"
+        >
+          <p className="font-bold">Temporary password for {issued.name}</p>
+          <p className="mt-1 select-all font-mono text-[28px] tracking-wider">
+            {issued.password}
+          </p>
+          <p className="mt-1 text-muted">
+            Read it to them, they'll pick their own when they sign in
+          </p>
+          <Button variant="secondary" className="mt-3" onClick={() => setIssued(null)}>
+            Done
+          </Button>
+        </div>
+      )}
 
       <p
         role="status"
@@ -63,7 +92,15 @@ export function AdminUsers() {
           {state.data.length === 0 ? (
             <EmptyState title="No accounts" description="Add someone below" />
           ) : (
-            <UserTable users={state.data} onChanged={report} />
+            <UserTable
+              users={state.data}
+              onChanged={report}
+              onReset={(name, password) => {
+                setMessage("");
+                setRefusal("");
+                setIssued({ name, password });
+              }}
+            />
           )}
           <NewUser onCreated={(text) => report(text, true)} />
         </>
@@ -75,13 +112,31 @@ export function AdminUsers() {
 function UserTable({
   users,
   onChanged,
+  onReset,
 }: {
   users: User[];
   onChanged: (message: string, ok: boolean) => void;
+  onReset: (name: string, password: string) => void;
 }) {
+  const me = useUser();
   const [busy, setBusy] = useState<string>();
 
-  // Client-side heuristic only, computed from the list we just fetched —
+  const reset = async (user: User) => {
+    const sure = window.confirm(
+      `Reset the password for ${user.full_name}? Their current one will stop working`,
+    );
+    if (!sure) return;
+    setBusy(user.id);
+    try {
+      onReset(user.full_name, await api.resetPassword(user.id));
+    } catch {
+      onChanged("Didn't reset, try again", false);
+    } finally {
+      setBusy(undefined);
+    }
+  };
+
+  // Client-side heuristic only, computed from the list we just fetched,
   // just so the button can warn before clicking. The server has final say
   // (409) regardless, using its own live count at the moment of the request.
   const activeAdminCount = users.filter((u) => u.role === "admin" && u.is_active).length;
@@ -149,21 +204,42 @@ function UserTable({
                   {fullDate(user.created_at)}
                 </td>
                 <td className="py-3 pr-4 align-top">
-                  {user.is_active ? "Active" : "Inactive"}
+                  {!user.is_active
+                    ? "Inactive"
+                    : user.approval_status === "pending"
+                      ? "Waiting for approval"
+                      : user.approval_status === "rejected"
+                        ? "Turned down"
+                        : "Active"}
                 </td>
                 <td className="py-3 align-top">
-                  {locked ? (
-                    <span className="text-muted">Last admin</span>
-                  ) : (
-                    <Button
-                      variant="secondary"
-                      disabled={busy === user.id}
-                      aria-label={`${user.is_active ? "Deactivate" : "Reactivate"} ${user.full_name}`}
-                      onClick={() => change(user, { is_active: !user.is_active })}
-                    >
-                      {user.is_active ? "Deactivate" : "Reactivate"}
-                    </Button>
-                  )}
+                  <div className="flex flex-wrap gap-3">
+                    {locked ? (
+                      <span className="self-center text-muted">Last admin</span>
+                    ) : (
+                      <Button
+                        variant="secondary"
+                        disabled={busy === user.id}
+                        aria-label={`${user.is_active ? "Deactivate" : "Reactivate"} ${user.full_name}`}
+                        onClick={() => change(user, { is_active: !user.is_active })}
+                      >
+                        {user.is_active ? "Deactivate" : "Reactivate"}
+                      </Button>
+                    )}
+                    {/* Your own is changed from Your account, where you know the old
+                        one. An inactive account can't sign in, so a temporary
+                        password for it would be useless */}
+                    {user.id !== me.id && user.is_active && (
+                      <Button
+                        variant="secondary"
+                        disabled={busy === user.id}
+                        aria-label={`Reset password for ${user.full_name}`}
+                        onClick={() => reset(user)}
+                      >
+                        Reset password
+                      </Button>
+                    )}
+                  </div>
                 </td>
               </tr>
             );
@@ -188,8 +264,8 @@ function NewUser({ onCreated }: { onCreated: (message: string) => void }) {
       setError("Name and email are both needed");
       return;
     }
-    if (password.length < 8) {
-      setError("Password needs at least 8 characters");
+    if (!password) {
+      setError("Set a temporary password");
       return;
     }
     setError("");
@@ -203,9 +279,11 @@ function NewUser({ onCreated }: { onCreated: (message: string) => void }) {
       setName("");
       setEmail("");
       setPassword("");
-      onCreated(`Added ${created.full_name}`);
-    } catch {
-      setError("Didn't save, try again");
+      onCreated(`Added ${created.full_name}, they'll pick their own password when they sign in`);
+    } catch (err) {
+      setError(
+        err instanceof ApiError && err.status === 422 ? err.message : "Didn't save, try again",
+      );
     } finally {
       setBusy(false);
     }
@@ -227,41 +305,22 @@ function NewUser({ onCreated }: { onCreated: (message: string) => void }) {
       </p>
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        <div>
-          <label htmlFor="name" className="block text-[19px] font-bold">
-            Name
-          </label>
-          <input
-            id="name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className={FIELD}
-          />
-        </div>
-        <div>
-          <label htmlFor="new-email" className="block text-[19px] font-bold">
-            Email
-          </label>
-          <input
-            id="new-email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className={FIELD}
-          />
-        </div>
-        <div>
-          <label htmlFor="new-password" className="block text-[19px] font-bold">
-            Temporary password
-          </label>
-          <input
-            id="new-password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className={FIELD}
-          />
-        </div>
+        <Input id="name" label="Name" value={name} onChange={(e) => setName(e.target.value)} />
+        <Input
+          id="new-email"
+          label="Email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <Input
+          id="new-password"
+          label="Temporary password"
+          type="password"
+          autoComplete="new-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
         <Select
           name="new-role"
           label="Role"

@@ -11,6 +11,11 @@ function extractMessage(data: unknown, fallback: string): string {
   if (!data || typeof data !== "object") return fallback;
   const body = data as Record<string, unknown>;
   if (typeof body.detail === "string") return body.detail;
+  if (body.detail && typeof body.detail === "object" && !Array.isArray(body.detail)) {
+    const detail = body.detail as Record<string, unknown>;
+    if (typeof detail.reason === "string") return detail.reason;
+    if (typeof detail.code === "string") return detail.code;
+  }
   if (Array.isArray(body.detail) && body.detail[0] && typeof body.detail[0] === "object") {
     const first = body.detail[0] as Record<string, unknown>;
     if (typeof first.msg === "string") return first.msg;

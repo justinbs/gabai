@@ -2,12 +2,13 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import * as api from "../api/client";
-import { Button, FOCUS_LINK } from "../components/ui";
+import { ApiError } from "../api/http";
+import { PublicShell } from "../components/SiteChrome";
+import { Button, FOCUS_LINK, Input } from "../components/ui";
+import { bilingualPolicy } from "../lib/passwordMessages";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useSession } from "../session-context";
 
-const FIELD =
-  "mt-2 block w-full border-2 border-ink px-3 py-2 text-[19px] focus:outline-3 focus:outline-ink focus-visible:shadow-[0_0_0_4px_#ffdd00]";
 
 export function Register() {
   usePageTitle("Create an account");
@@ -16,6 +17,7 @@ export function Register() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [residence, setResidence] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -29,14 +31,18 @@ export function Register() {
       setError("We need your email · Kailangan po ang email ninyo");
       return;
     }
-    if (password.length < 8) {
-      setError("Password needs 8 characters · Kailangan ng 8 karakter");
+    if (!residence.trim()) {
+      setError("We need your purok or street · Kailangan po ang purok o kalye ninyo");
+      return;
+    }
+    if (!password) {
+      setError("We need a password · Kailangan po ng password");
       return;
     }
     setError("");
     setBusy(true);
     try {
-      const created = await api.register({ full_name: name, email, password });
+      const created = await api.register({ full_name: name, email, password, residence });
       if (!created) {
         setError("Someone already uses that email · May gumagamit na nito");
         return;
@@ -46,15 +52,21 @@ export function Register() {
         setError("Account made, please sign in · Nagawa na, mag-sign in po");
         return;
       }
-      navigate("/requests");
+      navigate("/");
+    } catch (err) {
+      setError(
+        err instanceof ApiError && err.status === 422
+          ? bilingualPolicy(err.message)
+          : "Didn't save, try again · Hindi nai-save, subukan ulit",
+      );
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-white px-4 py-12">
-      <main className="mx-auto max-w-md">
+    <PublicShell>
+      <div className="mx-auto max-w-md">
         <h1 className="text-[36px] font-bold tracking-tight">Create an account</h1>
         <p className="mt-1 text-[19px] text-muted">Gumawa ng account</p>
 
@@ -70,37 +82,39 @@ export function Register() {
             {error}
           </p>
 
-          <label htmlFor="name" className="block text-[19px] font-bold">
-            Full name · Buong pangalan
-          </label>
-          <input id="name" value={name} onChange={(e) => setName(e.target.value)} className={FIELD} />
-
-          <label htmlFor="email" className="mt-5 block text-[19px] font-bold">
-            Email
-          </label>
-          <input
+          <Input
+            id="name"
+            label="Full name · Buong pangalan"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <Input
             id="email"
+            label="Email"
             type="email"
             autoComplete="username"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className={FIELD}
+            className="mt-5"
           />
-
-          <label htmlFor="password" className="mt-5 block text-[19px] font-bold">
-            Password
-          </label>
-          <p id="password-hint" className="mt-1 text-muted">
-            At least 8 characters · Hindi bababa sa 8 karakter
-          </p>
-          <input
+          <Input
+            id="residence"
+            label="Purok or street · Purok o kalye"
+            hint="So the barangay can check you live here · Para matiyak ng barangay na taga-rito kayo"
+            autoComplete="address-line1"
+            value={residence}
+            onChange={(e) => setResidence(e.target.value)}
+            className="mt-5"
+          />
+          <Input
             id="password"
+            label="Password"
+            hint="At least 8 characters · Hindi bababa sa 8 karakter"
             type="password"
             autoComplete="new-password"
-            aria-describedby="password-hint"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className={FIELD}
+            className="mt-5"
           />
 
           <div className="mt-6 flex flex-wrap items-center gap-4">
@@ -112,7 +126,7 @@ export function Register() {
             </Link>
           </div>
         </form>
-      </main>
-    </div>
+      </div>
+    </PublicShell>
   );
 }

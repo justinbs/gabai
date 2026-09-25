@@ -10,7 +10,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [initializing, setInitializing] = useState(true);
 
   // On first load, ask the server if a valid session cookie is already
-  // attached to this browser — that's the only source of truth now.
+  // attached to this browser. That's the only source of truth now.
   useEffect(() => {
     let cancelled = false;
     api.getCurrentUser().then((found) => {
@@ -37,8 +37,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  const refresh = useCallback(async () => {
+    const found = await api.getCurrentUser();
+    setUser(found);
+    return found;
+  }, []);
+
   return (
-    <SessionContext.Provider value={{ user, initializing, signIn, signOut }}>
+    <SessionContext.Provider value={{ user, initializing, signIn, signOut, refresh }}>
       {children}
     </SessionContext.Provider>
   );

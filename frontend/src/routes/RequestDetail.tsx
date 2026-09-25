@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import * as api from "../api/client";
@@ -165,24 +165,56 @@ function Attachment({
 }) {
   const url = api.attachmentUrl(requestId, file.id);
   const isImage = file.mime_type.startsWith("image/");
+  const viewer = useRef<HTMLDialogElement>(null);
 
+  if (!isImage) {
+    return (
+      <li>
+        <a href={url} download className={`block text-link underline ${FOCUS_LINK}`}>
+          {file.filename}
+        </a>
+      </li>
+    );
+  }
+
+  // A native dialog gives Esc to close, focus kept inside, and the page behind
+  // marked inert, without writing any of it. The full image is the same URL as
+  // the thumbnail, so opening it downloads nothing new.
   return (
     <li>
-      <a
-        href={url}
-        target="_blank"
-        rel="noreferrer"
-        className="block text-link underline"
+      <button
+        type="button"
+        onClick={() => viewer.current?.showModal()}
+        className={`block text-left text-link underline ${FOCUS_LINK}`}
       >
-        {isImage && (
-          <img
-            src={url}
-            alt=""
-            className="mb-1 h-28 w-28 border border-rule object-cover"
-          />
-        )}
+        <img
+          src={url}
+          alt=""
+          className="mb-1 h-28 w-28 border border-rule object-cover"
+        />
         {file.filename}
-      </a>
+      </button>
+
+      <dialog
+        ref={viewer}
+        aria-label={file.filename}
+        className="m-auto max-h-[92vh] max-w-[92vw] bg-white p-0 backdrop:bg-ink/80"
+      >
+        <div className="flex flex-wrap items-center gap-4 border-b border-rule px-4 py-2">
+          <span className="mr-auto break-all font-bold">{file.filename}</span>
+          <a href={url} download className={`text-link underline ${FOCUS_LINK}`}>
+            Download
+          </a>
+          <Button variant="secondary" onClick={() => viewer.current?.close()}>
+            Close
+          </Button>
+        </div>
+        <img
+          src={url}
+          alt={file.filename}
+          className="mx-auto block max-h-[80vh] max-w-full object-contain"
+        />
+      </dialog>
     </li>
   );
 }

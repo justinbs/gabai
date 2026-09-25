@@ -1,8 +1,9 @@
 import { NavLink, Outlet } from "react-router-dom";
 
-import { Button, FOCUS_LINK } from "./ui";
+import { FOCUS_LINK } from "./ui";
 import { useSession } from "../session-context";
 import { NotificationBell } from "./NotificationBell";
+import { Masthead, SiteFooter, SkipLink, TopBar } from "./SiteChrome";
 
 // Nav is role-scoped, but that is presentation only. The real system enforces
 // every rule server-side, hiding a link is not access control.
@@ -13,10 +14,12 @@ const LINKS = {
   staff: [
     { to: "/queue", label: "Queue" },
     { to: "/review", label: "For review" },
+    { to: "/sign-ups", label: "Sign-ups" },
   ],
   admin: [
     { to: "/queue", label: "Queue" },
     { to: "/review", label: "For review" },
+    { to: "/sign-ups", label: "Sign-ups" },
     { to: "/admin/accounts", label: "Accounts" },
     { to: "/admin/routing", label: "Routing" },
     { to: "/admin/audit", label: "Audit log" },
@@ -26,67 +29,52 @@ const LINKS = {
 export function AppShell() {
   const { user, signOut } = useSession();
   if (!user) return null;
+  // Nothing else works while waiting for approval or on a temporary password,
+  // so don't offer it.
+  const pending = user.approval_status !== "approved" || user.must_change_password;
 
   return (
-    <div className="min-h-screen bg-white">
-      <a
-        href="#main"
-        className={`sr-only focus:not-sr-only focus:absolute focus:m-2 focus:bg-focus focus:px-4 focus:py-2 focus:font-bold focus:text-ink ${FOCUS_LINK}`}
-      >
-        Skip to main content
-      </a>
+    <div className="flex min-h-screen flex-col bg-white">
+      <SkipLink />
 
-      {/* Black, and it names the barangay. A system for one place should say
-          which place. */}
-      <header className="bg-ink">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3">
-          <img
-            src="/barangay-logo.jpg"
-            alt="Barangay V logo"
-            className="h-10 w-10 object-contain"
-          />
-          <span className="text-xl font-bold tracking-tight text-white">
-            GABAI
-          </span>
-          <span className="text-[15px] text-white/80">
-            Barangay V (Singko), Amaya, Tanza, Cavite
-          </span>
-          <span className="ml-auto text-[15px] text-white/80">
-            {user.full_name}
-          </span>
-        </div>
+      <header>
+        <TopBar user={user} onSignOut={signOut} />
+        <Masthead />
       </header>
 
       <div className="h-2.5 bg-brand" />
 
-      <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
-        <nav aria-label="Main">
-          <ul className="flex flex-wrap gap-6">
-            {LINKS[user.role].map((link) => (
-              <li key={link.to}>
-                <NavLink
-                  to={link.to}
-                  className={({ isActive }) =>
-                    `${FOCUS_LINK} ${
-                      isActive ? "font-bold" : "text-link underline"
-                    }`
-                  }
-                >
-                  {link.label}
-                </NavLink>
-              </li>
-            ))}
-          </ul>
-        </nav>
-        <NotificationBell />
-        <Button variant="secondary" onClick={signOut}>
-          Sign out
-        </Button>
-      </div>
+      {!pending && (
+        <div className="border-b border-rule">
+          <div className="mx-auto flex w-full max-w-[1190px] flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
+            <nav aria-label="Main">
+              <ul className="flex flex-wrap gap-6">
+                {LINKS[user.role].map((link) => (
+                  <li key={link.to}>
+                    <NavLink
+                      to={link.to}
+                      className={({ isActive }) =>
+                        `${FOCUS_LINK} ${isActive ? "font-bold" : "text-link underline"}`
+                      }
+                    >
+                      {link.label}
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+            <div className="ml-auto">
+              <NotificationBell />
+            </div>
+          </div>
+        </div>
+      )}
 
-      <main id="main" className="mx-auto max-w-5xl px-4 pb-16">
+      <main id="main" className="mx-auto w-full max-w-[1190px] flex-1 px-4 pt-6">
         <Outlet />
       </main>
+
+      <SiteFooter />
     </div>
   );
 }

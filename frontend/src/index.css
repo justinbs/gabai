@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* Masthead only. DICT's government website template sets the agency name in
+   Trajan Pro, which is a paid Adobe font. Cinzel is the free (OFL) lookalike,
+   served from this site rather than Google so no resident traffic goes to a
+   third party. Latin only, two weights, about 29 KB. */
+@import "@fontsource/cinzel/latin-400.css";
+@import "@fontsource/cinzel/latin-600.css";
+
 /* GOV.UK Design System palette. Published for reuse and already contrast
    tested, so we get the testing along with the values. Adopting an established
    government design system is a better answer than choosing colours ourselves.
@@ -22,6 +29,7 @@
   --font-sans:
     -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
     Arial, sans-serif;
+  --font-masthead: "Cinzel", Georgia, "Times New Roman", serif;
 }
 
 /* Body text at 17px and resident-facing text at 19px. Larger than a typical web

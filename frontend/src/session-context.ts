@@ -7,6 +7,7 @@ export type SessionValue = {
   initializing: boolean;
   signIn: (email: string, password: string) => Promise<boolean>;
   signOut: () => Promise<void>;
+  refresh: () => Promise<User | null>;
 };
 
 export const SessionContext = createContext<SessionValue | null>(null);

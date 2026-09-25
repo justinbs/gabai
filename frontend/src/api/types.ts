@@ -5,6 +5,7 @@ import type { components } from "./schema";
 type S = components["schemas"];
 
 export type Role = S["Role"];
+export type ApprovalStatus = S["ApprovalStatus"];
 export type Urgency = S["Urgency"];
 export type RequestStatus = S["RequestStatus"];
 export type Category = S["Category"];
@@ -55,6 +56,9 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   "routing_rules.replaced": "Routing changed",
   "user.created": "Account added",
   "user.deactivated": "Account deactivated",
+  "user.password_reset": "Password reset",
+  "user.approved": "Resident approved",
+  "user.rejected": "Resident turned down",
   "user.role_changed": "Role changed",
 };
 
