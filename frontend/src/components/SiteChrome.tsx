@@ -5,9 +5,8 @@ import { BARANGAY } from "../lib/barangay";
 import type { User } from "../api/types";
 import { FOCUS_LINK } from "./ui";
 
-// Layout follows DICT's government website template: dark top bar, masthead
-// with the seal and the office's name, and an agency footer over a standard
-// footer. Adapted, not copied. No Republic Seal (its use is restricted and this
+// Layout follows DICT's government website template: dark top bar and a
+// masthead with the seal and the office's name. Adapted, not copied. No Republic Seal (its use is restricted and this
 // isn't an official government site), no search (nothing public to search) and
 // no banner slideshow (heavy on data, and carousels are hard to use).
 
@@ -93,46 +92,26 @@ export function SiteFooter() {
     BARANGAY.hotline && {
       label: "Hotline",
       value: (
-        <a href={`tel:${BARANGAY.hotline}`} className={`text-link underline ${FOCUS_LINK}`}>
+        <a href={`tel:${BARANGAY.hotline}`} className={`text-white underline ${FOCUS_LINK}`}>
           {BARANGAY.hotline}
         </a>
       ),
     },
   ].filter(Boolean) as { label: string; value: ReactNode }[];
 
+  // One bar. The seal and the barangay's name are already in the masthead, and
+  // nothing here claims to be official, this is a proposed system.
   return (
-    <footer className="mt-16">
-      <div className="border-t-4 border-brand bg-wash">
-        <div className={`${WIDTH} grid gap-6 py-8 sm:grid-cols-2`}>
-          <div className="flex items-start gap-3">
-            <img src="/barangay-logo.jpg" alt="" className="h-12 w-12 shrink-0 object-contain" />
-            <div>
-              <p className="font-masthead text-[19px] font-semibold">{BARANGAY.name}</p>
-              <p className="text-muted">{BARANGAY.place}</p>
-            </div>
-          </div>
-          {details.length > 0 && (
-            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
-              {details.map((d) => (
-                <div key={d.label} className="contents">
-                  <dt className="text-muted">{d.label}</dt>
-                  <dd>{d.value}</dd>
-                </div>
-              ))}
-            </dl>
-          )}
-        </div>
-      </div>
-      <div className={TOP_BAR}>
-        <div className={`${WIDTH} flex flex-wrap gap-x-6 gap-y-2 py-4 text-[15px]`}>
-          <span>Republika ng Pilipinas</span>
-          <a href="https://www.gov.ph" className={`text-white underline ${FOCUS_LINK}`}>
-            GOV.PH
-          </a>
-          <span className="text-white/80">
-            Made with Barangay V by BS IT students of Mapúa University
+    <footer className={`mt-16 border-t-4 border-brand ${TOP_BAR}`}>
+      <div className={`${WIDTH} flex flex-wrap gap-x-6 gap-y-2 py-4 text-[15px]`}>
+        {details.map((d) => (
+          <span key={d.label}>
+            <span className="text-white/80">{d.label}</span> {d.value}
           </span>
-        </div>
+        ))}
+        <span className="text-white/80">
+          Made with Barangay V by BS IT students of Mapúa University
+        </span>
       </div>
     </footer>
   );
