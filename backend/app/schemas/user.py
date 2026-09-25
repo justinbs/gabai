@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 
 from fastapi_users import schemas
 from typing import Annotated, Literal
@@ -14,6 +15,7 @@ class UserRead(schemas.BaseUser[uuid.UUID]):
     approval_status: ApprovalStatus
     residence: str | None
     must_change_password: bool
+    created_at: datetime
 
 
 class UserCreate(schemas.BaseUserCreate):

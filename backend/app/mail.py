@@ -91,13 +91,20 @@ def _send(to: str, subject: str, text: str) -> None:
         headers={
             "Authorization": f"Bearer {settings.resend_api_key}",
             "Content-Type": "application/json",
+            # Resend's API sits behind Cloudflare, which blocks Python's
+            # default User-Agent as a bot (error 1010) before Resend sees it.
+            "User-Agent": "gabai/1.0",
         },
     )
     try:
         with urllib.request.urlopen(request, timeout=10) as response:
             response.read()
+    except urllib.error.HTTPError as exc:
+        # Resend says why in the body, e.g. the domain isn't verified yet.
+        # No address in the log, personal data doesn't belong there.
+        reason = exc.read().decode(errors="replace")[:300]
+        log.error("Resend refused an email: %s %s", exc.code, reason)
     except (urllib.error.URLError, TimeoutError) as exc:
-        # No address in the log. Personal data doesn't belong there.
         log.error("Sending an email failed: %s", exc)
 
 
