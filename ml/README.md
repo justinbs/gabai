@@ -11,14 +11,16 @@ ONNX model.
 ## Layout
 
 ```
-data/       labeled dataset + train/val/test splits (committed; fixed seed)
+data/       rows-<name>.csv, one per writer, merged into the dataset and
+            split train/val/test with a fixed seed
 scripts/    baseline, training, evaluation, quantization/export
-results/    metrics, confusion matrices, run logs (committed, because they are results)
+results/    metrics, confusion matrices, run logs
 ```
 
-Model weights and checkpoints are gitignored. Datasets, splits and results
-normally are not, but the draft-run files are ignored for now. Remove those
-two lines from `.gitignore` when the real dataset lands.
+Model weights and checkpoints are gitignored, and so are the draft-run files
+left over from the pipeline test. The `rows-*.csv` files are tracked from the
+first row. The merged dataset, its splits and the results get committed once
+the real rows land.
 
 ## Setup
 

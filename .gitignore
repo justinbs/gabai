@@ -50,7 +50,12 @@ desktop.ini
 ml/models/
 backend/models/
 
-# Draft-run artifacts from the pipeline test. The real dataset and splits do
-# get committed later, per ml/README.md, so remove these two lines then.
+# Draft artifacts from the pipeline test. When the real dataset lands, delete
+# requests.csv, train.csv, val.csv, test.csv and the json, then drop the two
+# lines directly below. Not the rows- rule under them.
 ml/data/*.csv
 ml/results/*.json
+
+# Three people on one CSV is a merge conflict every time, so each writes their
+# own and they get merged at the end. Tracked from the first row.
+!ml/data/rows-*.csv
