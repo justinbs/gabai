@@ -43,6 +43,22 @@ def allowed(kind: str, address: str) -> bool:
     return True
 
 
+def sender() -> str:
+    """The From header Resend accepts, whatever shape MAIL_FROM arrives in.
+
+    `GABAI <no-reply@gabai.help>` in .env reached the app once with its angle
+    brackets gone, and Resend refused every email with a 422. So accept that, a
+    bare address, or the proper form, and always send the proper form.
+    """
+    value = settings.mail_from.strip().strip('"').strip("'")
+    if "<" in value and value.endswith(">"):
+        return value
+    parts = value.split()
+    address = next((p for p in reversed(parts) if "@" in p), value)
+    name = " ".join(p for p in parts if p != address) or "GABAI"
+    return f"{name} <{address}>"
+
+
 def link(path: str, token: str) -> str:
     # After the #, so the token never reaches Caddy's access log.
     return f"{settings.public_url.rstrip('/')}/{path}#token={token}"
@@ -85,7 +101,7 @@ def _send(to: str, subject: str, text: str) -> None:
     request = urllib.request.Request(
         "https://api.resend.com/emails",
         data=json.dumps(
-            {"from": settings.mail_from, "to": [to], "subject": subject, "text": text}
+            {"from": sender(), "to": [to], "subject": subject, "text": text}
         ).encode(),
         method="POST",
         headers={
