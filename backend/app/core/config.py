@@ -27,6 +27,15 @@ class Settings(BaseSettings):
     # Placeholder. The real value comes from the threshold sweep in ml/.
     confidence_threshold: float = 0.70
 
+    # Email through Resend. Empty key means nothing is sent, see app/mail.py.
+    resend_api_key: str = ""
+    mail_from: str = "GABAI <no-reply@gabai.help>"
+    # Where emailed links point. The site, not the API.
+    public_url: str = "http://localhost:5173"
+    # Staff can only approve a sign-up whose email is confirmed. Turn off only
+    # while email isn't set up yet, or nobody new can ever be approved.
+    require_verified_email: bool = True
+
     # Where the exported ONNX models live. Relative paths resolve from backend/.
     # Missing is fine: requests go to manual review instead.
     model_dir: str = "models"

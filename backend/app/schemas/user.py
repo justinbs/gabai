@@ -1,23 +1,24 @@
 import uuid
 
 from fastapi_users import schemas
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from typing import Annotated, Literal
 
-from app.models.user import Role
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints
+
+from app.models.user import ApprovalStatus, Role
 
 
 class UserRead(schemas.BaseUser[uuid.UUID]):
     full_name: str
     role: Role
+    approval_status: ApprovalStatus
+    residence: str | None
+    must_change_password: bool
 
 
 class UserCreate(schemas.BaseUserCreate):
     full_name: str
-
-
-class UserUpdate(schemas.BaseUserUpdate):
-    full_name: str | None = None
-    role: Role | None = None
+    residence: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=150)]
 
 
 class UserSummary(BaseModel):
@@ -30,7 +31,7 @@ class UserSummary(BaseModel):
 
 class AdminUserCreate(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=8, max_length=128)
+    password: str
     full_name: str = Field(min_length=1, max_length=150)
     role: Role
 
@@ -46,3 +47,16 @@ class PaginatedUsers(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class TemporaryPassword(BaseModel):
+    temporary_password: str
+
+
+class RegistrationDecision(BaseModel):
+    approval_status: Literal["approved", "rejected"]

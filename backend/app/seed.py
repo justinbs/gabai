@@ -20,7 +20,7 @@ from app.core.eventloop import use_selector_loop_on_windows
 from app.db.session import AsyncSessionLocal
 from app.models.category import Category
 from app.models.routing_rule import RoutingRule
-from app.models.user import Role, User
+from app.models.user import ApprovalStatus, Role, User
 
 settings = get_settings()
 password_helper = PasswordHelper()
@@ -65,6 +65,7 @@ async def _upsert_user(
         is_active=True,
         is_verified=False,
         is_superuser=False,
+        approval_status=ApprovalStatus.approved,
     )
     db.add(user)
     await db.flush()
