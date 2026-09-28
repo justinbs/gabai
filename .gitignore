@@ -59,3 +59,4 @@ ml/results/*.json
 # Three people on one CSV is a merge conflict every time, so each writes their
 # own and they get merged at the end. Tracked from the first row.
 !ml/data/rows-*.csv
+backups/
