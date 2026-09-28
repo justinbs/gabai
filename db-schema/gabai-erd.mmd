@@ -9,7 +9,12 @@ erDiagram
         boolean is_verified
         varchar full_name
         enum role
-        timestamp created_at
+        varchar approval_status "CHECK pending/approved/rejected"
+        varchar residence
+        boolean must_change_password
+        timestamptz created_at
+        timestamptz deactivated_at
+        timestamptz anonymized_at
     }
     categories {
         int id PK
@@ -32,10 +37,11 @@ erDiagram
         enum status
         UUID assigned_staff_id FK
         varchar model_version
-        timestamp classified_at
-        timestamp created_at
-        timestamp updated_at
-        timestamp resolved_at
+        timestamptz classified_at
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz resolved_at
+        timestamptz redacted_at
     }
     routing_rules {
         int id PK
@@ -50,7 +56,7 @@ erDiagram
         varchar stored_path
         varchar mime_type
         int size_bytes
-        timestamp uploaded_at
+        timestamptz uploaded_at
     }
     notifications {
         int id PK
@@ -59,7 +65,7 @@ erDiagram
         varchar reference_number
         text message
         boolean is_read
-        timestamp created_at
+        timestamptz created_at
     }
     status_history_entries {
         int id PK
@@ -68,7 +74,7 @@ erDiagram
         enum to_status
         UUID actor_id FK
         text note
-        timestamp created_at
+        timestamptz created_at
     }
     audit_log_entries {
         int id PK
@@ -78,7 +84,7 @@ erDiagram
         varchar object_id
         jsonb detail
         varchar ip_address
-        timestamp created_at
+        timestamptz created_at
     }
 
     users ||--o{ requests : "citizen_id"

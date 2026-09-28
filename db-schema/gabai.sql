@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 3Zw5nR5pKThgvDGve2d6MJ3yBNt4Y6IDQ6xaG95YdCX8oIadvAzSkAemwbljutZ
+\restrict Cg561HHSvcRdDQFJxXJDJP5me7DZB677aC5TP43x2CKCIGmPJn5NNykcId4zZXk
 
 -- Dumped from database version 16.15
 -- Dumped by pg_dump version 16.15
@@ -55,6 +55,53 @@ CREATE TYPE public.urgency AS ENUM (
 );
 
 
+--
+-- Name: audit_log_entries_append_only(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.audit_log_entries_append_only() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    IF TG_OP = 'UPDATE'
+       AND NEW.ip_address IS NULL
+       AND (NEW.id, NEW.actor_id, NEW.action, NEW.object_type, NEW.object_id,
+            NEW.detail, NEW.created_at)
+           IS NOT DISTINCT FROM
+           (OLD.id, OLD.actor_id, OLD.action, OLD.object_type, OLD.object_id,
+            OLD.detail, OLD.created_at)
+    THEN
+        RETURN NEW;
+    END IF;
+    RAISE EXCEPTION 'audit_log_entries is append-only: % refused', TG_OP
+        USING ERRCODE = 'insufficient_privilege';
+END;
+$$;
+
+
+--
+-- Name: status_history_entries_append_only(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.status_history_entries_append_only() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    IF TG_OP = 'UPDATE'
+       AND (NEW.id, NEW.request_id, NEW.from_status, NEW.to_status,
+            NEW.actor_id, NEW.created_at)
+           IS NOT DISTINCT FROM
+           (OLD.id, OLD.request_id, OLD.from_status, OLD.to_status,
+            OLD.actor_id, OLD.created_at)
+    THEN
+        RETURN NEW;
+    END IF;
+    RAISE EXCEPTION 'status_history_entries is append-only: % refused', TG_OP
+        USING ERRCODE = 'insufficient_privilege';
+END;
+$$;
+
+
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
@@ -79,7 +126,7 @@ CREATE TABLE public.attachments (
     stored_path character varying(255) NOT NULL,
     mime_type character varying(100) NOT NULL,
     size_bytes integer NOT NULL,
-    uploaded_at timestamp without time zone DEFAULT now() NOT NULL
+    uploaded_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
@@ -115,7 +162,7 @@ CREATE TABLE public.audit_log_entries (
     object_id character varying(100),
     detail jsonb,
     ip_address character varying(45),
-    created_at timestamp without time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
@@ -183,7 +230,7 @@ CREATE TABLE public.notifications (
     reference_number character varying(20),
     message text NOT NULL,
     is_read boolean NOT NULL,
-    created_at timestamp without time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
@@ -225,10 +272,11 @@ CREATE TABLE public.requests (
     status public.request_status NOT NULL,
     assigned_staff_id uuid,
     model_version character varying(100),
-    classified_at timestamp without time zone,
-    created_at timestamp without time zone DEFAULT now() NOT NULL,
-    updated_at timestamp without time zone DEFAULT now() NOT NULL,
-    resolved_at timestamp without time zone
+    classified_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    resolved_at timestamp with time zone,
+    redacted_at timestamp with time zone
 );
 
 
@@ -295,7 +343,7 @@ CREATE TABLE public.status_history_entries (
     to_status public.request_status NOT NULL,
     actor_id uuid,
     note text,
-    created_at timestamp without time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
@@ -326,13 +374,19 @@ ALTER SEQUENCE public.status_history_entries_id_seq OWNED BY public.status_histo
 CREATE TABLE public.users (
     full_name character varying(150) NOT NULL,
     role public.role NOT NULL,
-    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
     id uuid NOT NULL,
     email character varying(320) NOT NULL,
     hashed_password character varying(1024) NOT NULL,
     is_active boolean NOT NULL,
     is_superuser boolean NOT NULL,
-    is_verified boolean NOT NULL
+    is_verified boolean NOT NULL,
+    must_change_password boolean DEFAULT false NOT NULL,
+    approval_status character varying(10) DEFAULT 'pending'::character varying NOT NULL,
+    residence character varying(150),
+    deactivated_at timestamp with time zone,
+    anonymized_at timestamp with time zone,
+    CONSTRAINT ck_users_approval_status CHECK (((approval_status)::text = ANY ((ARRAY['pending'::character varying, 'approved'::character varying, 'rejected'::character varying])::text[])))
 );
 
 
@@ -488,6 +542,34 @@ CREATE UNIQUE INDEX ix_users_email ON public.users USING btree (email);
 
 
 --
+-- Name: audit_log_entries audit_log_entries_no_rewrite; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER audit_log_entries_no_rewrite BEFORE DELETE OR UPDATE ON public.audit_log_entries FOR EACH ROW EXECUTE FUNCTION public.audit_log_entries_append_only();
+
+
+--
+-- Name: audit_log_entries audit_log_entries_no_truncate; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER audit_log_entries_no_truncate BEFORE TRUNCATE ON public.audit_log_entries FOR EACH STATEMENT EXECUTE FUNCTION public.audit_log_entries_append_only();
+
+
+--
+-- Name: status_history_entries status_history_entries_no_rewrite; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER status_history_entries_no_rewrite BEFORE DELETE OR UPDATE ON public.status_history_entries FOR EACH ROW EXECUTE FUNCTION public.status_history_entries_append_only();
+
+
+--
+-- Name: status_history_entries status_history_entries_no_truncate; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER status_history_entries_no_truncate BEFORE TRUNCATE ON public.status_history_entries FOR EACH STATEMENT EXECUTE FUNCTION public.status_history_entries_append_only();
+
+
+--
 -- Name: attachments attachments_request_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -587,5 +669,5 @@ ALTER TABLE ONLY public.status_history_entries
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 3Zw5nR5pKThgvDGve2d6MJ3yBNt4Y6IDQ6xaG95YdCX8oIadvAzSkAemwbljutZ
+\unrestrict Cg561HHSvcRdDQFJxXJDJP5me7DZB677aC5TP43x2CKCIGmPJn5NNykcId4zZXk
 
