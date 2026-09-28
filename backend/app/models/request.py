@@ -44,6 +44,8 @@ class Request(Base):
     created_at: Mapped[datetime] = mapped_column(server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now(), nullable=False)
     resolved_at: Mapped[datetime | None] = mapped_column()
+    # Set once retention has removed the text and attachments. See app/retention.py.
+    redacted_at: Mapped[datetime | None] = mapped_column()
 
     status_history = relationship(
         "StatusHistoryEntry",

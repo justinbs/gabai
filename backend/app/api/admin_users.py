@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request as HTTPRequest, Response, status as http_status
 from fastapi_users.exceptions import InvalidPasswordException
@@ -139,6 +140,10 @@ async def update_user(
         target.role = payload.role
     if payload.is_active is not None:
         target.is_active = payload.is_active
+        if payload.is_active is False and previous_active:
+            target.deactivated_at = datetime.now(timezone.utc)
+        elif payload.is_active:
+            target.deactivated_at = None
 
     ip = http_request.client.host if http_request.client else None
 

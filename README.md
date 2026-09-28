@@ -102,6 +102,24 @@ Keeping the classifier in the API process means there is no second service to
 deploy or pay for. Quantizing it to int8 takes each head from 679 MB to 171 MB,
 which is what lets the whole system run on a small CPU-only instance.
 
+## Backups and retention
+
+`scripts/backup.sh` dumps the database and archives the attachments into
+`BACKUP_DIR`, keeping `BACKUP_KEEP_DAYS` of them. Restore steps and the cron
+lines are at the top of the script. Copy the backups off the server as well; a
+backup on the same disk doesn't survive losing the disk.
+
+`python -m app.retention` removes personal data past its retention period:
+the text, notes and attachments of finished requests, the details of
+deactivated or rejected citizen accounts, and old audit IP addresses. It
+redacts rather than deletes, so reporting and the audit trail stay intact. It
+does nothing until the `RETENTION_*_DAYS` values in `.env` are set, and without
+`--apply` it only reports. Run it after the backup.
+
+The audit log and status history are append-only in the database itself. A
+trigger refuses UPDATE, DELETE and TRUNCATE on both, apart from the two changes
+retention makes.
+
 ## Conventions
 
 - Conventional commits (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:`)

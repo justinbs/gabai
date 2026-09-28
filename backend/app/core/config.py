@@ -1,7 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_SECRET = "dev-only-change-me"
@@ -40,6 +40,17 @@ class Settings(BaseSettings):
     # Missing is fine: requests go to manual review instead.
     model_dir: str = "models"
 
+    # Retention, read by `python -m app.retention` only. Unset means that step
+    # never runs, so nothing is removed until the barangay picks a period.
+    # Days after a request is resolved or closed before its text, notes and
+    # attachments are removed.
+    retention_request_days: int | None = None
+    # Days after a citizen account is deactivated or rejected before its name,
+    # email and residence are removed.
+    retention_account_days: int | None = None
+    # Days before an audit entry's IP address is cleared.
+    retention_ip_days: int | None = None
+
     # Read by `python -m app.seed` only. A fresh database has no admin and no way
     # to make one through the API, so the first one comes from here.
     seed_admin_email: str | None = None
@@ -50,6 +61,15 @@ class Settings(BaseSettings):
     # and these accounts are documented in the README.
     seed_demo: bool = False
     seed_demo_password: str | None = None
+
+    @field_validator(
+        "retention_request_days", "retention_account_days", "retention_ip_days", mode="before"
+    )
+    @classmethod
+    def empty_means_unset(cls, value):
+        # .env.example ships these as `RETENTION_REQUEST_DAYS=`, which arrives as
+        # "" and isn't an int.
+        return None if value == "" else value
 
     @property
     def database_url(self) -> str:

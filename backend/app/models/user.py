@@ -42,3 +42,7 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
         Boolean, nullable=False, default=False, server_default=false()
     )
     created_at: Mapped[datetime] = mapped_column(server_default=func.now(), nullable=False)
+    # When an admin switched the account off. Retention counts from here.
+    deactivated_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    # Set once retention has removed the personal details. See app/retention.py.
+    anonymized_at: Mapped[datetime | None] = mapped_column(nullable=True)
