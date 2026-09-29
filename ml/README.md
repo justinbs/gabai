@@ -11,16 +11,13 @@ ONNX model.
 ## Layout
 
 ```
-data/       rows-<name>.csv, one per writer, merged into the dataset and
-            split train/val/test with a fixed seed
+data/       requests.csv, the merged dataset, and its train/val/test splits
 scripts/    baseline, training, evaluation, quantization/export
 results/    metrics, confusion matrices, run logs
 ```
 
-Model weights and checkpoints are gitignored, and so are the draft-run files
-left over from the pipeline test. The `rows-*.csv` files are tracked from the
-first row. The merged dataset, its splits and the results get committed once
-the real rows land.
+Model weights and checkpoints are gitignored. The dataset, its splits and every
+result are committed, so each number in the paper can be traced to a file here.
 
 ## Setup
 
@@ -36,9 +33,15 @@ text,category,urgency,source
 "may malaking butas sa kalsada malapit sa barangay hall delikado na",road_infrastructure,high,synthetic
 ```
 
-The barangay declined to share its records on
-privacy grounds, so every entry is authored by the proponents and `source` reads
-`synthetic` throughout. That is stated in Chapter 3 as a limitation.
+The barangay declined to share its records on privacy grounds, so the dataset
+holds no real requests. It is made of entries written by the three proponents,
+with 154 scenario-based entries prepared during pipeline development, which the
+proponents reviewed and labeled. `source` reads `synthetic` throughout, meaning
+not a real submission. That is stated in Chapter 3 as a limitation.
+
+`requests.csv` names each row's writer. The splits code them as `a1` (Justin),
+`a2` (Jean) and `a3` (Daniel), which is how the per-writer results in
+`results/deployed_evaluation.json` refer to them.
 
 Splits are stratified 70/15/15 with a fixed seed and committed as files, so every
 run is reproducible.

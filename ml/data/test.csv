@@ -1,0 +1,350 @@
+text,category,urgency,source,author,flag,lang
+"Walang tubig sa Amaya Drive buong araw na, hindi na po ito unang beses mangyari.",utilities,medium,synthetic,a2,,
+pwede po ba ma-check kung updated pa yung record namin sa listahan curious lang po kasi matagal na di nag-update,social_welfare,low,synthetic,a1,,taglish
+medyo delikado maglakad papasok ng bahay galing sa court kung gabi na,public_safety,low,synthetic,a3,,
+"Concrete lamp post leaning after roadworks on Antero Soriano Highway, needs to be re-anchored.",road_infrastructure,medium,synthetic,a2,,
+Requesting ayuda dahil apektado ng power outage sa Zone 3 at nasira ang mga pagkain sa refrigerator.,social_welfare,medium,synthetic,a2,,
+sobrang dumi ng cr sa plaza hindi na magamit,public_health_sanitation,medium,synthetic,a1,,tl
+may tumutulong tubig sa gilid ng poste malapit sa Bocalan baka delikado,utilities,medium,synthetic,a3,,
+yung tubig po sa poso namin kulay tsokolate na tapos may amoy marami na pong nagtatae dito sa purok,public_health_sanitation,high,synthetic,a1,,taglish
+meron po ba kayong medical assistance para sa check up,social_welfare,medium,synthetic,a1,,tl
+"Dispute over shared wall damage between two houses in Purok 1, owners blaming each other.",neighbor_dispute,low,synthetic,a2,,
+"Elderly resident living alone in Zone 1 needs medical assistance, walang tumutulong na kamag-anak.",social_welfare,high,synthetic,a2,unsure,
+sinadya pong sirain ng kapitbahay yung bakod namin nakita ko po siya,neighbor_dispute,high,synthetic,a1,,tl
+apat na araw na pong tuyo ang gripo namin sa purok 3 malayo na ang inaabot namin para makaigib may mga matatanda po dito,utilities,high,synthetic,a1,,tl
+may taong nanggugulo at nananakit ng mga dumadaan sa labas ng terminal,public_safety,high,synthetic,a3,,
+nag-aaway po kami ng kapitbahay tungkol sa paggamit ng drainage sa pagitan ng dalawang bahay,neighbor_dispute,medium,synthetic,a3,,
+"Minors seen violating curfew hours, loitering near the plaza tuwing weekend.",public_safety,low,synthetic,a2,,
+may nagtangka pong kunin ang isang bata sa may waiting shed kanina may puting sasakyan at mabilis na umalis,public_safety,high,synthetic,a1,,tl
+paano po kumuha ng certificate para sa scholarship application,social_welfare,low,synthetic,a3,,
+PUTOK YUNG TUBO NG TUBIG BUMABAHA NA SA KALYE BILISAN PO,utilities,high,synthetic,a1,,tl
+"Stagnant floodwater has not receded buong linggo na, smells and breeding mosquitoes.",public_health_sanitation,high,synthetic,a2,unsure,
+"Broken drainage canal cover along Cebu Street, patag na at may sira ang laman, pero walang baha na naganap.",road_infrastructure,low,synthetic,a2,,
+paano po mag-apply para sa assistance ng persons with disability,social_welfare,low,synthetic,a3,,
+pwede po ba malaman kung meron pang available na vaccine sa health center,public_health_sanitation,low,synthetic,a3,,
+"Kapitbahay namin sa Lieutenant Cerrado Street ay maingay tuwing gabi, hindi kami makatulog.",neighbor_dispute,medium,synthetic,a2,,
+Many residents including children have been vomiting and having loose bowel movement since yesterday. We suspect the food served at the event. Please send help.,public_health_sanitation,high,synthetic,a1,,en
+may mga batang naglalaro sa gitna ng kalsada sa gabi baka mabangga ng sasakyan,public_safety,medium,synthetic,a3,,
+ano po ang proseso para mag-request ng certificate para sa employment,other,low,synthetic,a3,,
+may mga basurang nabubulok na naiwan sa gilid ng school at sobrang lakas na ng amoy,public_health_sanitation,high,synthetic,a3,,
+may naririnig po kaming sigawan at iyakan sa katabing bahay halos gabi gabi na parang may sinasaktan,public_safety,medium,synthetic,a1,,tl
+umaapaw na po ang poso negro namin at dumadaloy na sa kalsada may mga batang naglalaro diyan,public_health_sanitation,high,synthetic,a1,,tl
+"Illegal firecracker selling reported near a residential area in Zone 2, fire hazard.",public_safety,medium,synthetic,a2,,
+"Walang tubig sa Antero Soriano Highway buong araw na, hindi na po ito unang beses mangyari.",utilities,medium,synthetic,a2,,
+may nagaaway sa labas may nasaktan na yata tulong po,public_safety,high,synthetic,a1,,tl
+yung comfort room po sa terminal sobrang dirty na parang hindi na nililinis pwede po ba ma-inspect,public_health_sanitation,medium,synthetic,a1,,taglish
+"our electric meter started smoking and the breaker keeps tripping, we shut everything off, we need someone to check this today",utilities,high,synthetic,a1,,en
+FIRE AT THE HOUSE NEAR THE BASKETBALL COURT PLEASE SEND HELP NOW THERE ARE CHILDREN INSIDE,public_safety,high,synthetic,a1,,en
+pwede po bang mag-request ng assistance kung hindi ko alam kung aling barangay office ang dapat lapitan,other,low,synthetic,a3,,
+pwede po bang malaman kung ilang beses maaaring magpa-schedule ng barangay mediation,neighbor_dispute,low,synthetic,a3,,
+hanggang baywang na po ang tubig sa may kanto may mga matatanda ditong nakatira na hindi makalikas mag isa,utilities,high,synthetic,a1,,tl
+naiwan po ang pangalan ng asawa ko sa listahan ng nakatanggap ng bigas kahit nakapila naman po siya bakit po ganoon,social_welfare,medium,synthetic,a1,,tl
+wala pong tubig mula umaga sa buong Puremart area,utilities,medium,synthetic,a3,,
+"Hindi na po kinukuha ang basura sa Mindanao Street for almost a month, umaamoy na.",public_health_sanitation,medium,synthetic,a2,,
+Good day. We would like to request a schedule for a medical mission as many senior citizens here cannot afford check ups.,public_health_sanitation,medium,synthetic,a1,,en
+Family feud next door has escalated to shouting matches tuwing gabi.,neighbor_dispute,high,synthetic,a2,unsure,
+may nabaling railing sa hagdan ng plaza at hindi na ligtas hawakan,road_infrastructure,high,synthetic,a3,,
+"Report of dengue cases rising in Zone 1, need fogging operation.",public_health_sanitation,high,synthetic,a2,unsure,
+There were teenagers throwing stones at passing vehicles near the corner last night. Someone will get hurt if this continues.,public_safety,medium,synthetic,a1,,en
+pwede po bang maglagay ng pedestrian sign sa street na maraming tumatawid na estudyante,road_infrastructure,low,synthetic,a3,,
+may notification po ba kapag may update sa complaint na nireport online,other,low,synthetic,a3,,
+"Malaking pothole sa Captain E-Bocalan Street, nakakasira ng gulong ng mga sasakyan.",road_infrastructure,medium,synthetic,a2,,
+nagbasag po yung pader namin dahil sa konstruksyon sa tabi sino po ang mananagot dito,neighbor_dispute,medium,synthetic,a1,,tl
+ngayon pong hapon ang takdang harapan namin pero naospital po ako kaninang umaga ano po ang dapat kong gawin,neighbor_dispute,high,synthetic,a1,,tl
+may nag iiwan ng sasakyan na nakaharang sa daan papuntang simbahan buong gabi,public_safety,low,synthetic,a3,,
+URGENT. Our event at the court starts in two hours but the caretaker is not around and the gate is padlocked. Please send someone now.,other,high,synthetic,a1,,en
+"Low water pressure buong linggo na, barely enough for daily use.",utilities,low,synthetic,a2,,
+may tubig na hindi umaagos sa drainage at nagsisimula nang bumaho malapit sa mga bahay,public_health_sanitation,medium,synthetic,a3,,
+may bukas na manhole sa loob ng pedestrian area at walang nakalagay na warning,public_safety,high,synthetic,a3,,
+may matandang residente na walang kasama at hirap kumuha ng pagkain sa labas,social_welfare,medium,synthetic,a3,,
+Inquiry about requirements for a solo parent ID application.,other,low,synthetic,a2,,
+may nagtatapon po ng mga tira tira sa kanal sa gilid namin kaya barado at bumabaha na tuwing umuulan,utilities,medium,synthetic,a1,unsure,tl
+wala na po kaming gatas ng baby ko since kahapon tubig lang po ang naipapainom ko sa kanya baka po may maitulong kayo ngayon,social_welfare,high,synthetic,a1,,taglish
+may nagtatapon po ng basura sa bakanteng lote tuwing gabi,public_health_sanitation,medium,synthetic,a3,,
+paano po mag-follow up kung matagal nang pending ang barangay request namin,other,low,synthetic,a3,,
+gud pm po pano po mag-apply ng senior ID ni papa ano po requirements need po ba mag-online,social_welfare,low,synthetic,a1,,taglish
+nawala po yung bisikleta ng anak ko sa harap mismo ng bahay kahapon ng hapon may pinutol pong kadena,public_safety,medium,synthetic,a1,,tl
+na-skip na naman po kami ng truck two weeks in a row nag-a-ipon na po yung mga supot sa kanto,public_health_sanitation,medium,synthetic,a1,,taglish
+Just asking for directions to the nearest satellite barangay office from Balite Street.,other,low,synthetic,a2,,
+may basura pong nakakalat sa gilid ng creek pagkatapos ng weekend,public_health_sanitation,medium,synthetic,a3,,
+Unemployed head of household requesting livelihood assistance program information.,social_welfare,low,synthetic,a2,,
+may paraan po ba para mag-request ng document online,other,low,synthetic,a3,,
+maraming daga sa paligid ng palengke dahil sa mga basurang naiwan pagkatapos ng market day,public_health_sanitation,high,synthetic,a3,,
+ngayon na po nagkakaharap ang dalawang pamilya sa gitna ng kalsada dumadami na ang nanonood sana may makapunta pong makakaawat,neighbor_dispute,high,synthetic,a1,unsure,tl
+sana po dagdagan yung info drive tungkol sa mga bagong ordinansa,other,low,synthetic,a3,,
+pwede po bang magkaroon ng bantay sa pedestrian crossing tuwing uwian ng elementary students,public_safety,medium,synthetic,a3,,
+bigla pong nawalan ng tubig sa health center habang may mga pasyente,utilities,high,synthetic,a3,,
+hi po tanong lang kung san pwede mag-file ng complaint about sa sobrang taas ng bill ng kuryente namin,utilities,low,synthetic,a1,,taglish
+paano po humingi ng certified copy ng barangay record,other,low,synthetic,a3,,
+"is there a way for residents to donate cement for the pathway repair in our purok, asking on behalf of a few neighbors",road_infrastructure,low,synthetic,a1,,en
+hanggang kailan po ang palugit sa pagpaparehistro ng maliliit na tindahan dito sa lugar namin,other,medium,synthetic,a1,,tl
+may mga nag-iwan ng bisikleta sa emergency exit ng community building,public_safety,medium,synthetic,a3,,
+pwede po bang malaman kung saan ipapasa ang written complaint kung walang online access,other,low,synthetic,a3,,
+Garbage collection truck skipped Tramo Road for almost a week.,public_health_sanitation,low,synthetic,a2,,
+kelan po kaya matatapos yung pagpapagawa ng sidewalk sa may covered court,road_infrastructure,low,synthetic,a3,,
+Want to know the process for registering a new business permit in Purok 1.,other,low,synthetic,a2,,
+may mga daga na po sa loob ng barangay facility dahil sa matagal nang nakatambak na basura,public_health_sanitation,high,synthetic,a3,,
+our landlady padlocked our unit while we were at work and all our things are inside we need this settled today,neighbor_dispute,high,synthetic,a1,unsure,en
+"the rats from the pile at the corner have gotten into our water drum and food storage and two of my kids now have fever, please help",public_health_sanitation,high,synthetic,a1,,en
+Multiple potholes on Antero Soriano Highway unrepaired since yesterday.,road_infrastructure,low,synthetic,a2,,
+WALANG TUBIG 3 DAYS NA DITO SA AMIN WALA MAN LANG ADVISORY PANO NA PO KAMI MAGLULUTO AT MAKAKAPAGLINIS,utilities,high,synthetic,a1,,taglish
+san po kami magbabayad ng rental fee ng court kung gusto namin mag-book ng regular tuwing sabado,other,low,synthetic,a1,,taglish
+may bumigay na bahagi ng kalsada sa may creek at malapit na sa linya ng mga bahay,road_infrastructure,high,synthetic,a3,,
+yung kapitbahay namin nag-iimbak ng kahoy sa harap ng shared pathway,neighbor_dispute,medium,synthetic,a3,,
+may mga lumang gulong at lata sa bakanteng lote na naiipunan ng tubig,public_health_sanitation,medium,synthetic,a3,,
+Family displaced by flood in Purok 7 needs relief goods and temporary shelter.,social_welfare,high,synthetic,a2,unsure,
+may malaking infestation ng ipis sa communal garbage area at kumakalat na sa mga katabing bahay,public_health_sanitation,high,synthetic,a3,,
+may senior citizen po dito na mag-isa at kailangan ng assistance para sa pagkain,social_welfare,medium,synthetic,a3,,
+"Dispute over shared wall damage between two houses in Purok 3, owners blaming each other.",neighbor_dispute,low,synthetic,a2,,
+may nag-o-offer po ng ilegal na gamot sa mga bata sa likod ng eskwelahan na-witness po mismo ng anak ko,public_safety,medium,synthetic,a1,,taglish
+kailangan po ba talaga na nandun kaming dalawa,neighbor_dispute,low,synthetic,a1,,tl
+maraming disposable cups na naiwan sa plaza pagkatapos ng community event,public_health_sanitation,medium,synthetic,a3,,
+tatlong araw na po kaming walang tubig hindi na kami makapagluto at makapaglaba ano po ba nangyayari,utilities,high,synthetic,a1,,tl
+may matandang naligaw po at hindi niya maalala kung saan siya nakatira,public_safety,high,synthetic,a3,,
+"may problema po kami sa hangganan ng lote namin at ng kapitbahay, gusto po sana ma mediate",neighbor_dispute,medium,synthetic,a3,,
+pwede po bang humingi ng tulong para sa pamilyang nawalan ng kabuhayan dahil sa sunog,social_welfare,high,synthetic,a3,,
+"a transformer near the corner exploded and caught fire, the whole area is dark, kindly send someone urgently",utilities,high,synthetic,a1,,en
+"Report of an armed altercation near D. Cesa Street, residents scared to go outside.",public_safety,high,synthetic,a2,unsure,
+may pamilyang kailangang lumikas dahil gumuho ang bahagi ng kanilang bahay,social_welfare,high,synthetic,a3,,
+sobrang dilim po ng kalye namin ayaw nang dumaan ng mga tao pag gabi,public_safety,medium,synthetic,a1,,tl
+"our meter has not been physically read for three months and we are only billed estimates, kindly assist us in requesting an actual reading",utilities,medium,synthetic,a1,,en
+may kapitbahay pong gumagamit ng aming parking slot nang walang paalam,neighbor_dispute,medium,synthetic,a3,,
+may mga motor na nag-uunahan sa makitid na daan malapit sa daycare,public_safety,high,synthetic,a3,,
+may naiipong maruming tubig sa entrance ng school at madulas na po para sa mga estudyante,public_health_sanitation,medium,synthetic,a3,,
+nakalagay po sa eskinita ang mga paso at gamit nila hindi na po makalusot ang lola namin na may tungkod,neighbor_dispute,medium,synthetic,a1,,tl
+nagkukurap yung poste buong gabi nagigising tuloy yung baby namin pwede po bang ipaayos,road_infrastructure,medium,synthetic,a1,,tl
+may stagnant water malapit sa court baka lamukan,public_health_sanitation,medium,synthetic,a3,,
+Just want to confirm if the barangay office on Amaya Drive is open on Saturdays.,other,low,synthetic,a2,,
+pwede po ba malaman kung meron bang libreng wifi sa barangay hall,other,low,synthetic,a3,,
+"Dispute over shared wall damage between two houses in Purok 6, owners blaming each other.",neighbor_dispute,low,synthetic,a2,,
+pwede po bang magkaroon ng mas malinaw na signage kung saan ang iba't ibang offices sa barangay hall,other,medium,synthetic,a3,,
+iniinda po ng nanay ko ang sakit niya bukas na po ang schedule ng dialysis niya wala po kaming pera pakiusap po tulungan ninyo kami,social_welfare,high,synthetic,a1,,tl
+may nagkakagulo po sa terminal at may isang tao nang nananakit ng ibang pasahero,public_safety,high,synthetic,a3,,
+saan po ba dapat itapon yung mga lumang baterya,public_health_sanitation,low,synthetic,a1,,tl
+salamat po sa mabilis na aksyon sa request ko last week,other,low,synthetic,a3,,
+gud am po meron po ba kayong self defense seminar para sa mga babae dito interested po kaming sumali,public_safety,low,synthetic,a1,,taglish
+sino po ba ang kinakausap para sa pagpapa-ID ng mga matatanda wala po kasi kaming makitang abiso sa bulletin board,social_welfare,low,synthetic,a1,,tl
+Barangay tanod reports an increase in snatching incidents along Basilan Street during rush hour.,public_safety,high,synthetic,a2,unsure,
+sobrang bilis po ng mga delivery rider dito sa amin may nabangga na silang bata noong isang linggo,public_safety,medium,synthetic,a1,,tl
+umaapoy po ang saksakan sa ilalim ng hagdan namin hindi na namin kayang patayin lumalaki na po,public_safety,high,synthetic,a1,,tl
+"Kapitbahay namin sa Leyte Street ay maingay sa hatinggabi, hindi kami makatulog.",neighbor_dispute,medium,synthetic,a2,,
+tanong lang po sino po ung in charge sa mga youth program dito gusto po sana ako mag-volunteer,other,low,synthetic,a1,,taglish
+may batang nagliligawan sa gabi malapit sa Bocalan medyo delikado,public_safety,low,synthetic,a3,,
+Collapsed section of retaining wall along Antero Soriano Highway after heavy rain.,road_infrastructure,high,synthetic,a2,unsure,
+"Malnourished children reported in Zone 1, requesting feeding program support.",social_welfare,high,synthetic,a2,unsure,
+pwede po bang magtanong kung saan isusuko ang mga gamit na napulot sa pampublikong lugar,public_safety,low,synthetic,a3,,
+may nakikita po kaming mga tambay sa kanto na parang nagbebenta ng bawal na gamot,public_safety,medium,synthetic,a3,,
+"Electric post leaning dangerously after the storm on Mindanao Street, may cause a power line outage.",utilities,medium,synthetic,a2,,
+URGENT PO MAY NAGKALAT NA MEDICAL WASTE MALAPIT SA SIMBAHAN,public_health_sanitation,high,synthetic,a3,,
+kelan po ang susunod na ayuda salamat po,social_welfare,low,synthetic,a1,,tl
+may napulot po akong cellphone sa plaza saan ko po ito maaaring i-turn over,public_safety,low,synthetic,a3,,
+pwede po bang gumamit ng mobile phone para mag-submit ng barangay request,other,low,synthetic,a3,,
+may pamilya po na kailangang lumikas dahil hindi na ligtas ang kanilang bahay,social_welfare,high,synthetic,a3,,
+may bahagi ng kalsada na nagkakaron ng bitak pagkatapos ng road project,road_infrastructure,medium,synthetic,a3,,
+"the concrete step at the entrance of the multipurpose hall is slightly uneven, low priority only but worth noting for the next repair",road_infrastructure,low,synthetic,a1,,en
+sino po ba ang pwedeng kausapin tungkol sa plano sa bangketa,road_infrastructure,low,synthetic,a1,,tl
+meron po bang libreng purga para sa mga bata,public_health_sanitation,low,synthetic,a1,,tl
+may kapitbahay pong gumagamit ng loud machinery tuwing madaling araw,neighbor_dispute,medium,synthetic,a3,,
+Tenant complaint: co-tenant playing loud music almost every night in a shared apartment.,neighbor_dispute,medium,synthetic,a2,,
+may nahulog na malaking bagay mula sa building papunta sa walkway,public_safety,high,synthetic,a3,,
+just asking lang po what time nagbubukas health center weekdays,public_health_sanitation,low,synthetic,a3,,
+pwede po bang mag-request ng safety patrol kapag uwian ng mga estudyante,public_safety,low,synthetic,a3,,
+may kapitbahay po kaming nag-iingay gamit ang videoke tuwing may okasyon hanggang hatinggabi,neighbor_dispute,medium,synthetic,a3,,
+may poste ng street sign na halos matumba na dahil maluwag ang pundasyon,road_infrastructure,medium,synthetic,a3,,
+"kindly include our alley in the next repair program, the surface has broken into loose chunks and dust gets into the houses",road_infrastructure,medium,synthetic,a1,,en
+Discolored tap water reported by several households in Purok 4.,utilities,medium,synthetic,a2,,
+nagpabook po kami ng entablado para sa programa sa linggo pero hindi pa po nakukumpirma sino po ba ang kakausapin,other,medium,synthetic,a1,,tl
+maraming tambay na naninigarilyo sa may Alfamart nakakatakot dumaan,public_safety,medium,synthetic,a3,,
+there are deep ruts forming on the gravel road to purok 7 and motorcycles keep skidding there after the rain,road_infrastructure,medium,synthetic,a1,,en
+We need five more attendees to reach the required number for this afternoon's session or the resolution cannot be passed. Kindly call the purok leaders immediately.,other,high,synthetic,a1,,en
+may grupo po ng mga lalaki na nag-aaway at may nagsasabing may dalang armas,public_safety,high,synthetic,a3,,
+pwede po bang mag-request ng additional CCTV sa entrance ng subdivision,public_safety,low,synthetic,a3,,
+may nagrereklamo po tungkol sa tubig na tumutulo mula sa roof namin papunta sa property nila,neighbor_dispute,low,synthetic,a3,,
+"May mga taong nakababad sa labas ng bahay sa Antero Soriano Highway tuwing Sabado ng gabi, kahina-hinala.",public_safety,high,synthetic,a2,unsure,
+Cracked road surface on A. Fojas Street causing motorcycle accidents during rainy season.,road_infrastructure,high,synthetic,a2,unsure,
+sira po ang traffic mirror sa blind corner kaya hirap makita ang mga paparating na sasakyan,road_infrastructure,high,synthetic,a3,,
+may harang na bakal sa sidewalk na hindi na ginagamit at nakakasikip sa daanan,road_infrastructure,low,synthetic,a3,,
+"Brownout every afternoon for several hours already, affecting small businesses on Catanduanes Street.",utilities,medium,synthetic,a2,,
+saan po ba nagbabayad ng community fee,other,low,synthetic,a1,,tl
+may hindi pagkakaunawaan po kami sa paggamit ng common parking space,neighbor_dispute,medium,synthetic,a3,,
+tulong po nakagat ng asong gala ang anak ko kanina sa may kanto dumudugo po saan po kami pupunta,public_health_sanitation,high,synthetic,a1,,tl
+gusto po sana naming mag-request ng barangay mediation tungkol sa problema sa drainage na pinagtatalunan namin ng kapitbahay,neighbor_dispute,low,synthetic,a3,,
+Want to know the process for registering a new business permit in Purok 5.,other,low,synthetic,a2,,
+"Brownout every afternoon for almost a week, affecting small businesses on Catanduanes Street.",utilities,medium,synthetic,a2,,
+yung guardrail sa tabi ng creek papuntang Bocalan medyo nakatagilid na,road_infrastructure,medium,synthetic,a3,,
+pinaalis po kami sa inuupahan kaninang umaga wala po kaming matutuluyan ngayong gabi,social_welfare,high,synthetic,a1,,tl
+kelan po ba ang next medical mission kasi ni-refer po ako ng health worker para sa free check up,public_health_sanitation,medium,synthetic,a1,,taglish
+may traffic sign po na natatakpan ng mga dahon kaya hindi na mabasa ng drivers,road_infrastructure,medium,synthetic,a3,,
+Unsecured vacant house on Leyte Street being used as a hangout by unknown individuals at night.,public_safety,medium,synthetic,a2,,
+may kapitbahay po kaming naglalagay ng basura sa tapat ng gate namin kahit ilang beses nang pinagsabihan,neighbor_dispute,medium,synthetic,a3,,
+yung junk shop po sa kanto puno ng naiipong tubig sa mga lumang container baka maging breeding ground niyan,public_health_sanitation,medium,synthetic,a1,,taglish
+pwede po bang malaman kung saan magrereklamo tungkol sa mababang water pressure,utilities,low,synthetic,a3,,
+Good afternoon. Kindly advise if the barangay has a list of accredited internet providers serving our area. Thank you.,utilities,low,synthetic,a1,,en
+muntik na masagasaan yung anak ko kanina sa kanto sobrang bilis ng motor sana may gawin kayo bago may mamatay,public_safety,high,synthetic,a1,,tl
+"May mga taong nakababad sa labas ng bahay sa Antero Soriano Highway tuwing weekend, kahina-hinala.",public_safety,high,synthetic,a2,unsure,
+ano po kailangan na papel para sa senior citizen id,social_welfare,low,synthetic,a1,,tl
+may pamilya po na may bagong panganak at nahihirapan sa gastusin,social_welfare,medium,synthetic,a3,,
+anong araw po ang prenatal check up sa health center,public_health_sanitation,low,synthetic,a1,,tl
+I received a notice for next week but I will be out of town for work. Kindly advise if I may request another date.,neighbor_dispute,low,synthetic,a1,,en
+Continuous verbal harassment from a next-door neighbor over parking space on Leyte Street.,neighbor_dispute,medium,synthetic,a2,,
+paano po magpa-verify ng barangay residency information,other,low,synthetic,a3,,
+every night po may tambay at inuman sa harap ng bahay nila maingay at natatakot na po kaming dumaan pwede po bang ma-mediate kami,neighbor_dispute,medium,synthetic,a1,unsure,taglish
+Requesting ayuda dahil apektado ng power outage sa Purok 1 at nasira ang mga pagkain sa refrigerator.,social_welfare,medium,synthetic,a2,,
+may mga kabataang nagmamaneho ng motorsiklo nang walang ingat malapit sa elementary school,public_safety,medium,synthetic,a3,,
+yung basurahan po sa waiting area umaapaw na at kalat na sa paligid,public_health_sanitation,medium,synthetic,a3,,
+may mga plastic container na nakakalat sa creek at dumadami pagkatapos ng bawat ulan,public_health_sanitation,medium,synthetic,a3,,
+may resident po na nawalan ng trabaho at kailangan ng tulong para sa basic needs,social_welfare,medium,synthetic,a3,,
+may anak po akong pwd kailangan po niya ng therapy pero mahal po meron po ba kayong programa para dito,social_welfare,medium,synthetic,a1,,tl
+may amoy yung tubig sa gripo namin ligtas pa po ba ito inumin,utilities,medium,synthetic,a1,,tl
+Tenant complaint: co-tenant playing loud music tuwing gabi in a shared apartment.,neighbor_dispute,medium,synthetic,a2,,
+pwede po bang ayusin yung handrail sa public stairs kasi maluwag na at gumagalaw,road_infrastructure,medium,synthetic,a3,,
+may butas sa gitna ng kalsada sa harap ng basketball court delikado sa mga naglalaro,road_infrastructure,medium,synthetic,a3,,
+sana po ma-repaint yung faded lane markings sa main road,road_infrastructure,low,synthetic,a3,,
+hi po pa-confirm lang kung tuloy pa rin ung clean up drive sa sunday wala po kasing update sa page nyo,other,low,synthetic,a1,unsure,taglish
+pwede po bang ma-check yung drainage sa gilid ng kalsada kasi wala nang takip,road_infrastructure,high,synthetic,a3,,
+nagbabago-bago ang lakas ng kuryente at namamatay ang mga ilaw sa bahay,utilities,medium,synthetic,a3,,
+"kailangan po namin ng tulong agad, nasunugan po kami ng bahay kagabi walang matirhan",social_welfare,high,synthetic,a3,,
+pwede po ba malaman schedule ng feeding program para sa mga bata,social_welfare,low,synthetic,a3,,
+just want to confirm if the announced power interruption next week will also cover the houses near the covered court,utilities,low,synthetic,a1,,en
+may tumutulong tubig sa public pipe at bumabaha ang maliit na bahagi ng sidewalk,utilities,medium,synthetic,a3,,
+nag-shortcircuit po yung meter namin may usok na tapos wala na kaming ilaw ano po ba ang gagawin namin,utilities,high,synthetic,a1,,taglish
+Our motorcycle was taken from the front of our house last night. The chain lock was cut. Kindly check if anyone saw anything.,public_safety,medium,synthetic,a1,,en
+No electricity restored for several hours already after the last storm in Purok 5.,utilities,high,synthetic,a2,unsure,
+tanong ko lang po kung libre ba magpa-report ng sirang daan,road_infrastructure,low,synthetic,a3,,
+"Manhole cover missing for weeks near Penguin Street, needs replacement.",road_infrastructure,low,synthetic,a2,,
+"Fireworks being set off illegally near residential homes in Purok 7, fire risk.",public_safety,high,synthetic,a2,unsure,
+"Electric post leaning dangerously after the storm on Amaya Drive, may cause a power line outage.",utilities,medium,synthetic,a2,,
+Tenant complaint: co-tenant playing loud music late at night in a shared apartment.,neighbor_dispute,medium,synthetic,a2,,
+may batang nagsuka po matapos uminom sa public faucet baka may problema sa tubig kailangan po ma-check agad,public_health_sanitation,high,synthetic,a3,,
+ung generator po ba ninyo pwede ma-borrow for the program sa saturday need po namin ma-confirm asap,other,medium,synthetic,a1,,taglish
+"Malaking pothole sa Antero Soriano Highway, nakakasira ng gulong ng mga sasakyan.",road_infrastructure,medium,synthetic,a2,,
+paano po magreport ng sirang public faucet,utilities,low,synthetic,a3,,
+Good morning. I would like to inquire about the requirements for a health certificate for food handlers.,public_health_sanitation,low,synthetic,a1,,en
+Recurring flash flood at the intersection of Basilan Street whenever it rains for more than an hour.,utilities,high,synthetic,a2,unsure,
+hindi umaabot ang tubig sa ikalawang palapag ng bahay namin mula noong isang linggo balde balde pa kaming umaakyat,utilities,medium,synthetic,a1,,tl
+General inquiry about the upcoming barangay assembly schedule in Zone 3.,other,low,synthetic,a2,,
+ano po ang proseso kung gusto naming magreklamo tungkol sa paulit ulit na nuisance sa aming lugar,neighbor_dispute,low,synthetic,a3,,
+may malalim na uka sa gilid ng kalsada malapit sa purok 3,road_infrastructure,medium,synthetic,a3,,
+pwede po bang malaman kung may food assistance para sa low-income families,social_welfare,low,synthetic,a3,,
+may suspicious na van na ilang oras nang nakaparada malapit sa school gate,public_safety,medium,synthetic,a3,,
+"Concrete lamp post leaning after roadworks on A. Fojas Street, needs to be re-anchored.",road_infrastructure,medium,synthetic,a2,,
+sobrang lubak lubak na po yung daan papasok sa purok 7 hirap dumaan ang tricycle,road_infrastructure,medium,synthetic,a3,,
+Was the scheduled assembly moved? We came last Sunday and the hall was closed. Kindly advise.,other,medium,synthetic,a1,,en
+may kapitbahay kaming palaging nanlalait sa amin walang dahilan,neighbor_dispute,medium,synthetic,a3,,
+"Power outage sa buong Purok 6 simula kagabi, ilang oras na.",utilities,high,synthetic,a2,unsure,
+may nagtatangkang pumasok sa barangay facility gamit ang likod na entrance,public_safety,high,synthetic,a3,,
+grabe po yung videoke ng kabilang bahay every weekend hanggang 3am na try ko na po silang sabihan pero nag-init lang sila sakin,neighbor_dispute,medium,synthetic,a1,,taglish
+Just want to confirm if the barangay office on Basilan Street is open on Saturdays.,other,low,synthetic,a2,,
+wala pong tubig sa public restroom at hindi magamit ng mga residente,utilities,medium,synthetic,a3,,
+may harang na concrete blocks sa pedestrian path kahit wala namang ginagawang construction,road_infrastructure,low,synthetic,a3,,
+"Health center walang available doctor tuwing Lunes, sobrang daming pasyente.",public_health_sanitation,medium,synthetic,a2,,
+yung poste ng kuryente sa harap ng bahay namin nakahilig na parang matutumba na po,road_infrastructure,high,synthetic,a3,,
+may kapitbahay pong nagbabanta sa amin dahil sa hindi pagkakasundo sa parking space,neighbor_dispute,high,synthetic,a3,,
+how long does a settlement signed in front of the officials stay binding sir,neighbor_dispute,low,synthetic,a1,,en
+There is smoke coming from the second floor of the house across from us and no one is answering the door. Please send help right away.,public_safety,high,synthetic,a1,,en
+may pamilya po na nasiraan ng bahay dahil sa malakas na hangin at kailangan ng materyales,social_welfare,high,synthetic,a3,,
+nakabukas po ngayon ang takip ng malaking kanal sa gitna ng kalsada nahulog na po ang paa ng isang bata kanina,road_infrastructure,high,synthetic,a1,,tl
+may construction debris na naiwan sa gilid ng kalsada at sumisikip ang daanan,road_infrastructure,medium,synthetic,a3,,
+ano po ba ung process pag gusto mag-request ng kopya ng resolusyon about sa parking dito sa amin,other,low,synthetic,a1,,taglish
+yung inaasahan naming schedule ng brownout hindi na sinusunod,utilities,low,synthetic,a3,,
+tanong ko lang po kung pwede mag-volunteer sa clean up drive kahit hindi ako resident dito,public_health_sanitation,low,synthetic,a1,,taglish
+Rat infestation reported near the public market in Zone 2.,public_health_sanitation,medium,synthetic,a2,,
+pwede po ba mag-suggest na mag-open kayo kahit half day tuwing sabado di po kami maka-punta weekdays,other,low,synthetic,a1,,taglish
+may darating pong inspeksyon sa tindahan ko sa makalawa at kailangan ko raw ng papeles galing sa inyo,other,medium,synthetic,a1,,tl
+maputik at madilaw ang lumalabas sa gripo tuwing bumabalik ang tubig pagkatapos ng interruption ilang beses na pong ganito,utilities,medium,synthetic,a1,,tl
+Family feud next door has escalated to shouting matches tuwing Sabado ng gabi.,neighbor_dispute,high,synthetic,a2,unsure,
+gud am po tanong ko lang kung ilang beses po tatawagin ang isinumbong bago ako bigyan ng papel para makasampa na sa hukuman,neighbor_dispute,low,synthetic,a1,,tl
+yung kanal sa likod ng bahay namin sobrang barado na kaya kahit ambon lang nag-o-overflow na agad,utilities,medium,synthetic,a1,,taglish
+wala po akong natanggap na sulat pero sabi ng katabi namin may pag uusap daw kami bukas totoo po ba yun,neighbor_dispute,low,synthetic,a1,,tl
+"May mga taong nakababad sa labas ng bahay sa Captain E-Bocalan Street late at night, kahina-hinala.",public_safety,high,synthetic,a2,unsure,
+matagal na po hindi na update yung bulletin board luma na yung info,other,low,synthetic,a3,,
+my mother is almost eighty and still not receiving her monthly pension even if we submitted everything last year please help us follow up,social_welfare,medium,synthetic,a1,,en
+Good day. The drain cover along the school route has one broken corner and the gap keeps widening. Kindly schedule a repair.,road_infrastructure,medium,synthetic,a1,,en
+paano po mag-request ng mediation kung parehong parties ay hindi magkasundo,neighbor_dispute,low,synthetic,a3,,
+Tenant complaint: co-tenant playing loud music sa hatinggabi in a shared apartment.,neighbor_dispute,medium,synthetic,a2,,
+may mga sirang lalagyan ng basura na wala nang takip kaya kumakalat ang basura,public_health_sanitation,medium,synthetic,a3,,
+hindi po kami makadaan sa driveway na pinaghahatian namin hinaharangan po nila,neighbor_dispute,medium,synthetic,a1,,tl
+ilang taon po ba ang saklaw ng libreng purga na ibinibigay niyo,public_health_sanitation,low,synthetic,a1,,tl
+may illegal dumping po sa bakanteng lote at halos araw araw nadadagdagan ang basura,public_health_sanitation,medium,synthetic,a3,,
+Sir the retaining wall behind the covered court is bulging and cracking and it may collapse onto the houses below. Immediate action po.,road_infrastructure,high,synthetic,a1,,en
+"Minors seen violating curfew hours, loitering near the plaza tuwing Sabado ng gabi.",public_safety,low,synthetic,a2,,
+paano po mag rehistro bilang senior citizen sa barangay,social_welfare,low,synthetic,a3,,
+sana po may malagay na basurahan sa may waiting shed madalas kasi may kalat doon,public_health_sanitation,low,synthetic,a1,,tl
+pwede po ba mag-bring ng saksi sa harapan or yung magkabilang panig lang talaga,neighbor_dispute,low,synthetic,a1,,taglish
+ninakaw po yung sinampay naming damit kagabi pangalawang beses na po ito ngayong buwan,public_safety,medium,synthetic,a1,,tl
+yung anak ko po kulang daw sa timbang sabi sa health center pwede po ba siya ma-include sa pagpapakain ninyo,social_welfare,medium,synthetic,a1,unsure,taglish
+may kapitbahay pong nagbabanta sa amin dahil sa problema sa boundary,neighbor_dispute,high,synthetic,a3,,
+sana po may makapagkabit na rin ng linya ng internet dito sa amin wala pa pong serbisyo hanggang ngayon sa dulo ng purok,utilities,low,synthetic,a1,,tl
+No electricity restored for five days after the last storm in Purok 6.,utilities,high,synthetic,a2,unsure,
+may malaking hukay sa gilid ng road papunta sa purok 8 at lumalaki pagkatapos ng ulan,road_infrastructure,medium,synthetic,a3,,
+may kapitbahay pong paulit ulit nag-iwan ng construction materials sa harap ng bahay namin,neighbor_dispute,medium,synthetic,a3,,
+Good day po. My son needs a certification of low income for his enrollment and the deadline is on Friday. Kindly advise how to process it.,social_welfare,medium,synthetic,a1,,en
+may mga basag na bote na nakakalat malapit sa playground baka makatapak ang mga bata,public_health_sanitation,high,synthetic,a3,,
+pwede po bang mag-request ng additional street lighting sa madilim na bahagi ng residential area,utilities,low,synthetic,a3,,
+a vehicle is blocking the only exit of our alley and the owner is refusing to move it. my child has a high fever and we need to reach the hospital.,neighbor_dispute,high,synthetic,a1,,en
+may tao pong nanunukso at humaharang sa mga estudyanteng pauwi galing school,public_safety,high,synthetic,a3,,
+Barangay tanod reports an increase in snatching incidents along Balite Street sa hatinggabi.,public_safety,high,synthetic,a2,unsure,
+Request for an indigency certificate for a medical assistance application.,social_welfare,medium,synthetic,a2,,
+meron po bang scholarship program para sa mga estudyante dito,social_welfare,low,synthetic,a3,,
+meron po ba kayong lost and found dyan,other,low,synthetic,a1,,tl
+GRABE NA PO ANG AMOY NG TAMBAK SA LIKOD NG PALENGKE NAGSUSUKA NA ANG ANAK KO DITO SA KABILA,public_health_sanitation,high,synthetic,a1,,tl
+may lumulubog sa gitna ng kalsada lumalaki na po,road_infrastructure,high,synthetic,a1,,tl
+puno na po ang mga basurahan sa paligid ng plaza pagkatapos ng event,public_health_sanitation,medium,synthetic,a3,,
+may tambak na nabubulok na basura sa likod ng tindahan at nagiging pugad ng ipis,public_health_sanitation,medium,synthetic,a3,,
+yung waiting shed po sa may sakayan ay luma na at may bahagi ng sahig na sira,road_infrastructure,medium,synthetic,a3,,
+"may nawawalang bata raw na huling nakita sa playground, naghahanap ang pamilya",public_safety,high,synthetic,a3,,
+pwede po bang mareserba ang bulwagan sa susunod na sabado may binyagan po kami at malapit na,other,medium,synthetic,a1,,tl
+yung drainage channel sa tabi ng basketball court mababaw na dahil sa naipong lupa,road_infrastructure,low,synthetic,a3,,
+"Malaking pothole sa Turtle Street, nakakasira ng gulong ng mga sasakyan.",road_infrastructure,medium,synthetic,a2,,
+may plano po ba ang brgy na mag-install ng additional water line sa may likod ng chapel kasi wala pa po kami dun,utilities,low,synthetic,a1,,taglish
+Requesting ayuda dahil apektado ng power outage sa Purok 3 at nasira ang mga pagkain sa refrigerator.,social_welfare,medium,synthetic,a2,,
+may estudyanteng kailangan ng pamasahe para makapasok sa school pero wala nang budget ang pamilya,social_welfare,medium,synthetic,a3,,
+ano po ba yung nangyayari sa hearing dito sa barangay first time ko po kasi,neighbor_dispute,low,synthetic,a1,,tl
+Cockroach infestation spreading from an abandoned lot on Leyte Street to nearby houses.,public_health_sanitation,medium,synthetic,a2,,
+Paano po mag-apply ng ayuda para sa mga senior citizen sa Zone 3?,social_welfare,low,synthetic,a2,,
+"yung kapitbahay po namin ay matanda na at walang kasama sa bahay, may barangay assistance po ba",social_welfare,medium,synthetic,a3,,
+"sir the barangay hall gate hinge is loose and it drags on the floor whenever we open it, kindly have it looked at when convenient",road_infrastructure,low,synthetic,a1,,en
+may nakitang kahina-hinalang package sa tabi ng barangay entrance,public_safety,high,synthetic,a3,,
+may hotline po ba para sa urgent safety concerns sa barangay,public_safety,low,synthetic,a3,,
+Flooding sa Penguin Street tuwing umuulan dahil sa clogged drainage.,utilities,high,synthetic,a2,unsure,
+may schedule po ba ng community clean-up drive ngayong buwan,public_health_sanitation,low,synthetic,a3,,
+hi po tanong lang ano pong requirements para ma-avail yung free deworming ng mga anak ko,public_health_sanitation,low,synthetic,a1,,taglish
+paano po magpa-correct ng maling spelling ng pangalan sa barangay document,other,low,synthetic,a3,,
+URGENT PO NAHULOG YUNG BATA SA BUTAS NG BANGKETA KANINA NASUGATAN YUNG BINTI PLS PAAYOS AGAD BAGO MAY MASAKTAN ULIT,road_infrastructure,high,synthetic,a1,,taglish
+Just want to confirm if the barangay office on Captain E-Bocalan Street is open on Saturdays.,other,low,synthetic,a2,,
+may naninigas na tubig sa gutter papuntang simbahan mukhang barado,public_health_sanitation,low,synthetic,a3,,
+"Malnourished children reported in Purok 7, requesting feeding program support.",social_welfare,high,synthetic,a2,unsure,
+may nakalaylay na telecom cable sa mababang bahagi ng alley baka masabit ang dumadaan,utilities,high,synthetic,a3,,
+na-misplace ko po ung resibo ng bayad ko sa permit last month pwede po ba mag-request ng kopya para sa records namin,other,medium,synthetic,a1,,taglish
+wala pa rin takip yung kanal dalawang linggo na kahoy lang nakatusok pantanda,road_infrastructure,medium,synthetic,a1,,tl
+the drainage behind our block is packed with plastic and styro and the water there is now stagnant and smelly,public_health_sanitation,medium,synthetic,a1,unsure,en
+may public record po ba ng mga upcoming barangay projects,other,low,synthetic,a3,,
+"aso namin nakagat ng palaboy na aso kanina, marami na pong palaboy dito lalo na sa gabi",public_safety,high,synthetic,a3,,
+bakit po wala kaming natanggap na relief nung huling distribution kahit nakapila po kami buong umaga,social_welfare,medium,synthetic,a1,,tl
+"Elderly resident living alone in Zone 3 needs medical assistance, walang tumutulong na kamag-anak.",social_welfare,high,synthetic,a2,unsure,
+Just asking for directions to the nearest satellite barangay office from Callejon-8.,other,low,synthetic,a2,,
+Want to know the process for registering a new business permit in Purok 2.,other,low,synthetic,a2,,
+everytime na matagal umulan nag-a-accumulate yung tubig sa may dead end namin di na makalabas yung mga sasakyan,utilities,medium,synthetic,a1,unsure,taglish
+Unsecured vacant house on Mindanao Street being used as a hangout by unknown individuals at night.,public_safety,medium,synthetic,a2,,
+TULONG PO KAILANGAN NG OXYGEN NI TATAY NGAYONG ARAW UBOS NA ANG TANGKE WALA PO KAMING PAMBILI NAHIHIRAPAN NA SIYANG HUMINGA,social_welfare,high,synthetic,a1,,tl
+pwede po bang linisin ang kanal sa harap ng health center dahil maraming basura,public_health_sanitation,medium,synthetic,a3,,
+may nakalawit na kable sa daan mababa na masyado nasagi kasi ng truck kanina natatakot kami dumaan,road_infrastructure,high,synthetic,a1,,tl
+may algae na po sa communal water tank at kailangan sigurong linisin,public_health_sanitation,high,synthetic,a3,,
+paano po malalaman kung approved na ang request na sinubmit online,other,low,synthetic,a3,,
+Recurring flash flood at the intersection of Catanduanes Street whenever it rains for more than an hour.,utilities,high,synthetic,a2,unsure,
+may kapitbahay po kaming naglalabas ng alagang hayop sa common area at nag-iiwan ng dumi,neighbor_dispute,medium,synthetic,a3,,
+pwede po bang mag-request ng appointment para hindi na matagal ang paghihintay,other,low,synthetic,a3,,
+pwede po bang malaman kung kailan ibabalik ang street lighting sa kabilang purok,utilities,low,synthetic,a3,,
+natanggal po yung bakal na hagdan sa gilid ng tulay may nahulog na pong isang lalaki sa sapa kanina hapon paki ayos agad,road_infrastructure,high,synthetic,a1,,tl
+may biglang pagtaas ng tubig sa creek at mabilis na pumapasok sa ilang bahay,utilities,high,synthetic,a3,,
+may pamilyang nangangailangan ng pagkain matapos ma-confine ang pangunahing naghahanapbuhay,social_welfare,high,synthetic,a3,,
+gusto ko pong malaman kung saan makikita ang announcements tungkol sa upcoming community activities,other,low,synthetic,a3,,
+"Stray dogs roaming in packs, chasing children near the school in Zone 3.",public_safety,medium,synthetic,a2,,
+may mga nagsusunog po ng kalat sa likod ng covered court almost every afternoon paulit ulit na po naming na-report,public_health_sanitation,medium,synthetic,a1,,taglish
+"Financial assistance needed, nasunugan ang bahay namin sa Purok 7 kahapon.",social_welfare,high,synthetic,a2,unsure,
+Cockroach infestation spreading from an abandoned lot on D. Cesa Street to nearby houses.,public_health_sanitation,medium,synthetic,a2,,
+pwede po bang magtanong tungkol sa assistance para sa pamilya ng namatayan,social_welfare,low,synthetic,a3,,
+pwede po bang humingi ng listahan ng regular services na available sa barangay hall,other,low,synthetic,a3,,
+Boundary dispute with a neighbor over a fence line on Leyte Street that has gone on for three days straight.,neighbor_dispute,medium,synthetic,a2,,
+ano po ba schedule ng basura collection sa buong linggo,other,low,synthetic,a3,,
+may nakasabit na sirang signboard sa ibabaw ng sidewalk at baka mahulog,road_infrastructure,high,synthetic,a3,,
