@@ -1,0 +1,181 @@
+{
+  "model": "tfidf+linearsvc",
+  "seed": 20260911,
+  "n_train": 1624,
+  "heads": {
+    "category": {
+      "head": "category",
+      "n": 349,
+      "accuracy": 0.8281,
+      "macro_f1": 0.8285,
+      "weighted_f1": 0.8281,
+      "per_class": {
+        "road_infrastructure": {
+          "precision": 0.8958,
+          "recall": 0.8776,
+          "f1": 0.8866,
+          "support": 49
+        },
+        "public_health_sanitation": {
+          "precision": 0.84,
+          "recall": 0.75,
+          "f1": 0.7925,
+          "support": 56
+        },
+        "public_safety": {
+          "precision": 0.8491,
+          "recall": 0.8182,
+          "f1": 0.8333,
+          "support": 55
+        },
+        "utilities": {
+          "precision": 0.8947,
+          "recall": 0.7234,
+          "f1": 0.8,
+          "support": 47
+        },
+        "social_welfare": {
+          "precision": 0.7241,
+          "recall": 0.8936,
+          "f1": 0.8,
+          "support": 47
+        },
+        "neighbor_dispute": {
+          "precision": 0.875,
+          "recall": 0.875,
+          "f1": 0.875,
+          "support": 48
+        },
+        "other": {
+          "precision": 0.7593,
+          "recall": 0.8723,
+          "f1": 0.8119,
+          "support": 47
+        }
+      },
+      "confusion": [
+        [
+          43,
+          1,
+          0,
+          2,
+          0,
+          1,
+          2
+        ],
+        [
+          1,
+          42,
+          4,
+          1,
+          6,
+          0,
+          2
+        ],
+        [
+          3,
+          1,
+          45,
+          0,
+          3,
+          2,
+          1
+        ],
+        [
+          1,
+          5,
+          2,
+          34,
+          3,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          42,
+          1,
+          4
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          3,
+          42,
+          3
+        ],
+        [
+          0,
+          1,
+          2,
+          1,
+          1,
+          1,
+          41
+        ]
+      ],
+      "labels": [
+        "road_infrastructure",
+        "public_health_sanitation",
+        "public_safety",
+        "utilities",
+        "social_welfare",
+        "neighbor_dispute",
+        "other"
+      ]
+    },
+    "urgency": {
+      "head": "urgency",
+      "n": 349,
+      "accuracy": 0.8138,
+      "macro_f1": 0.8165,
+      "weighted_f1": 0.8138,
+      "per_class": {
+        "low": {
+          "precision": 0.8609,
+          "recall": 0.8609,
+          "f1": 0.8609,
+          "support": 115
+        },
+        "medium": {
+          "precision": 0.7704,
+          "recall": 0.7704,
+          "f1": 0.7704,
+          "support": 135
+        },
+        "high": {
+          "precision": 0.8182,
+          "recall": 0.8182,
+          "f1": 0.8182,
+          "support": 99
+        }
+      },
+      "confusion": [
+        [
+          99,
+          14,
+          2
+        ],
+        [
+          15,
+          104,
+          16
+        ],
+        [
+          1,
+          17,
+          81
+        ]
+      ],
+      "labels": [
+        "low",
+        "medium",
+        "high"
+      ]
+    }
+  }
+}

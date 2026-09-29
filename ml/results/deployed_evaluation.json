@@ -1,0 +1,619 @@
+{
+  "models": {
+    "category": "xlm-roberta-base-2026-09-22-r2321",
+    "urgency": "xlm-roberta-base-2026-09-22-r2321"
+  },
+  "precision": "onnx int8, as deployed",
+  "seed": 20260911,
+  "n": {
+    "train": 1624,
+    "val": 348,
+    "test": 349
+  },
+  "heads": {
+    "category": {
+      "transformer": {
+        "head": "category",
+        "n": 349,
+        "accuracy": 0.8424,
+        "macro_f1": 0.843,
+        "weighted_f1": 0.8414,
+        "per_class": {
+          "road_infrastructure": {
+            "precision": 0.913,
+            "recall": 0.8571,
+            "f1": 0.8842,
+            "support": 49
+          },
+          "public_health_sanitation": {
+            "precision": 0.8889,
+            "recall": 0.7143,
+            "f1": 0.7921,
+            "support": 56
+          },
+          "public_safety": {
+            "precision": 0.7833,
+            "recall": 0.8545,
+            "f1": 0.8174,
+            "support": 55
+          },
+          "utilities": {
+            "precision": 0.8043,
+            "recall": 0.7872,
+            "f1": 0.7957,
+            "support": 47
+          },
+          "social_welfare": {
+            "precision": 0.8542,
+            "recall": 0.8723,
+            "f1": 0.8632,
+            "support": 47
+          },
+          "neighbor_dispute": {
+            "precision": 0.807,
+            "recall": 0.9583,
+            "f1": 0.8762,
+            "support": 48
+          },
+          "other": {
+            "precision": 0.8723,
+            "recall": 0.8723,
+            "f1": 0.8723,
+            "support": 47
+          }
+        },
+        "confusion": [
+          [
+            42,
+            1,
+            1,
+            4,
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            40,
+            5,
+            4,
+            4,
+            2,
+            1
+          ],
+          [
+            3,
+            1,
+            47,
+            1,
+            0,
+            2,
+            1
+          ],
+          [
+            0,
+            1,
+            6,
+            37,
+            0,
+            2,
+            1
+          ],
+          [
+            0,
+            1,
+            0,
+            0,
+            41,
+            3,
+            2
+          ],
+          [
+            1,
+            0,
+            0,
+            0,
+            0,
+            46,
+            1
+          ],
+          [
+            0,
+            1,
+            1,
+            0,
+            3,
+            1,
+            41
+          ]
+        ],
+        "labels": [
+          "road_infrastructure",
+          "public_health_sanitation",
+          "public_safety",
+          "utilities",
+          "social_welfare",
+          "neighbor_dispute",
+          "other"
+        ]
+      },
+      "baseline": {
+        "head": "category",
+        "n": 349,
+        "accuracy": 0.8281,
+        "macro_f1": 0.8285,
+        "weighted_f1": 0.8281,
+        "per_class": {
+          "road_infrastructure": {
+            "precision": 0.8958,
+            "recall": 0.8776,
+            "f1": 0.8866,
+            "support": 49
+          },
+          "public_health_sanitation": {
+            "precision": 0.84,
+            "recall": 0.75,
+            "f1": 0.7925,
+            "support": 56
+          },
+          "public_safety": {
+            "precision": 0.8491,
+            "recall": 0.8182,
+            "f1": 0.8333,
+            "support": 55
+          },
+          "utilities": {
+            "precision": 0.8947,
+            "recall": 0.7234,
+            "f1": 0.8,
+            "support": 47
+          },
+          "social_welfare": {
+            "precision": 0.7241,
+            "recall": 0.8936,
+            "f1": 0.8,
+            "support": 47
+          },
+          "neighbor_dispute": {
+            "precision": 0.875,
+            "recall": 0.875,
+            "f1": 0.875,
+            "support": 48
+          },
+          "other": {
+            "precision": 0.7593,
+            "recall": 0.8723,
+            "f1": 0.8119,
+            "support": 47
+          }
+        },
+        "confusion": [
+          [
+            43,
+            1,
+            0,
+            2,
+            0,
+            1,
+            2
+          ],
+          [
+            1,
+            42,
+            4,
+            1,
+            6,
+            0,
+            2
+          ],
+          [
+            3,
+            1,
+            45,
+            0,
+            3,
+            2,
+            1
+          ],
+          [
+            1,
+            5,
+            2,
+            34,
+            3,
+            1,
+            1
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            42,
+            1,
+            4
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            3,
+            42,
+            3
+          ],
+          [
+            0,
+            1,
+            2,
+            1,
+            1,
+            1,
+            41
+          ]
+        ],
+        "labels": [
+          "road_infrastructure",
+          "public_health_sanitation",
+          "public_safety",
+          "utilities",
+          "social_welfare",
+          "neighbor_dispute",
+          "other"
+        ]
+      },
+      "mcnemar": {
+        "only_baseline_right": 27,
+        "only_transformer_right": 32,
+        "both_right": 262,
+        "both_wrong": 28,
+        "p_value": 0.6029
+      }
+    },
+    "urgency": {
+      "transformer": {
+        "head": "urgency",
+        "n": 349,
+        "accuracy": 0.7937,
+        "macro_f1": 0.7962,
+        "weighted_f1": 0.7931,
+        "per_class": {
+          "low": {
+            "precision": 0.8829,
+            "recall": 0.8522,
+            "f1": 0.8673,
+            "support": 115
+          },
+          "medium": {
+            "precision": 0.7769,
+            "recall": 0.6963,
+            "f1": 0.7344,
+            "support": 135
+          },
+          "high": {
+            "precision": 0.7265,
+            "recall": 0.8586,
+            "f1": 0.787,
+            "support": 99
+          }
+        },
+        "confusion": [
+          [
+            98,
+            14,
+            3
+          ],
+          [
+            12,
+            94,
+            29
+          ],
+          [
+            1,
+            13,
+            85
+          ]
+        ],
+        "labels": [
+          "low",
+          "medium",
+          "high"
+        ]
+      },
+      "baseline": {
+        "head": "urgency",
+        "n": 349,
+        "accuracy": 0.8138,
+        "macro_f1": 0.8165,
+        "weighted_f1": 0.8138,
+        "per_class": {
+          "low": {
+            "precision": 0.8609,
+            "recall": 0.8609,
+            "f1": 0.8609,
+            "support": 115
+          },
+          "medium": {
+            "precision": 0.7704,
+            "recall": 0.7704,
+            "f1": 0.7704,
+            "support": 135
+          },
+          "high": {
+            "precision": 0.8182,
+            "recall": 0.8182,
+            "f1": 0.8182,
+            "support": 99
+          }
+        },
+        "confusion": [
+          [
+            99,
+            14,
+            2
+          ],
+          [
+            15,
+            104,
+            16
+          ],
+          [
+            1,
+            17,
+            81
+          ]
+        ],
+        "labels": [
+          "low",
+          "medium",
+          "high"
+        ]
+      },
+      "mcnemar": {
+        "only_baseline_right": 35,
+        "only_transformer_right": 28,
+        "both_right": 249,
+        "both_wrong": 37,
+        "p_value": 0.45
+      }
+    }
+  },
+  "threshold_sweep_val": [
+    {
+      "threshold": 0.3,
+      "auto_routed": 348,
+      "auto_pct": 100.0,
+      "review_pct": 0.0,
+      "category_acc_on_auto": 0.8477,
+      "both_acc_on_auto": 0.7011,
+      "wrong_category_auto_routed": 53
+    },
+    {
+      "threshold": 0.35,
+      "auto_routed": 346,
+      "auto_pct": 99.4,
+      "review_pct": 0.6,
+      "category_acc_on_auto": 0.8526,
+      "both_acc_on_auto": 0.7052,
+      "wrong_category_auto_routed": 51
+    },
+    {
+      "threshold": 0.4,
+      "auto_routed": 344,
+      "auto_pct": 98.9,
+      "review_pct": 1.1,
+      "category_acc_on_auto": 0.8576,
+      "both_acc_on_auto": 0.7093,
+      "wrong_category_auto_routed": 49
+    },
+    {
+      "threshold": 0.45,
+      "auto_routed": 342,
+      "auto_pct": 98.3,
+      "review_pct": 1.7,
+      "category_acc_on_auto": 0.8596,
+      "both_acc_on_auto": 0.7105,
+      "wrong_category_auto_routed": 48
+    },
+    {
+      "threshold": 0.5,
+      "auto_routed": 338,
+      "auto_pct": 97.1,
+      "review_pct": 2.9,
+      "category_acc_on_auto": 0.8639,
+      "both_acc_on_auto": 0.713,
+      "wrong_category_auto_routed": 46
+    },
+    {
+      "threshold": 0.55,
+      "auto_routed": 327,
+      "auto_pct": 94.0,
+      "review_pct": 6.0,
+      "category_acc_on_auto": 0.8685,
+      "both_acc_on_auto": 0.7248,
+      "wrong_category_auto_routed": 43
+    },
+    {
+      "threshold": 0.6,
+      "auto_routed": 309,
+      "auto_pct": 88.8,
+      "review_pct": 11.2,
+      "category_acc_on_auto": 0.8803,
+      "both_acc_on_auto": 0.7411,
+      "wrong_category_auto_routed": 37
+    },
+    {
+      "threshold": 0.65,
+      "auto_routed": 291,
+      "auto_pct": 83.6,
+      "review_pct": 16.4,
+      "category_acc_on_auto": 0.9038,
+      "both_acc_on_auto": 0.7698,
+      "wrong_category_auto_routed": 28
+    },
+    {
+      "threshold": 0.7,
+      "auto_routed": 267,
+      "auto_pct": 76.7,
+      "review_pct": 23.3,
+      "category_acc_on_auto": 0.9213,
+      "both_acc_on_auto": 0.794,
+      "wrong_category_auto_routed": 21
+    },
+    {
+      "threshold": 0.75,
+      "auto_routed": 248,
+      "auto_pct": 71.3,
+      "review_pct": 28.7,
+      "category_acc_on_auto": 0.9315,
+      "both_acc_on_auto": 0.8105,
+      "wrong_category_auto_routed": 17
+    },
+    {
+      "threshold": 0.8,
+      "auto_routed": 223,
+      "auto_pct": 64.1,
+      "review_pct": 35.9,
+      "category_acc_on_auto": 0.9417,
+      "both_acc_on_auto": 0.843,
+      "wrong_category_auto_routed": 13
+    },
+    {
+      "threshold": 0.85,
+      "auto_routed": 193,
+      "auto_pct": 55.5,
+      "review_pct": 44.5,
+      "category_acc_on_auto": 0.9482,
+      "both_acc_on_auto": 0.8653,
+      "wrong_category_auto_routed": 10
+    },
+    {
+      "threshold": 0.9,
+      "auto_routed": 149,
+      "auto_pct": 42.8,
+      "review_pct": 57.2,
+      "category_acc_on_auto": 0.9597,
+      "both_acc_on_auto": 0.9128,
+      "wrong_category_auto_routed": 6
+    },
+    {
+      "threshold": 0.95,
+      "auto_routed": 39,
+      "auto_pct": 11.2,
+      "review_pct": 88.8,
+      "category_acc_on_auto": 0.9744,
+      "both_acc_on_auto": 0.9744,
+      "wrong_category_auto_routed": 1
+    }
+  ],
+  "deployed_threshold_on_test": {
+    "threshold": 0.7,
+    "auto_routed": 272,
+    "auto_pct": 77.9,
+    "review_pct": 22.1,
+    "category_acc_on_auto": 0.8934,
+    "both_acc_on_auto": 0.7574,
+    "wrong_category_auto_routed": 29
+  },
+  "per_writer_test": {
+    "a1": {
+      "category": {
+        "n": 121,
+        "accuracy": 0.6942,
+        "macro_f1": 0.6987,
+        "baseline_accuracy": 0.6446,
+        "mcnemar_p": 0.4296,
+        "only_baseline_right": 17,
+        "only_transformer_right": 23
+      },
+      "urgency": {
+        "n": 121,
+        "accuracy": 0.7934,
+        "macro_f1": 0.7941,
+        "baseline_accuracy": 0.8017,
+        "mcnemar_p": 1.0,
+        "only_baseline_right": 16,
+        "only_transformer_right": 15
+      }
+    },
+    "a2": {
+      "category": {
+        "n": 80,
+        "accuracy": 0.975,
+        "macro_f1": 0.9705,
+        "baseline_accuracy": 0.9875,
+        "mcnemar_p": 1.0,
+        "only_baseline_right": 1,
+        "only_transformer_right": 0
+      },
+      "urgency": {
+        "n": 80,
+        "accuracy": 0.9,
+        "macro_f1": 0.9001,
+        "baseline_accuracy": 0.975,
+        "mcnemar_p": 0.0312,
+        "only_baseline_right": 6,
+        "only_transformer_right": 0
+      }
+    },
+    "a3": {
+      "category": {
+        "n": 148,
+        "accuracy": 0.8919,
+        "macro_f1": 0.8933,
+        "baseline_accuracy": 0.8919,
+        "mcnemar_p": 1.0,
+        "only_baseline_right": 9,
+        "only_transformer_right": 9
+      },
+      "urgency": {
+        "n": 148,
+        "accuracy": 0.7365,
+        "macro_f1": 0.7296,
+        "baseline_accuracy": 0.7365,
+        "mcnemar_p": 1.0,
+        "only_baseline_right": 13,
+        "only_transformer_right": 13
+      }
+    }
+  },
+  "near_duplicates": {
+    "threshold_jaccard": 0.6,
+    "test_rows_with_close_train_match": 78,
+    "by_writer": {
+      "a1": {
+        "close": 0,
+        "total": 121
+      },
+      "a2": {
+        "close": 70,
+        "total": 80
+      },
+      "a3": {
+        "close": 8,
+        "total": 148
+      }
+    },
+    "no_close_match": {
+      "n": 271,
+      "category": {
+        "transformer_accuracy": 0.797,
+        "baseline_accuracy": 0.7823,
+        "transformer_macro_f1": 0.7979,
+        "baseline_macro_f1": 0.7825,
+        "only_baseline_right": 27,
+        "only_transformer_right": 31,
+        "mcnemar_p": 0.694
+      },
+      "urgency": {
+        "transformer_accuracy": 0.7638,
+        "baseline_accuracy": 0.7675,
+        "transformer_macro_f1": 0.7639,
+        "baseline_macro_f1": 0.7686,
+        "only_baseline_right": 28,
+        "only_transformer_right": 27,
+        "mcnemar_p": 1.0
+      }
+    }
+  }
+}

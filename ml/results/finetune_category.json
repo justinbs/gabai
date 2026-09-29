@@ -1,0 +1,136 @@
+{
+  "model": "xlm-roberta-base",
+  "head": "category",
+  "seed": 20260911,
+  "epochs": 5,
+  "learning_rate": 2e-05,
+  "batch_size": 16,
+  "max_length": 128,
+  "n_train": 1624,
+  "n_test": 349,
+  "scores": {
+    "head": "category",
+    "n": 349,
+    "accuracy": 0.8424,
+    "macro_f1": 0.8432,
+    "weighted_f1": 0.8427,
+    "per_class": {
+      "road_infrastructure": {
+        "precision": 0.9767,
+        "recall": 0.8571,
+        "f1": 0.913,
+        "support": 49
+      },
+      "public_health_sanitation": {
+        "precision": 0.8462,
+        "recall": 0.7857,
+        "f1": 0.8148,
+        "support": 56
+      },
+      "public_safety": {
+        "precision": 0.7869,
+        "recall": 0.8727,
+        "f1": 0.8276,
+        "support": 55
+      },
+      "utilities": {
+        "precision": 0.7708,
+        "recall": 0.7872,
+        "f1": 0.7789,
+        "support": 47
+      },
+      "social_welfare": {
+        "precision": 0.8333,
+        "recall": 0.8511,
+        "f1": 0.8421,
+        "support": 47
+      },
+      "neighbor_dispute": {
+        "precision": 0.8654,
+        "recall": 0.9375,
+        "f1": 0.9,
+        "support": 48
+      },
+      "other": {
+        "precision": 0.8444,
+        "recall": 0.8085,
+        "f1": 0.8261,
+        "support": 47
+      }
+    },
+    "confusion": [
+      [
+        42,
+        1,
+        0,
+        5,
+        0,
+        1,
+        0
+      ],
+      [
+        0,
+        44,
+        4,
+        3,
+        4,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        48,
+        1,
+        0,
+        3,
+        1
+      ],
+      [
+        0,
+        3,
+        5,
+        37,
+        1,
+        0,
+        1
+      ],
+      [
+        0,
+        1,
+        1,
+        0,
+        40,
+        2,
+        3
+      ],
+      [
+        0,
+        0,
+        1,
+        0,
+        0,
+        45,
+        2
+      ],
+      [
+        0,
+        2,
+        2,
+        2,
+        3,
+        0,
+        38
+      ]
+    ],
+    "labels": [
+      "road_infrastructure",
+      "public_health_sanitation",
+      "public_safety",
+      "utilities",
+      "social_welfare",
+      "neighbor_dispute",
+      "other"
+    ]
+  }
+}

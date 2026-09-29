@@ -1,0 +1,89 @@
+{
+  "model": "tfidf+linearsvc",
+  "seed": 20260911,
+  "split": "val",
+  "n": 348,
+  "rule": "min(category_confidence, urgency_confidence) >= threshold",
+  "rows": [
+    {
+      "threshold": 0.5,
+      "auto_routed": 289,
+      "auto_routed_pct": 83.0,
+      "manual_review_pct": 17.0,
+      "auto_category_accuracy": 0.9204,
+      "auto_both_accuracy": 0.7889
+    },
+    {
+      "threshold": 0.55,
+      "auto_routed": 264,
+      "auto_routed_pct": 75.9,
+      "manual_review_pct": 24.1,
+      "auto_category_accuracy": 0.9356,
+      "auto_both_accuracy": 0.8182
+    },
+    {
+      "threshold": 0.6,
+      "auto_routed": 229,
+      "auto_routed_pct": 65.8,
+      "manual_review_pct": 34.2,
+      "auto_category_accuracy": 0.9651,
+      "auto_both_accuracy": 0.869
+    },
+    {
+      "threshold": 0.65,
+      "auto_routed": 198,
+      "auto_routed_pct": 56.9,
+      "manual_review_pct": 43.1,
+      "auto_category_accuracy": 0.9848,
+      "auto_both_accuracy": 0.899
+    },
+    {
+      "threshold": 0.7,
+      "auto_routed": 173,
+      "auto_routed_pct": 49.7,
+      "manual_review_pct": 50.3,
+      "auto_category_accuracy": 0.9884,
+      "auto_both_accuracy": 0.9075
+    },
+    {
+      "threshold": 0.75,
+      "auto_routed": 153,
+      "auto_routed_pct": 44.0,
+      "manual_review_pct": 56.0,
+      "auto_category_accuracy": 0.9869,
+      "auto_both_accuracy": 0.9216
+    },
+    {
+      "threshold": 0.8,
+      "auto_routed": 121,
+      "auto_routed_pct": 34.8,
+      "manual_review_pct": 65.2,
+      "auto_category_accuracy": 0.9917,
+      "auto_both_accuracy": 0.9587
+    },
+    {
+      "threshold": 0.85,
+      "auto_routed": 90,
+      "auto_routed_pct": 25.9,
+      "manual_review_pct": 74.1,
+      "auto_category_accuracy": 0.9889,
+      "auto_both_accuracy": 0.9778
+    },
+    {
+      "threshold": 0.9,
+      "auto_routed": 53,
+      "auto_routed_pct": 15.2,
+      "manual_review_pct": 84.8,
+      "auto_category_accuracy": 0.9811,
+      "auto_both_accuracy": 0.9811
+    },
+    {
+      "threshold": 0.95,
+      "auto_routed": 2,
+      "auto_routed_pct": 0.6,
+      "manual_review_pct": 99.4,
+      "auto_category_accuracy": 1.0,
+      "auto_both_accuracy": 1.0
+    }
+  ]
+}

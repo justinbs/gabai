@@ -24,7 +24,9 @@ class Settings(BaseSettings):
     environment: str = "development"
     cors_origins: str = "http://localhost:5173"
 
-    # Placeholder. The real value comes from the threshold sweep in ml/.
+    # Chosen on the validation split from the fine-tuned model's confidences
+    # (ml/scripts/evaluate_deployed.py): about a quarter of requests go to review
+    # and 92% of the rest reach the right category's handler.
     confidence_threshold: float = 0.70
 
     # Email through Resend. Empty key means nothing is sent, see app/mail.py.
