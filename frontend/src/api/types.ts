@@ -60,6 +60,7 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   "routing_rules.replaced": "Routing changed",
   "user.created": "Account added",
   "user.deactivated": "Account deactivated",
+  "user.reactivated": "Account reactivated",
   "user.password_reset": "Password reset",
   "user.approved": "Resident approved",
   "user.rejected": "Resident turned down",

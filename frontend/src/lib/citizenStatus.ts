@@ -4,8 +4,8 @@ import type { RequestSummary, ServiceRequest } from "../api/types";
 // What a resident sees. Same stored status as the staff wording, said the way a
 // person would say it.
 //
-// Received, Sorted and With {name} are the three events the paper promises the
-// citizen is notified about: received, categorized, routed.
+// Received, Sorted and With {name} show on the request's timeline. Automatic
+// classification and routing don't send a notification; staff actions do.
 //
 // This is a function, not a map, because `routed` needs the name of whoever has
 // it and a fallback for when nobody is set yet.

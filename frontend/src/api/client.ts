@@ -166,7 +166,7 @@ export const submitRequest = async (
     : created;
 };
 
-export const listReviewQueue = (_user: User): Promise<Paginated<RequestSummary>> =>
+export const listReviewQueue = (): Promise<Paginated<RequestSummary>> =>
   http.get<Paginated<RequestSummary>>("/api/review-queue");
 
 export const updateStatus = async (
@@ -207,9 +207,7 @@ export const reclassify = async (
 
 // ------------------------------------------------------- notifications ----
 
-export const listNotifications = (
-  _user: User,
-): Promise<Paginated<Notification> & { unread_count: number }> =>
+export const listNotifications = (): Promise<Paginated<Notification> & { unread_count: number }> =>
   http.get<Paginated<Notification> & { unread_count: number }>(
     "/api/notifications?limit=20",
   );
@@ -246,11 +244,16 @@ export const decideRegistration = (id: string, decision: "approved" | "rejected"
 
 export type UserDraft = { full_name: string; email: string; password: string; role: Role };
 
+// Every account, 100 per page (the server's maximum).
 export const listUsers = async (): Promise<User[]> => {
-  const page = await http.get<{ items: User[]; total: number; limit: number; offset: number }>(
-    "/api/admin/users?limit=100",
-  );
-  return page.items;
+  const users: User[] = [];
+  for (;;) {
+    const page = await http.get<{ items: User[]; total: number; limit: number; offset: number }>(
+      `/api/admin/users?limit=100&offset=${users.length}`,
+    );
+    users.push(...page.items);
+    if (page.items.length === 0 || users.length >= page.total) return users;
+  }
 };
 
 export const createUser = async (draft: UserDraft): Promise<User | null> => {

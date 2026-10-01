@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 
 import * as api from "../api/client";
+import { ApiError } from "../api/http";
 import { EmptyState, ErrorState, Help, Loading, PageHeading } from "../components/ui";
 import { useAsync } from "../lib/useAsync";
 import { usePageTitle } from "../lib/usePageTitle";
@@ -21,6 +22,7 @@ export function AdminRouting() {
       <Help>
         <p>Choose who handles each category. When the system is sure of a new request's category, it goes straight to that person.</p>
         <p>Each category has one handler. A change applies to new requests and to requests staff correct from now on.</p>
+        <p>If a handler is deactivated or no longer staff, that category's new requests go to For review until you pick someone else.</p>
       </Help>
 
       <p
@@ -44,7 +46,7 @@ export function AdminRouting() {
       {state.status === "ready" && state.data[0].length > 0 && (
         <Rules
           categories={state.data[0]}
-          staff={state.data[1].filter((u) => u.role !== "citizen")}
+          users={state.data[1]}
           currentRules={state.data[2]}
           onSaved={(text) => {
             setMessage(text);
@@ -58,18 +60,19 @@ export function AdminRouting() {
 
 function Rules({
   categories,
-  staff,
+  users,
   currentRules,
   onSaved,
 }: {
   categories: Category[];
-  staff: User[];
+  users: User[];
   currentRules: RoutingRule[];
   onSaved: (message: string) => void;
 }) {
   // One dropdown value per category, seeded from whatever's currently active.
   // A category with no rule yet defaults to the first available staff member,
   // so every dropdown always shows a real selection matching what gets sent.
+  const staff = useMemo(() => users.filter((u) => u.role !== "citizen" && u.is_active), [users]);
   const initial = useMemo(() => {
     const map = new Map<number, string>();
     for (const category of categories) {
@@ -98,14 +101,14 @@ function Rules({
         return;
       }
       const category = categories.find((c) => c.id === categoryId);
-      const handler = staff.find((s) => s.id === staffId);
+      const handler = users.find((s) => s.id === staffId);
       onSaved(
         category && handler
           ? `${handler.full_name} now handles ${category.name}`
           : "Saved",
       );
-    } catch {
-      onSaved("Didn't save, try again");
+    } catch (err) {
+      onSaved(err instanceof ApiError ? err.message : "Didn't save, try again");
     } finally {
       setBusy(false);
     }
@@ -125,6 +128,8 @@ function Rules({
         <tbody>
           {categories.map((category) => {
             const selected = selections.get(category.id) ?? "";
+            const current = users.find((u) => u.id === selected);
+            const unusable = current !== undefined && !staff.includes(current);
             return (
               <tr key={category.id} className="border-b border-rule">
                 <td className="py-3 pr-4 align-top font-bold">
@@ -143,15 +148,18 @@ function Rules({
                     onChange={(e) => assign(category.id, e.target.value)}
                     className="border-2 border-ink bg-white px-2 py-1 focus:outline-3 focus:outline-ink"
                   >
-                    {staff
-                      .filter((s) => s.is_active || s.id === selected)
-                      .map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.full_name}
-                          {s.is_active ? "" : " (deactivated)"}
-                        </option>
-                      ))}
+                    {unusable && (
+                      <option value={current.id}>
+                        {current.full_name} ({current.is_active ? "not staff" : "deactivated"})
+                      </option>
+                    )}
+                    {staff.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.full_name}
+                      </option>
+                    ))}
                   </select>
+                  {unusable && <span className="mt-1 block text-muted">New requests go to For review</span>}
                 </td>
               </tr>
             );

@@ -17,7 +17,7 @@ export function NotificationBell() {
 
   const load = async () => {
     try {
-      const page = await api.listNotifications(user);
+      const page = await api.listNotifications();
       setItems(page.items);
       setUnreadCount(page.unread_count);
     } catch {
@@ -28,7 +28,6 @@ export function NotificationBell() {
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id]);
 
   // Close on an outside click, the standard pattern for a dropdown panel.

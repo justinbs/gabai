@@ -11,7 +11,7 @@ import { useUser } from "../session-context";
 export function ReviewQueue() {
   usePageTitle("For review");
   const user = useUser();
-  const { state, reload } = useAsync(() => api.listReviewQueue(user), [user.id]);
+  const { state, reload } = useAsync(() => api.listReviewQueue(), [user.id]);
 
   return (
     <>
