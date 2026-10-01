@@ -39,7 +39,7 @@ async def list_users(
         await db.execute(select(sqlfunc.count()).select_from(query.subquery()))
     ).scalar_one()
 
-    query = query.order_by(User.created_at.desc()).offset(offset).limit(limit)
+    query = query.order_by(User.created_at.desc(), User.id).offset(offset).limit(limit)
     items = (await db.execute(query)).scalars().all()
 
     return PaginatedUsers(items=items, total=total, limit=limit, offset=offset)
@@ -163,6 +163,17 @@ async def update_user(
             db,
             actor_id=admin.id,
             action="user.deactivated",
+            object_type="user",
+            object_id=str(target.id),
+            detail=None,
+            ip_address=ip,
+        )
+
+    if payload.is_active is True and not previous_active:
+        await write_audit(
+            db,
+            actor_id=admin.id,
+            action="user.reactivated",
             object_type="user",
             object_id=str(target.id),
             detail=None,

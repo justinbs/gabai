@@ -5,6 +5,7 @@ from sqlalchemy.orm import selectinload
 
 from app.audit import write_audit
 from app.db.session import get_db
+from app.models.category import Category
 from app.models.routing_rule import RoutingRule
 from app.models.user import Role, User
 from app.schemas.routing import RoutingRuleRead, RoutingRulesReplace
@@ -39,6 +40,35 @@ async def replace_routing_rules(
             status_code=http_status.HTTP_409_CONFLICT,
             detail="More than one active rule for the same category.",
         )
+
+    known = set((await db.execute(select(Category.id).where(Category.id.in_(category_ids)))).scalars())
+    if len(known) != len(category_ids):
+        raise HTTPException(
+            status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="That category doesn't exist",
+        )
+    # The screen saves the whole table, so a rule that's already in place
+    # passes as is. If its handler was deactivated or demoted it doesn't route.
+    current = dict(
+        (await db.execute(
+            select(RoutingRule.category_id, RoutingRule.staff_id).where(RoutingRule.is_active.is_(True))
+        )).all()
+    )
+    handlers = {
+        u.id: u
+        for u in (
+            await db.execute(select(User).where(User.id.in_({rule.staff_id for rule in payload.rules})))
+        ).scalars()
+    }
+    for rule in payload.rules:
+        if current.get(rule.category_id) == rule.staff_id:
+            continue
+        handler = handlers.get(rule.staff_id)
+        if handler is None or not handler.is_active or handler.role not in (Role.staff, Role.admin):
+            raise HTTPException(
+                status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Pick an active staff member",
+            )
 
     await db.execute(update(RoutingRule).where(RoutingRule.is_active.is_(True)).values(is_active=False))
 

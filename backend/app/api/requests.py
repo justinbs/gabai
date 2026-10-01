@@ -15,12 +15,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.audit import notify, write_audit
-from app.classification import classify_and_route
+from app.classification import classify_and_route, handler_for
 from app.db.session import get_db
 from app.models.category import Category
 from app.models.enums import RequestStatus, Urgency
 from app.models.request import Request
-from app.models.routing_rule import RoutingRule
 from app.models.status_history import StatusHistoryEntry
 from app.models.user import Role, User
 from app.schemas.request import (
@@ -270,19 +269,12 @@ async def set_classification(
     request.final_category_id = payload.final_category_id
     request.final_urgency = payload.final_urgency
 
-    rule = (
-        await db.execute(
-            select(RoutingRule).where(
-                RoutingRule.category_id == payload.final_category_id,
-                RoutingRule.is_active.is_(True),
-            )
-        )
-    ).scalar_one_or_none()
+    handler_id = await handler_for(db, payload.final_category_id)
     # Only claim routed when somebody actually owns it. Writing routed with no
     # assignee puts a request outside every staff member's scope, which is how
     # it would vanish for everyone but an admin.
-    if rule is not None:
-        request.assigned_staff_id = rule.staff_id
+    if handler_id is not None:
+        request.assigned_staff_id = handler_id
         request.status = RequestStatus.routed
     else:
         request.status = RequestStatus.under_review
@@ -308,7 +300,7 @@ async def set_classification(
         ip_address=ip,
     )
 
-    moved = rule is not None and rule.staff_id != previous_assigned_staff_id
+    moved = handler_id is not None and handler_id != previous_assigned_staff_id
     if moved:
         message = (
             "Your request went to another office"

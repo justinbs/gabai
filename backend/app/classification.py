@@ -29,6 +29,7 @@ from app.models.enums import RequestStatus
 from app.models.request import Request
 from app.models.routing_rule import RoutingRule
 from app.models.status_history import StatusHistoryEntry
+from app.models.user import Role, User
 
 settings = get_settings()
 log = logging.getLogger(__name__)
@@ -44,16 +45,19 @@ async def _category_id_for(db: AsyncSession, slug: str | None) -> int | None:
     ).scalar_one_or_none()
 
 
-async def _handler_for(db: AsyncSession, category_id: int):
-    # Switched-off categories go to the review queue.
+async def handler_for(db: AsyncSession, category_id: int):
+    # Switched-off categories and deactivated or demoted handlers go to the review queue.
     return (
         await db.execute(
             select(RoutingRule.staff_id)
             .join(Category, Category.id == RoutingRule.category_id)
+            .join(User, User.id == RoutingRule.staff_id)
             .where(
                 RoutingRule.category_id == category_id,
                 RoutingRule.is_active.is_(True),
                 Category.is_active.is_(True),
+                User.is_active.is_(True),
+                User.role.in_([Role.staff, Role.admin]),
             )
         )
     ).scalar_one_or_none()
@@ -95,7 +99,7 @@ async def classify_and_route(request_id: int) -> None:
         confidence = min(prediction.category_confidence, prediction.urgency_confidence)
         handler = None
         if confidence >= settings.confidence_threshold and category_id:
-            handler = await _handler_for(db, category_id)
+            handler = await handler_for(db, category_id)
 
         if handler is None:
             request.status = RequestStatus.under_review
