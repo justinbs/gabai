@@ -1545,7 +1545,11 @@ export interface paths {
          * @description Replaces the full set in one transaction, because the routing screen edits
          *     the table as a whole. At most one active rule per category. Routing must
          *     be deterministic, and two active rules would leave the choice to
-         *     insertion order. Superseded rules are deactivated, not deleted.
+         *     insertion order. Superseded rules are deactivated, not deleted. Every
+         *     category must exist, and every newly assigned handler must be an active
+         *     staff member or admin (422). A rule already in place is kept as is. If
+         *     its handler was later deactivated or demoted, the rule stops routing and
+         *     the category's requests go to the review queue.
          */
         put: {
             parameters: {
@@ -1582,7 +1586,18 @@ export interface paths {
                         "application/json": components["schemas"]["Error"];
                     };
                 };
-                422: components["responses"]["ValidationError"];
+                /**
+                 * @description The body failed validation, a category doesn't exist, or a newly
+                 *     assigned handler isn't an active staff member or admin.
+                 */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
             };
         };
         post?: never;
