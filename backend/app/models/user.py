@@ -46,3 +46,7 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     deactivated_at: Mapped[datetime | None] = mapped_column(nullable=True)
     # Set once retention has removed the personal details. See app/retention.py.
     anonymized_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    # The Terms of Use and Privacy Notice version this person accepted, and when.
+    # See app/terms.py.
+    terms_accepted_version: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    terms_accepted_at: Mapped[datetime | None] = mapped_column(nullable=True)

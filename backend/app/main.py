@@ -19,6 +19,8 @@ from app.api.admin_audit import router as audit_router
 from app.api.notifications import router as notifications_router
 from app.api.attachments import router as attachments_router
 from app.api.registrations import router as registrations_router
+from app.api.site import router as site_router
+from app.api.admin_categories import router as admin_categories_router
 
 settings = get_settings()
 
@@ -74,6 +76,8 @@ app.include_router(notifications_router)
 app.include_router(audit_router)
 app.include_router(attachments_router)
 app.include_router(registrations_router)
+app.include_router(site_router)
+app.include_router(admin_categories_router)
 
 
 @app.get("/api/auth/me", response_model=UserRead, tags=["auth"])

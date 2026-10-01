@@ -30,4 +30,8 @@ EXPOSE 8000
 # One worker. Both models load per worker, so a second one doubles ~640 MB of
 # model memory for almost no throughput: onnxruntime releases the GIL and
 # inference already runs in a threadpool.
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+#
+# Caddy's requests arrive from Docker's gateway, not 127.0.0.1, so the visitor
+# address in X-Forwarded-For is trusted from any source. Safe because the port is
+# published on the host's loopback only (docker-compose.prod.yml).
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--forwarded-allow-ips", "*"]

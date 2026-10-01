@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi_users import schemas
 from typing import Annotated, Literal
@@ -15,12 +15,23 @@ class UserRead(schemas.BaseUser[uuid.UUID]):
     approval_status: ApprovalStatus
     residence: str | None
     must_change_password: bool
+    terms_accepted_version: str | None
+    terms_accepted_at: datetime | None
     created_at: datetime
 
 
 class UserCreate(schemas.BaseUserCreate):
     full_name: str
     residence: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=150)]
+    # Checked against app/terms.py by the register route before this is used.
+    terms_version: str = Field(max_length=20)
+
+    def create_update_dict(self):
+        # Save the acceptance with the new account.
+        data = super().create_update_dict()
+        data["terms_accepted_version"] = data.pop("terms_version")
+        data["terms_accepted_at"] = datetime.now(timezone.utc)
+        return data
 
 
 class UserSummary(BaseModel):
@@ -62,3 +73,7 @@ class TemporaryPassword(BaseModel):
 
 class RegistrationDecision(BaseModel):
     approval_status: Literal["approved", "rejected"]
+
+
+class TermsAcceptance(BaseModel):
+    version: str = Field(max_length=20)

@@ -11,6 +11,7 @@ from app import mail, passwords
 from app.core.config import get_settings
 from app.db.session import get_db
 from app.models.user import ApprovalStatus, Role, User
+from app.terms import TERMS_VERSION
 
 settings = get_settings()
 
@@ -74,8 +75,9 @@ auth_backend = AuthenticationBackend(
 
 fastapi_users = FastAPIUsers[User, uuid.UUID](get_user_manager, [auth_backend])
 
-# Signed in, even while pending approval or on a temporary password. Only /me,
-# password change and logout use this one.
+# Signed in, even while pending approval, on a temporary password, or before
+# accepting the current terms. Only /me, password change, accepting the terms
+# and logout use this one.
 current_signed_in_user = fastapi_users.current_user(active=True)
 
 
@@ -91,6 +93,11 @@ async def current_active_user(user: User = Depends(current_signed_in_user)) -> U
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Change your temporary password first",
+        )
+    if user.terms_accepted_version != TERMS_VERSION:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Accept the updated terms and privacy notice first",
         )
     return user
 

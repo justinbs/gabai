@@ -17,6 +17,7 @@ from sqlalchemy.orm import selectinload
 from app.audit import notify, write_audit
 from app.classification import classify_and_route
 from app.db.session import get_db
+from app.models.category import Category
 from app.models.enums import RequestStatus, Urgency
 from app.models.request import Request
 from app.models.routing_rule import RoutingRule
@@ -253,6 +254,14 @@ async def set_classification(
         raise HTTPException(
             status_code=http_status.HTTP_409_CONFLICT,
             detail="Request is finished and cannot be relabelled.",
+        )
+
+    # The category must exist and be switched on.
+    category = await db.get(Category, payload.final_category_id)
+    if category is None or not category.is_active:
+        raise HTTPException(
+            status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Pick a category that is switched on",
         )
 
     from_status = request.status

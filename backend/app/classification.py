@@ -45,11 +45,15 @@ async def _category_id_for(db: AsyncSession, slug: str | None) -> int | None:
 
 
 async def _handler_for(db: AsyncSession, category_id: int):
+    # Switched-off categories go to the review queue.
     return (
         await db.execute(
-            select(RoutingRule.staff_id).where(
+            select(RoutingRule.staff_id)
+            .join(Category, Category.id == RoutingRule.category_id)
+            .where(
                 RoutingRule.category_id == category_id,
                 RoutingRule.is_active.is_(True),
+                Category.is_active.is_(True),
             )
         )
     ).scalar_one_or_none()
