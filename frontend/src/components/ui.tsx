@@ -30,7 +30,7 @@ export function Button({
 }: ButtonProps) {
   const styles =
     variant === "primary"
-      ? "bg-brand text-white shadow-[0_3px_0_var(--color-brand-edge)] hover:bg-[#005a30]"
+      ? "bg-brand text-white shadow-[0_3px_0_var(--color-brand-edge)] hover:bg-brand-hover"
       : "bg-wash text-ink shadow-[0_3px_0_#929191] hover:bg-[#dbdad9]";
 
   return (
@@ -214,5 +214,15 @@ export function ErrorState({
         </Button>
       )}
     </div>
+  );
+}
+
+// Collapsible help panel, closed by default.
+export function Help({ title = "How this works", children }: { title?: string; children: ReactNode }) {
+  return (
+    <details className="mb-6 max-w-3xl border-l-4 border-link bg-wash px-4 py-3">
+      <summary className={`cursor-pointer font-bold text-link ${FOCUS_LINK}`}>{title}</summary>
+      <div className="mt-3 space-y-2">{children}</div>
+    </details>
   );
 }

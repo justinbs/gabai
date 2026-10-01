@@ -63,4 +63,6 @@ export const http = {
     request<T>(path, { method: "PUT", body: body ? JSON.stringify(body) : undefined }),
   postForm: <T>(path: string, body: URLSearchParams | FormData) =>
     request<T>(path, { method: "POST", body }),
+  putForm: <T>(path: string, body: FormData) => request<T>(path, { method: "PUT", body }),
+  del: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 };

@@ -17,6 +17,10 @@ export type Notification = S["Notification"];
 export type AuditLogEntry = S["AuditLogEntry"];
 export type RoutingRule = S["RoutingRule"];
 export type RequestSummary = S["RequestSummary"];
+export type SiteSettings = S["SiteSettings"];
+export type SiteSettingsUpdate = S["SiteSettingsUpdate"];
+export type ThemePreset = S["ThemePreset"];
+export type CategoryUpdate = S["CategoryUpdate"];
 
 // Named ServiceRequest because `Request` is a DOM global, and shadowing it
 // produces genuinely confusing type errors.
@@ -60,6 +64,12 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   "user.approved": "Resident approved",
   "user.rejected": "Resident turned down",
   "user.role_changed": "Role changed",
+  "user.terms_accepted": "Terms accepted",
+  "site.updated": "Site details changed",
+  "site.logo_changed": "Logo changed",
+  "site.logo_removed": "Logo removed",
+  "category.updated": "Category changed",
+  "retention.applied": "Old personal data removed",
 };
 
 export const URGENCY_LABELS: Record<Urgency, string> = {

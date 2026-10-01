@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 
 import * as api from "../api/client";
-import { EmptyState, ErrorState, Loading, PageHeading } from "../components/ui";
+import { EmptyState, ErrorState, Help, Loading, PageHeading } from "../components/ui";
 import { useAsync } from "../lib/useAsync";
 import { usePageTitle } from "../lib/usePageTitle";
 import type { Category, RoutingRule, User } from "../api/types";
@@ -9,7 +9,8 @@ import type { Category, RoutingRule, User } from "../api/types";
 export function AdminRouting() {
   usePageTitle("Routing");
   const { state, reload } = useAsync(
-    () => Promise.all([api.getCategories(), api.listUsers(), api.listRoutingRules()]),
+    // Include switched-off categories so saving doesn't drop their handlers.
+    () => Promise.all([api.listAllCategories(), api.listUsers(), api.listRoutingRules()]),
     [],
   );
   const [message, setMessage] = useState("");
@@ -17,6 +18,10 @@ export function AdminRouting() {
   return (
     <>
       <PageHeading title="Routing" description="Who gets which category" />
+      <Help>
+        <p>Choose who handles each category. When the system is sure of a new request's category, it goes straight to that person.</p>
+        <p>Each category has one handler. A change applies to new requests and to requests staff correct from now on.</p>
+      </Help>
 
       <p
         role="status"
@@ -122,7 +127,10 @@ function Rules({
             const selected = selections.get(category.id) ?? "";
             return (
               <tr key={category.id} className="border-b border-rule">
-                <td className="py-3 pr-4 align-top font-bold">{category.name}</td>
+                <td className="py-3 pr-4 align-top font-bold">
+                  {category.name}
+                  {!category.is_active && <span className="block font-normal text-muted">Switched off</span>}
+                </td>
                 <td className="py-3 pr-4 align-top text-muted">{category.description}</td>
                 <td className="py-3 align-top">
                   <label className="sr-only" htmlFor={`rule-${category.id}`}>

@@ -2,6 +2,10 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-route
 
 import { AppShell } from "./components/AppShell";
 import { Account } from "./routes/Account";
+import { AcceptTerms, PrivacyPage, TermsPage } from "./routes/Legal";
+import { AdminSite } from "./routes/AdminSite";
+import { SiteProvider } from "./site";
+import { useSite } from "./site-context";
 import { ForgotPassword, ResetPassword, VerifyEmail } from "./routes/EmailLinks";
 import { SignUps } from "./routes/SignUps";
 import { Waiting } from "./routes/Waiting";
@@ -19,30 +23,34 @@ import { SessionProvider } from "./session";
 import { useSession } from "./session-context";
 import type { Role, User } from "./api/types";
 
-// Where someone goes when the server won't let them do anything else yet.
-function blockedHome(user: User): string | null {
+// Where someone goes when the server won't let them do anything else yet, in
+// the order the server checks.
+function blockedHome(user: User, termsVersion: string): string | null {
   if (user.approval_status !== "approved") return "/waiting";
   if (user.must_change_password) return "/account";
+  if (user.terms_accepted_version !== termsVersion) return "/accept-terms";
   return null;
 }
 
 function Protected({ roles }: { roles: Role[] }) {
   const { user, initializing } = useSession();
+  const { site } = useSite();
   const { pathname } = useLocation();
   if (initializing) return null;
   if (!user) return <Navigate to="/" replace />;
   // The server already refuses everything else, these just avoid a screen full
   // of errors.
-  const home = blockedHome(user);
+  const home = blockedHome(user, site.terms_version);
   if (home && pathname !== home) return <Navigate to={home} replace />;
   return roles.includes(user.role) ? <AppShell /> : <Navigate to="/" replace />;
 }
 
 function Landing() {
   const { user, initializing } = useSession();
+  const { site } = useSite();
   if (initializing) return null;
   if (!user) return <Login />;
-  const home = blockedHome(user);
+  const home = blockedHome(user, site.terms_version);
   if (home) return <Navigate to={home} replace />;
   return <Navigate to={user.role === "citizen" ? "/requests" : "/queue"} replace />;
 }
@@ -54,6 +62,7 @@ const EVERYONE: Role[] = ["citizen", "staff", "admin"];
 
 export default function App() {
   return (
+    <SiteProvider>
     <SessionProvider>
       <BrowserRouter>
         <Routes>
@@ -62,6 +71,8 @@ export default function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
 
           <Route element={<Protected roles={CITIZEN} />}>
             <Route path="/submit" element={<Submit />} />
@@ -78,17 +89,20 @@ export default function App() {
             <Route path="/admin/accounts" element={<AdminUsers />} />
             <Route path="/admin/routing" element={<AdminRouting />} />
             <Route path="/admin/audit" element={<AdminAudit />} />
+            <Route path="/admin/site" element={<AdminSite />} />
           </Route>
 
           <Route element={<Protected roles={EVERYONE} />}>
             <Route path="/requests/:id" element={<RequestDetail />} />
             <Route path="/account" element={<Account />} />
             <Route path="/waiting" element={<Waiting />} />
+            <Route path="/accept-terms" element={<AcceptTerms />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
     </SessionProvider>
+    </SiteProvider>
   );
 }

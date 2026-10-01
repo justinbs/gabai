@@ -3,14 +3,7 @@ import { useState } from "react";
 import * as api from "../api/client";
 import { ApiError } from "../api/http";
 import type { User } from "../api/types";
-import {
-  Button,
-  EmptyState,
-  ErrorState,
-  FOCUS_LINK,
-  Loading,
-  PageHeading,
-} from "../components/ui";
+import { Button, EmptyState, ErrorState, FOCUS_LINK, Help, Loading, PageHeading } from "../components/ui";
 import { fullDate } from "../lib/format";
 import { useAsync } from "../lib/useAsync";
 import { usePageTitle } from "../lib/usePageTitle";
@@ -64,6 +57,10 @@ export function SignUps() {
   return (
     <>
       <PageHeading title="Sign-ups" />
+      <Help>
+        <p>Check that each person lives in the barangay, using the purok or street they gave.</p>
+        <p>They have to confirm their email before you can approve them. A sign-up you turn down can still be approved later if it was a mistake.</p>
+      </Help>
 
       <div className="mb-5 flex gap-6">
         {(["pending", "rejected"] as const).map((v) => (

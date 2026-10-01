@@ -23,6 +23,7 @@ const LINKS = {
     { to: "/admin/accounts", label: "Accounts" },
     { to: "/admin/routing", label: "Routing" },
     { to: "/admin/audit", label: "Audit log" },
+    { to: "/admin/site", label: "Site settings" },
   ],
 };
 

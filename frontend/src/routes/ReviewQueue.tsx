@@ -1,6 +1,6 @@
 import * as api from "../api/client";
 import { RequestTable } from "../components/RequestTable";
-import { EmptyState, ErrorState, Loading, PageHeading } from "../components/ui";
+import { EmptyState, ErrorState, Help, Loading, PageHeading } from "../components/ui";
 import { useAsync } from "../lib/useAsync";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useUser } from "../session-context";
@@ -19,6 +19,11 @@ export function ReviewQueue() {
         title="For review"
         description="Choose category and urgency"
       />
+      <Help>
+        <p>The system wasn't sure how to sort these, so a person decides. They're listed oldest first.</p>
+        <p>Open a request, choose its category and urgency, and save. It goes to whoever handles that category.</p>
+        <p>The urgency shown here is only the system's guess. Read the request before you trust it.</p>
+      </Help>
 
       {state.status === "loading" && <Loading label="Loading" />}
 

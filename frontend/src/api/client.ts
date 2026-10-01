@@ -2,6 +2,7 @@ import { ApiError, http } from "./http";
 import type {
   AuditLogEntry,
   Category,
+  CategoryUpdate,
   Notification,
   Paginated,
   RequestStatus,
@@ -9,6 +10,8 @@ import type {
   Role,
   RoutingRule,
   ServiceRequest,
+  SiteSettings,
+  SiteSettingsUpdate,
   Urgency,
   User,
 } from "./types";
@@ -50,6 +53,7 @@ export const register = async (draft: {
   email: string;
   password: string;
   residence: string;
+  terms_version: string;
 }): Promise<User | null> => {
   try {
     return await http.post<User>("/api/auth/register", {
@@ -57,16 +61,22 @@ export const register = async (draft: {
       password: draft.password,
       full_name: draft.full_name.trim(),
       residence: draft.residence.trim(),
+      terms_version: draft.terms_version,
     });
   } catch (err) {
-    // 409 means the email is taken. A 422 is the password policy and carries its
-    // own message, so it's thrown for the screen to show.
+    // 409 means the email is taken, unless the terms changed while the page was
+    // open, which is thrown for the screen to show. A 422 is the password policy
+    // and carries its own message.
+    if (err instanceof ApiError && err.status === 409 && err.message === "TERMS_OUTDATED") throw err;
     if (err instanceof ApiError && (err.status === 409 || err.status === 400)) {
       return null;
     }
     throw err;
   }
 };
+
+// Throws ApiError 409 when the version isn't current, meaning the page is stale.
+export const acceptTerms = (version: string) => http.post<User>("/api/auth/terms", { version });
 
 // Throws ApiError: 400 wrong current password, 422 new one fails the policy.
 export const changePassword = (currentPassword: string, newPassword: string) =>
@@ -310,3 +320,31 @@ export const listAuditLog = async (filters: AuditFilters = {}) => {
   }>(`/api/admin/audit-log?${query.toString()}`);
   return page.items;
 };
+
+// ---------------------------------------------------------------- site ----
+
+// Public. The masthead and footer need it before anyone signs in.
+export const getSite = () => http.get<SiteSettings>("/api/site");
+
+export const updateSite = (changes: SiteSettingsUpdate) =>
+  http.patch<SiteSettings>("/api/admin/site", changes);
+
+// Throws ApiError 413 over 1 MB, 415 when it isn't a PNG, JPEG or WebP.
+export const uploadLogo = (file: File) => {
+  const form = new FormData();
+  form.set("file", file);
+  return http.putForm<SiteSettings>("/api/admin/site/logo", form);
+};
+
+export const removeLogo = () => http.del<SiteSettings>("/api/admin/site/logo");
+
+export const LOGO_TYPES = ["image/png", "image/jpeg", "image/webp"];
+export const MAX_LOGO_BYTES = 1024 * 1024;
+
+// ---------------------------------------------------- admin: categories ----
+
+export const listAllCategories = () => http.get<Category[]>("/api/admin/categories");
+
+// Throws ApiError 409 when it would switch off the last category that's on.
+export const updateCategory = (id: number, changes: CategoryUpdate) =>
+  http.patch<Category>(`/api/admin/categories/${id}`, changes);

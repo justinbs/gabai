@@ -2,15 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import * as api from "../api/client";
 import { ApiError } from "../api/http";
-import {
-  Button,
-  EmptyState,
-  ErrorState,
-  Input,
-  Loading,
-  PageHeading,
-  Select,
-} from "../components/ui";
+import { Button, EmptyState, ErrorState, Help, Input, Loading, PageHeading, Select } from "../components/ui";
 import { fullDate } from "../lib/format";
 import { useAsync } from "../lib/useAsync";
 import { usePageTitle } from "../lib/usePageTitle";
@@ -45,6 +37,11 @@ export function AdminUsers() {
   return (
     <>
       <PageHeading title="Accounts" />
+      <Help>
+        <p>Add staff and admin accounts here. Residents sign up on their own and are approved under Sign-ups.</p>
+        <p>You set a temporary password for a new account. Give it to the person directly. They have to change it the first time they sign in.</p>
+        <p>Accounts can't be deleted. Deactivate one to stop it signing in, and its record stays.</p>
+      </Help>
 
       {issued && (
         <div

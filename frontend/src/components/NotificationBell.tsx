@@ -16,9 +16,14 @@ export function NotificationBell() {
   const panelRef = useRef<HTMLDivElement>(null);
 
   const load = async () => {
-    const page = await api.listNotifications(user);
-    setItems(page.items);
-    setUnreadCount(page.unread_count);
+    try {
+      const page = await api.listNotifications(user);
+      setItems(page.items);
+      setUnreadCount(page.unread_count);
+    } catch {
+      // Refused while the account is waiting, on a temporary password, or
+      // hasn't accepted the terms. The bell stays empty.
+    }
   };
 
   useEffect(() => {

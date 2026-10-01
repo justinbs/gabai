@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 
-import { BARANGAY } from "../lib/barangay";
+import { useSite } from "../site-context";
 import type { User } from "../api/types";
 import { FOCUS_LINK } from "./ui";
 
@@ -63,21 +63,22 @@ export function TopBar({
 }
 
 export function Masthead() {
+  const { site, logoUrl } = useSite();
   return (
     <div className="bg-white">
       <div className={`${WIDTH} flex items-center gap-4 py-4 sm:py-5`}>
         <img
-          src="/barangay-logo.jpg"
-          alt="Barangay V logo"
+          src={logoUrl}
+          alt={`${site.barangay_name} logo`}
           className="h-16 w-16 shrink-0 object-contain sm:h-[100px] sm:w-[100px]"
         />
         <div className="font-masthead text-[#222222]">
           <p className="text-[13px] tracking-wide sm:text-[16px]">Republika ng Pilipinas</p>
           <div className="my-1 h-px bg-[#222222]" />
           <p className="text-[22px] font-semibold leading-tight sm:text-[32px]">
-            {BARANGAY.name}
+            {site.barangay_name}
           </p>
-          <p className="text-[13px] sm:text-[16px]">{BARANGAY.place}</p>
+          <p className="text-[13px] sm:text-[16px]">{site.place}</p>
         </div>
       </div>
     </div>
@@ -85,22 +86,23 @@ export function Masthead() {
 }
 
 export function SiteFooter() {
-  // Only what the barangay has confirmed. See lib/barangay.ts.
+  // Empty fields are hidden.
+  const { site } = useSite();
   const details = [
-    BARANGAY.officeHours && { label: "Office hours", value: BARANGAY.officeHours },
-    BARANGAY.address && { label: "Address", value: BARANGAY.address },
-    BARANGAY.hotline && {
+    site.office_hours && { label: "Office hours", value: site.office_hours },
+    site.address && { label: "Address", value: site.address },
+    site.hotline && {
       label: "Hotline",
       value: (
-        <a href={`tel:${BARANGAY.hotline}`} className={`text-white underline ${FOCUS_LINK}`}>
-          {BARANGAY.hotline}
+        <a href={`tel:${site.hotline}`} className={`text-white underline ${FOCUS_LINK}`}>
+          {site.hotline}
         </a>
       ),
     },
   ].filter(Boolean) as { label: string; value: ReactNode }[];
 
   // One bar. The seal and the barangay's name are already in the masthead, and
-  // nothing here claims to be official, this is a proposed system.
+  // nothing here claims to be an official government site.
   return (
     <footer className={`mt-16 border-t-4 border-brand ${TOP_BAR}`}>
       <div className={`${WIDTH} flex flex-wrap gap-x-6 gap-y-2 py-4 text-[15px]`}>
@@ -109,6 +111,12 @@ export function SiteFooter() {
             <span className="text-white/80">{d.label}</span> {d.value}
           </span>
         ))}
+        <Link to="/terms" className={`text-white underline ${FOCUS_LINK}`}>
+          Terms of Use
+        </Link>
+        <Link to="/privacy" className={`text-white underline ${FOCUS_LINK}`}>
+          Privacy Notice
+        </Link>
         <span className="text-white/80">
           Made with Barangay V by BS IT students of Mapúa University
         </span>

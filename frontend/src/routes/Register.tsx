@@ -8,6 +8,7 @@ import { Button, FOCUS_LINK, Input } from "../components/ui";
 import { bilingualPolicy } from "../lib/passwordMessages";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useSession } from "../session-context";
+import { TERMS_VERSION } from "../content/terms";
 
 
 export function Register() {
@@ -18,6 +19,7 @@ export function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [residence, setResidence] = useState("");
+  const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -39,10 +41,22 @@ export function Register() {
       setError("We need a password · Kailangan po ng password");
       return;
     }
+    if (!agreed) {
+      setError(
+        "Agree to the terms and privacy notice to sign up · Sumang-ayon po sa mga tuntunin para makapag-sign up",
+      );
+      return;
+    }
     setError("");
     setBusy(true);
     try {
-      const created = await api.register({ full_name: name, email, password, residence });
+      const created = await api.register({
+        full_name: name,
+        email,
+        password,
+        residence,
+        terms_version: TERMS_VERSION,
+      });
       if (!created) {
         setError("Someone already uses that email · May gumagamit na nito");
         return;
@@ -57,7 +71,9 @@ export function Register() {
       setError(
         err instanceof ApiError && err.status === 422
           ? bilingualPolicy(err.message)
-          : "Didn't save, try again · Hindi nai-save, subukan ulit",
+          : err instanceof ApiError && err.status === 409
+            ? "The terms changed while this page was open. Reload the page · Nagbago ang mga tuntunin, i-reload po ang page"
+            : "Didn't save, try again · Hindi nai-save, subukan ulit",
       );
     } finally {
       setBusy(false);
@@ -116,6 +132,29 @@ export function Register() {
             onChange={(e) => setPassword(e.target.value)}
             className="mt-5"
           />
+
+          <div className="mt-6 flex items-start gap-3">
+            <input
+              id="agree"
+              type="checkbox"
+              checked={agreed}
+              onChange={(e) => setAgreed(e.target.checked)}
+              className="mt-1 h-7 w-7 shrink-0 accent-brand"
+            />
+            <label htmlFor="agree" className="text-[17px]">
+              I've read and agree to the{" "}
+              <a href="/terms" target="_blank" rel="noopener" className={`text-link underline ${FOCUS_LINK}`}>
+                Terms of Use
+              </a>{" "}
+              and{" "}
+              <a href="/privacy" target="_blank" rel="noopener" className={`text-link underline ${FOCUS_LINK}`}>
+                Privacy Notice
+              </a>
+              <span className="block text-muted">
+                Nabasa ko at sang-ayon ako sa mga Tuntunin at Abiso sa Pagkapribado
+              </span>
+            </label>
+          </div>
 
           <div className="mt-6 flex flex-wrap items-center gap-4">
             <Button type="submit" disabled={busy}>

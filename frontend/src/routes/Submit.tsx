@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import * as api from "../api/client";
-import { Button, FOCUS_LINK, PageHeading, Textarea } from "../components/ui";
+import { Button, FOCUS_LINK, Help, PageHeading, Textarea } from "../components/ui";
 import { usePageTitle } from "../lib/usePageTitle";
 import type { ServiceRequest } from "../api/types";
 
@@ -114,6 +114,12 @@ export function Submit() {
   return (
     <>
       <PageHeading title="Report a concern" />
+      <Help title="How to report · Paano mag-report">
+        <p>Say what happened, where (purok, street or landmark), and since when. Filipino, English or Taglish are all fine.<span className="block text-muted">Sabihin kung ano ang nangyari, saan (purok, kalye o palatandaan), at kailan pa. Puwede ang Filipino, English o Taglish.</span></p>
+        <p>Add photos if they help. JPEG, PNG, WebP or PDF, up to 5 MB each.<span className="block text-muted">Magdagdag ng litrato kung makakatulong. JPEG, PNG, WebP o PDF, hanggang 5 MB bawat isa.</span></p>
+        <p>The system sorts your report and sends it to the staff member who handles that concern, or a staff member sorts it first. You get a reference number to follow it.<span className="block text-muted">Aayusin ng sistema ang inyong report at ipapadala sa staff na humahawak nito, o isang staff muna ang mag-aayos nito. Makakakuha kayo ng reference number para masubaybayan ito.</span></p>
+        <p>In an emergency, call 911 or go to the barangay hall right away.<span className="block text-muted">Kung emergency, tumawag sa 911 o pumunta agad sa barangay hall.</span></p>
+      </Help>
       <p className="mb-6 text-[19px] text-muted">
         Tagalog, English, or a mix · Tagalog, English, o halo
       </p>

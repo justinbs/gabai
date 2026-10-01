@@ -1,13 +1,7 @@
 import { useState } from "react";
 
 import * as api from "../api/client";
-import {
-  EmptyState,
-  ErrorState,
-  Loading,
-  PageHeading,
-  Select,
-} from "../components/ui";
+import { EmptyState, ErrorState, Help, Loading, PageHeading, Select } from "../components/ui";
 import { fullDate } from "../lib/format";
 import { AUDIT_ACTION_LABELS } from "../api/types";
 import type { AuditLogEntry, User } from "../api/types";
@@ -48,6 +42,10 @@ export function AdminAudit() {
   return (
     <>
       <PageHeading title="Audit log" />
+      <Help>
+        <p>Every staff and admin change to accounts, requests, routing and site settings is recorded here: who did it, when, and from where.</p>
+        <p>Entries can't be changed or deleted. Only the internet addresses are cleared after the retention period.</p>
+      </Help>
 
       <div className="mb-5 max-w-xs">
         <Select

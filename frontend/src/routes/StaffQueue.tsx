@@ -1,6 +1,6 @@
 import * as api from "../api/client";
 import { RequestTable } from "../components/RequestTable";
-import { EmptyState, ErrorState, Loading, PageHeading } from "../components/ui";
+import { EmptyState, ErrorState, Help, Loading, PageHeading } from "../components/ui";
 import { useAsync } from "../lib/useAsync";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useUser } from "../session-context";
@@ -21,6 +21,11 @@ export function StaffQueue() {
   return (
     <>
       <PageHeading title="Queue" />
+      <Help>
+        <p>These are the requests assigned to you and those in the categories you handle, highest urgency first and oldest first within each level.</p>
+        <p>Open a request to move it along: in progress, then resolved, then closed. A note you add is sent to the resident.</p>
+        <p>If the category or urgency is wrong, correct it on the request. It moves to the person who handles the new category.</p>
+      </Help>
 
       {state.status === "loading" && <Loading label="Loading" />}
 
