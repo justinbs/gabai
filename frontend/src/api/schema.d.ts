@@ -23,6 +23,10 @@ export interface paths {
          *     until staff approve it through `PATCH /api/registrations/{user_id}`,
          *     every route except `/api/auth/me`, password change and logout answers
          *     403. Only someone holding the password learns the account is pending.
+         *
+         *     `terms_version` is the version of the Terms of Use and Privacy Notice the
+         *     person was shown, and must equal `terms_version` from `GET /api/site`. An older version answers 409, so a page loaded before
+         *     the notice changed can't sign someone up to text they never saw.
          */
         post: {
             parameters: {
@@ -46,7 +50,18 @@ export interface paths {
                         "application/json": components["schemas"]["User"];
                     };
                 };
-                409: components["responses"]["Conflict"];
+                /**
+                 * @description The email is taken, or `terms_version` is not the current one (detail
+                 *     code `TERMS_OUTDATED`).
+                 */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
                 422: components["responses"]["ValidationError"];
             };
         };
@@ -185,6 +200,66 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/terms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept the current Terms of Use and Privacy Notice
+         * @description Records that the signed-in person accepted `version`, with the time.
+         *     Works while acceptance is missing or out of date, like `/api/auth/me`.
+         *     Until the account's accepted version matches `terms_version` from
+         *     `GET /api/site`, every other route except `/api/auth/me`, password change
+         *     and logout answers 403. When the notice changes, the version changes, and
+         *     everyone is asked again at their next visit. Writes an audit row,
+         *     `user.terms_accepted`, with the version.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["TermsAcceptance"];
+                };
+            };
+            responses: {
+                /** @description Accepted. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["User"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description Not the current version. Reload and read it again. */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                422: components["responses"]["ValidationError"];
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -904,7 +979,18 @@ export interface paths {
                         "application/json": components["schemas"]["Error"];
                     };
                 };
-                422: components["responses"]["ValidationError"];
+                /**
+                 * @description The body failed validation, or `final_category_id` is not a category
+                 *     that exists and is switched on.
+                 */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
             };
         };
         trace?: never;
@@ -1150,6 +1236,93 @@ export interface paths {
                 409: components["responses"]["Conflict"];
             };
         };
+        trace?: never;
+    };
+    "/api/site": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The barangay's details and the site's look
+         * @description Public, because the masthead and footer show before anyone signs in.
+         *     Contact fields are null until an admin fills them in, and the client
+         *     hides a null field rather than showing a guess. `terms_version` is the
+         *     Terms of Use and Privacy Notice version that sign-up and
+         *     `POST /api/auth/terms` must send.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Current settings. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SiteSettings"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/site/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The uploaded logo
+         * @description Public. 404 when no logo has been uploaded, in which case the client
+         *     shows the default. Clients add `logo_version` as a query parameter so a
+         *     new upload isn't hidden by the browser cache.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The image. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "image/png": unknown;
+                        "image/jpeg": unknown;
+                        "image/webp": unknown;
+                    };
+                };
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/admin/users": {
@@ -1419,6 +1592,256 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/site": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change the barangay's details or the site's colour
+         * @description Admin only. Send only the fields to change. `null` clears a contact
+         *     field, which then disappears from the site. `theme` is one of the
+         *     preset colours, each already checked for readable contrast, so no
+         *     choice can make text unreadable. Writes an audit row, `site.updated`,
+         *     listing the fields that changed.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SiteSettingsUpdate"];
+                };
+            };
+            responses: {
+                /** @description Updated. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SiteSettings"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                422: components["responses"]["ValidationError"];
+            };
+        };
+        trace?: never;
+    };
+    "/api/admin/site/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upload a new logo
+         * @description Admin only. PNG, JPEG or WebP, at most 1 MB. Replaces any earlier
+         *     upload. Writes an audit row, `site.logo_changed`.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "multipart/form-data": {
+                        /** Format: binary */
+                        file: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Uploaded. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SiteSettings"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                /** @description Larger than 1 MB. */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not a PNG, JPEG or WebP image. */
+                415: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * Go back to the default logo
+         * @description Admin only. Writes an audit row, `site.logo_removed`.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Removed. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SiteSettings"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every category, including those switched off
+         * @description Admin only. `GET /api/categories` lists only the ones switched on.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description All categories. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Category"][];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/categories/{category_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                category_id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Rename, describe, or switch a category on or off
+         * @description Admin only. The `slug` never changes, because it is the label the
+         *     classifier was trained on. There is no create or delete: the classifier
+         *     can only predict the categories it was trained on, so a new one could
+         *     never be chosen automatically. A request the classifier puts in a
+         *     switched-off category goes to the review queue instead of being routed,
+         *     and staff can't pick a switched-off category when relabelling. At least
+         *     one category must stay on. Writes an audit row, `category.updated`,
+         *     listing the fields that changed.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    category_id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CategoryUpdate"];
+                };
+            };
+            responses: {
+                /** @description Updated. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Category"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description This would switch off the last category that is on. */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                422: components["responses"]["ValidationError"];
+            };
+        };
+        trace?: never;
+    };
     "/api/admin/audit-log": {
         parameters: {
             query?: never;
@@ -1564,6 +1987,14 @@ export interface components {
              *     when the person sets their own. Enforced server-side.
              */
             must_change_password: boolean;
+            /**
+             * @description The Terms of Use and Privacy Notice version this person last accepted.
+             *     Null for accounts made before acceptance was recorded. When it differs
+             *     from `terms_version` in `GET /api/site`, the client asks them to accept.
+             */
+            terms_accepted_version: string | null;
+            /** Format: date-time */
+            terms_accepted_at: string | null;
             /** Format: date-time */
             created_at: string;
         };
@@ -1581,7 +2012,12 @@ export interface components {
             password: string;
             full_name: string;
             /** @description Purok or street, so staff can confirm residency. */
-            residence?: string;
+            residence: string;
+            /** @description The Terms of Use and Privacy Notice version the person accepted. */
+            terms_version: string;
+        };
+        TermsAcceptance: {
+            version: string;
         };
         LoginRequest: {
             /**
@@ -1638,6 +2074,43 @@ export interface components {
             /** @description What belongs in this category. Shown as help text. */
             description: string | null;
             is_active: boolean;
+        };
+        /** @description Send only the fields to change. */
+        CategoryUpdate: {
+            name?: string;
+            description?: string | null;
+            is_active?: boolean;
+        };
+        /**
+         * @description A preset main colour. Each has at least 5:1 contrast with white, since
+         *     the colour is used both behind white text and as text.
+         * @enum {string}
+         */
+        ThemePreset: "green" | "blue" | "maroon" | "teal" | "purple" | "brown";
+        SiteSettings: {
+            /** @example Barangay V (Singko) */
+            barangay_name: string;
+            /** @example Amaya, Tanza, Cavite */
+            place: string;
+            address: string | null;
+            hotline: string | null;
+            office_hours: string | null;
+            theme: components["schemas"]["ThemePreset"];
+            /** @description Changes with every upload. Null means no upload, so use the default logo. */
+            logo_version: string | null;
+            /** @description The current Terms of Use and Privacy Notice version. */
+            terms_version: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        /** @description Send only the fields to change. `null` clears a contact field. */
+        SiteSettingsUpdate: {
+            barangay_name?: string;
+            place?: string;
+            address?: string | null;
+            hotline?: string | null;
+            office_hours?: string | null;
+            theme?: components["schemas"]["ThemePreset"];
         };
         RequestCreate: {
             /** @description Free text in Filipino, English, or a mix. */
@@ -1824,8 +2297,9 @@ export interface components {
         };
         /**
          * @description Authenticated, but not allowed. The role does not permit this action,
-         *     the account is still waiting for approval, or it is on a temporary
-         *     password and has to change it first.
+         *     the account is still waiting for approval, it is on a temporary
+         *     password and has to change it first, or it hasn't accepted the current
+         *     Terms of Use and Privacy Notice.
          */
         Forbidden: {
             headers: {

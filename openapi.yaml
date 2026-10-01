@@ -41,6 +41,8 @@ tags:
     description: Staff approving residents who signed up
   - name: admin
     description: Account management, routing configuration, audit log
+  - name: site
+    description: The barangay's details and the site's look, shown before sign-in
 
 security:
   - cookieAuth: []
@@ -60,6 +62,10 @@ paths:
         until staff approve it through `PATCH /api/registrations/{user_id}`,
         every route except `/api/auth/me`, password change and logout answers
         403. Only someone holding the password learns the account is pending.
+
+        `terms_version` is the version of the Terms of Use and Privacy Notice the
+        person was shown, and must equal `terms_version` from `GET /api/site`. An older version answers 409, so a page loaded before
+        the notice changed can't sign someone up to text they never saw.
       security: []
       requestBody:
         required: true
@@ -75,7 +81,13 @@ paths:
               schema:
                 $ref: "#/components/schemas/User"
         "409":
-          $ref: "#/components/responses/Conflict"
+          description: |
+            The email is taken, or `terms_version` is not the current one (detail
+            code `TERMS_OUTDATED`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "422":
           $ref: "#/components/responses/ValidationError"
 
@@ -140,6 +152,42 @@ paths:
                 $ref: "#/components/schemas/User"
         "401":
           $ref: "#/components/responses/Unauthorized"
+
+  /api/auth/terms:
+    post:
+      tags: [auth]
+      summary: Accept the current Terms of Use and Privacy Notice
+      description: |
+        Records that the signed-in person accepted `version`, with the time.
+        Works while acceptance is missing or out of date, like `/api/auth/me`.
+        Until the account's accepted version matches `terms_version` from
+        `GET /api/site`, every other route except `/api/auth/me`, password change
+        and logout answers 403. When the notice changes, the version changes, and
+        everyone is asked again at their next visit. Writes an audit row,
+        `user.terms_accepted`, with the version.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TermsAcceptance"
+      responses:
+        "200":
+          description: Accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: Not the current version. Reload and read it again.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          $ref: "#/components/responses/ValidationError"
 
   /api/auth/password:
     put:
@@ -594,7 +642,13 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "422":
-          $ref: "#/components/responses/ValidationError"
+          description: |
+            The body failed validation, or `final_category_id` is not a category
+            that exists and is switched on.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   # ---------------------------------------------------------- categories ----
   /api/categories:
@@ -758,6 +812,45 @@ paths:
                 $ref: "#/components/schemas/Error"
         "409":
           $ref: "#/components/responses/Conflict"
+
+  # ---------------------------------------------------------------- site ----
+  /api/site:
+    get:
+      tags: [site]
+      summary: The barangay's details and the site's look
+      description: |
+        Public, because the masthead and footer show before anyone signs in.
+        Contact fields are null until an admin fills them in, and the client
+        hides a null field rather than showing a guess. `terms_version` is the
+        Terms of Use and Privacy Notice version that sign-up and
+        `POST /api/auth/terms` must send.
+      security: []
+      responses:
+        "200":
+          description: Current settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SiteSettings"
+
+  /api/site/logo:
+    get:
+      tags: [site]
+      summary: The uploaded logo
+      description: |
+        Public. 404 when no logo has been uploaded, in which case the client
+        shows the default. Clients add `logo_version` as a query parameter so a
+        new upload isn't hidden by the browser cache.
+      security: []
+      responses:
+        "200":
+          description: The image.
+          content:
+            image/png: {}
+            image/jpeg: {}
+            image/webp: {}
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   # --------------------------------------------------------------- admin ----
   /api/admin/users:
@@ -959,6 +1052,159 @@ paths:
         "422":
           $ref: "#/components/responses/ValidationError"
 
+  /api/admin/site:
+    patch:
+      tags: [admin, site]
+      summary: Change the barangay's details or the site's colour
+      description: |
+        Admin only. Send only the fields to change. `null` clears a contact
+        field, which then disappears from the site. `theme` is one of the
+        preset colours, each already checked for readable contrast, so no
+        choice can make text unreadable. Writes an audit row, `site.updated`,
+        listing the fields that changed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SiteSettingsUpdate"
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SiteSettings"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /api/admin/site/logo:
+    put:
+      tags: [admin, site]
+      summary: Upload a new logo
+      description: |
+        Admin only. PNG, JPEG or WebP, at most 1 MB. Replaces any earlier
+        upload. Writes an audit row, `site.logo_changed`.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Uploaded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SiteSettings"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          description: Larger than 1 MB.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "415":
+          description: Not a PNG, JPEG or WebP image.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags: [admin, site]
+      summary: Go back to the default logo
+      description: Admin only. Writes an audit row, `site.logo_removed`.
+      responses:
+        "200":
+          description: Removed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SiteSettings"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/admin/categories:
+    get:
+      tags: [admin, categories]
+      summary: Every category, including those switched off
+      description: Admin only. `GET /api/categories` lists only the ones switched on.
+      responses:
+        "200":
+          description: All categories.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/admin/categories/{category_id}:
+    parameters:
+      - name: category_id
+        in: path
+        required: true
+        schema:
+          type: integer
+    patch:
+      tags: [admin, categories]
+      summary: Rename, describe, or switch a category on or off
+      description: |
+        Admin only. The `slug` never changes, because it is the label the
+        classifier was trained on. There is no create or delete: the classifier
+        can only predict the categories it was trained on, so a new one could
+        never be chosen automatically. A request the classifier puts in a
+        switched-off category goes to the review queue instead of being routed,
+        and staff can't pick a switched-off category when relabelling. At least
+        one category must stay on. Writes an audit row, `category.updated`,
+        listing the fields that changed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryUpdate"
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: This would switch off the last category that is on.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
   /api/admin/audit-log:
     get:
       tags: [admin]
@@ -1055,8 +1301,9 @@ components:
     Forbidden:
       description: |
         Authenticated, but not allowed. The role does not permit this action,
-        the account is still waiting for approval, or it is on a temporary
-        password and has to change it first.
+        the account is still waiting for approval, it is on a temporary
+        password and has to change it first, or it hasn't accepted the current
+        Terms of Use and Privacy Notice.
       content:
         application/json:
           schema:
@@ -1196,7 +1443,7 @@ components:
     # --------------------------------------------------------- users ------
     User:
       type: object
-      required: [id, email, full_name, role, is_active, is_verified, approval_status, must_change_password, created_at]
+      required: [id, email, full_name, role, is_active, is_verified, approval_status, must_change_password, terms_accepted_version, terms_accepted_at, created_at]
       properties:
         id:
           type: string
@@ -1231,6 +1478,15 @@ components:
           description: |
             Set when an admin creates the account or resets its password, cleared
             when the person sets their own. Enforced server-side.
+        terms_accepted_version:
+          type: [string, "null"]
+          description: |
+            The Terms of Use and Privacy Notice version this person last accepted.
+            Null for accounts made before acceptance was recorded. When it differs
+            from `terms_version` in `GET /api/site`, the client asks them to accept.
+        terms_accepted_at:
+          type: [string, "null"]
+          format: date-time
         created_at:
           type: string
           format: date-time
@@ -1250,7 +1506,7 @@ components:
 
     RegisterRequest:
       type: object
-      required: [email, password, full_name]
+      required: [email, password, full_name, residence, terms_version]
       properties:
         email:
           type: string
@@ -1270,6 +1526,18 @@ components:
           minLength: 1
           maxLength: 150
           description: Purok or street, so staff can confirm residency.
+        terms_version:
+          type: string
+          maxLength: 20
+          description: The Terms of Use and Privacy Notice version the person accepted.
+
+    TermsAcceptance:
+      type: object
+      required: [version]
+      properties:
+        version:
+          type: string
+          maxLength: 20
 
     LoginRequest:
       type: object
@@ -1365,6 +1633,79 @@ components:
           description: What belongs in this category. Shown as help text.
         is_active:
           type: boolean
+
+    CategoryUpdate:
+      type: object
+      description: Send only the fields to change.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: [string, "null"]
+          maxLength: 500
+        is_active:
+          type: boolean
+
+    ThemePreset:
+      type: string
+      description: |
+        A preset main colour. Each has at least 5:1 contrast with white, since
+        the colour is used both behind white text and as text.
+      enum: [green, blue, maroon, teal, purple, brown]
+
+    SiteSettings:
+      type: object
+      required: [barangay_name, place, address, hotline, office_hours, theme, logo_version, terms_version, updated_at]
+      properties:
+        barangay_name:
+          type: string
+          examples: ["Barangay V (Singko)"]
+        place:
+          type: string
+          examples: ["Amaya, Tanza, Cavite"]
+        address:
+          type: [string, "null"]
+        hotline:
+          type: [string, "null"]
+        office_hours:
+          type: [string, "null"]
+        theme:
+          $ref: "#/components/schemas/ThemePreset"
+        logo_version:
+          type: [string, "null"]
+          description: Changes with every upload. Null means no upload, so use the default logo.
+        terms_version:
+          type: string
+          description: The current Terms of Use and Privacy Notice version.
+        updated_at:
+          type: string
+          format: date-time
+
+    SiteSettingsUpdate:
+      type: object
+      description: Send only the fields to change. `null` clears a contact field.
+      properties:
+        barangay_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        place:
+          type: string
+          minLength: 1
+          maxLength: 100
+        address:
+          type: [string, "null"]
+          maxLength: 200
+        hotline:
+          type: [string, "null"]
+          maxLength: 50
+        office_hours:
+          type: [string, "null"]
+          maxLength: 100
+        theme:
+          $ref: "#/components/schemas/ThemePreset"
 
     # ------------------------------------------------------ requests ------
     RequestCreate:
