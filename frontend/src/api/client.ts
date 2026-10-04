@@ -149,21 +149,15 @@ export const getRequest = async (
   }
 };
 
-export const submitRequest = async (
-  description: string,
-  uploads: File[] = [],
-): Promise<ServiceRequest> => {
-  const created = await http.post<ServiceRequest>("/api/requests", { description });
+// The request is created first, then each file is sent on its own, so the page
+// can show progress and retry only the files that failed.
+export const createRequest = (description: string): Promise<ServiceRequest> =>
+  http.post<ServiceRequest>("/api/requests", { description });
 
-  for (const file of uploads) {
-    const form = new FormData();
-    form.set("file", file);
-    await http.postForm<unknown>(`/api/requests/${created.id}/attachments`, form);
-  }
-
-  return uploads.length > 0
-    ? await http.get<ServiceRequest>(`/api/requests/${created.id}`)
-    : created;
+export const uploadAttachment = async (requestId: number, file: File): Promise<void> => {
+  const form = new FormData();
+  form.set("file", file);
+  await http.postForm<unknown>(`/api/requests/${requestId}/attachments`, form);
 };
 
 export const listReviewQueue = (): Promise<Paginated<RequestSummary>> =>
