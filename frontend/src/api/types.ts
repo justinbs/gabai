@@ -65,6 +65,7 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   "user.approved": "Resident approved",
   "user.rejected": "Resident turned down",
   "user.role_changed": "Role changed",
+  "user.renamed": "Name changed",
   "user.terms_accepted": "Terms accepted",
   "site.updated": "Site details changed",
   "site.logo_changed": "Logo changed",

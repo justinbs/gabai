@@ -136,14 +136,19 @@ async def list_requests(
         query = query.order_by(Request.created_at.desc())
     else:
         # Highest urgency first, then oldest first — the order the queue is
-        # actually worked in. Unclassified (null urgency) sorts last.
+        # actually worked in. Unclassified (null urgency) sorts last, and
+        # resolved requests, which only wait to be closed, go below the rest.
         urgency_rank = case(
             (effective_urgency == Urgency.high, 0),
             (effective_urgency == Urgency.medium, 1),
             (effective_urgency == Urgency.low, 2),
             else_=3,
         )
-        query = query.order_by(urgency_rank.asc(), Request.created_at.asc())
+        query = query.order_by(
+            (Request.status == RequestStatus.resolved).asc(),
+            urgency_rank.asc(),
+            Request.created_at.asc(),
+        )
 
     query = query.offset(offset).limit(limit).options(*_load_options())
     items = (await db.execute(query)).scalars().all()

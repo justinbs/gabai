@@ -13,7 +13,7 @@ export function StaffQueue() {
   const { state, reload } = useAsync(
     () =>
       api.listRequests(user, {
-        status: ["routed", "in_progress", "classified"],
+        status: ["routed", "in_progress", "classified", "resolved"],
       }),
     [user.id],
   );
@@ -23,7 +23,7 @@ export function StaffQueue() {
       <PageHeading title="Queue" />
       <Help>
         <p>These are the requests assigned to you and those in the categories you handle, highest urgency first and oldest first within each level.</p>
-        <p>Open a request to move it along: in progress, then resolved, then closed. A note you add is sent to the resident.</p>
+        <p>Open a request to move it along: in progress, then resolved, then closed. A note you add is sent to the resident. Resolved requests stay at the bottom until you close them.</p>
         <p>If the category or urgency is wrong, correct it on the request. It moves to the person who handles the new category.</p>
       </Help>
 
@@ -40,7 +40,7 @@ export function StaffQueue() {
             description="Nothing assigned to you right now"
           />
         ) : (
-          <RequestTable items={state.data.items} caption="Open requests" />
+          <RequestTable items={state.data.items} caption="Requests not yet closed" />
         ))}
     </>
   );

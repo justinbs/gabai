@@ -294,7 +294,7 @@ export const resetPassword = async (id: string): Promise<string> => {
 
 export const updateUser = async (
   id: string,
-  patch: Partial<Pick<User, "role" | "is_active">>,
+  patch: Partial<Pick<User, "full_name" | "role" | "is_active">>,
 ): Promise<User | null> => {
   try {
     return await http.patch<User>(`/api/admin/users/${id}`, patch);

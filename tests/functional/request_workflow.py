@@ -199,7 +199,7 @@ check("staff can't list accounts", ramon.call("GET", "/api/admin/users")[0], 403
 area("Staff work queue")
 rank = {"high": 0, "medium": 1, "low": 2, None: 3}
 items = ramon.call("GET", "/api/requests?limit=100")[1]["items"]
-keys = [(rank[i["urgency"]], i["created_at"]) for i in items]
+keys = [(i["status"] == "resolved", rank[i["urgency"]], i["created_at"]) for i in items]
 check("queue lists highest urgency first, oldest first within a level", keys == sorted(keys), True)
 
 # --- status changes and notifications ----------------------------------------------------------
@@ -214,6 +214,10 @@ check("skipping straight to closed is refused",
       staff.call("PATCH", f"/api/requests/{r2}/status", {"to_status": "closed"})[0], 409)
 check("in progress to resolved", staff.call("PATCH", f"/api/requests/{r2}/status",
       {"to_status": "resolved", "note": "Naayos na po."})[0], 200)
+queue = staff.call("GET", "/api/requests?status=routed&status=in_progress&status=classified&status=resolved&limit=100")[1]["items"]
+seen = [i["status"] == "resolved" for i in queue]
+check("a resolved request stays in the staff queue, below the open ones",
+      (r2 in [i["id"] for i in queue], seen == sorted(seen)), (True, True))
 s, fin = staff.call("PATCH", f"/api/requests/{r2}/status", {"to_status": "closed"})
 check("resolved to closed", s, 200)
 check("resolution time recorded", fin["resolved_at"] is not None, True)

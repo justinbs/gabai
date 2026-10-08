@@ -50,7 +50,7 @@ class AdminUserCreate(BaseModel):
 
 
 class AdminUserUpdate(BaseModel):
-    full_name: str | None = Field(default=None, min_length=1, max_length=150)
+    full_name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=150)] | None = None
     role: Role | None = None
     is_active: bool | None = None
 

@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from "react";
 
 import * as api from "../api/client";
 import { ApiError } from "../api/http";
-import { Button, EmptyState, ErrorState, Help, Input, Loading, PageHeading, Select } from "../components/ui";
+import { Button, EmptyState, ErrorState, FOCUS_LINK, Help, Input, Loading, PageHeading, Select } from "../components/ui";
 import { fullDate } from "../lib/format";
 import { useAsync } from "../lib/useAsync";
 import { usePageTitle } from "../lib/usePageTitle";
-import { useUser } from "../session-context";
+import { useSession, useUser } from "../session-context";
 import { ROLE_LABELS } from "../api/types";
 import type { Role, User } from "../api/types";
 
@@ -116,6 +116,7 @@ function UserTable({
   onReset: (name: string, password: string) => void;
 }) {
   const me = useUser();
+  const { refresh } = useSession();
   const [busy, setBusy] = useState<string>();
 
   const reset = async (user: User) => {
@@ -140,19 +141,25 @@ function UserTable({
 
   const change = async (
     user: User,
-    patch: Partial<Pick<User, "role" | "is_active">>,
-  ) => {
+    patch: Partial<Pick<User, "full_name" | "role" | "is_active">>,
+  ): Promise<boolean> => {
     setBusy(user.id);
     try {
       const updated = await api.updateUser(user.id, patch);
       onChanged(
         updated
-          ? `Updated ${user.full_name}`
-          : "That's the last admin, someone else needs the role first",
+          ? `Updated ${updated.full_name}`
+          : patch.full_name !== undefined || patch.is_active === true
+            ? "This account's personal data was removed, so it can't be changed"
+            : "That's the last admin, someone else needs the role first",
         Boolean(updated),
       );
+      // The header shows your own name.
+      if (updated && updated.id === me.id) await refresh();
+      return Boolean(updated);
     } catch {
       onChanged("Didn't save, try again", false);
+      return false;
     } finally {
       setBusy(undefined);
     }
@@ -177,7 +184,13 @@ function UserTable({
             const locked = user.role === "admin" && user.is_active && activeAdminCount === 1;
             return (
               <tr key={user.id} className="border-b border-rule">
-                <td className="py-3 pr-4 align-top">{user.full_name}</td>
+                <td className="py-3 pr-4 align-top">
+                  <NameCell
+                    user={user}
+                    disabled={busy === user.id}
+                    onSave={(full_name) => change(user, { full_name })}
+                  />
+                </td>
                 <td className="py-3 pr-4 align-top text-muted">{user.email}</td>
                 <td className="py-3 pr-4 align-top">
                   <label className="sr-only" htmlFor={`role-${user.id}`}>
@@ -244,6 +257,75 @@ function UserTable({
         </tbody>
       </table>
     </div>
+  );
+}
+
+function NameCell({
+  user,
+  disabled,
+  onSave,
+}: {
+  user: User;
+  disabled: boolean;
+  onSave: (name: string) => Promise<boolean>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(user.full_name);
+  const trimmed = name.trim();
+
+  if (!editing) {
+    return (
+      <div className="flex flex-wrap items-baseline gap-x-3">
+        <span>{user.full_name}</span>
+        <button
+          type="button"
+          className={`text-link underline disabled:text-muted ${FOCUS_LINK}`}
+          disabled={disabled}
+          aria-label={`Edit name of ${user.full_name}`}
+          onClick={() => {
+            setName(user.full_name);
+            setEditing(true);
+          }}
+        >
+          Edit
+        </button>
+      </div>
+    );
+  }
+
+  const save = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!trimmed || trimmed === user.full_name) {
+      setEditing(false);
+      return;
+    }
+    // Stays open if the save fails, so the typed name isn't lost.
+    if (await onSave(trimmed)) setEditing(false);
+  };
+
+  return (
+    <form onSubmit={save} className="flex flex-wrap items-center gap-2">
+      <label className="sr-only" htmlFor={`name-${user.id}`}>
+        Name for {user.full_name}
+      </label>
+      <input
+        id={`name-${user.id}`}
+        value={name}
+        maxLength={150}
+        autoFocus
+        onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") setEditing(false);
+        }}
+        className="w-48 border-2 border-ink bg-white px-2 py-1 focus:outline-3 focus:outline-ink"
+      />
+      <Button type="submit" disabled={disabled || !trimmed}>
+        Save
+      </Button>
+      <Button type="button" variant="secondary" onClick={() => setEditing(false)}>
+        Cancel
+      </Button>
+    </form>
   );
 }
 

@@ -2054,7 +2054,7 @@ export interface components {
             full_name: string;
             role: components["schemas"]["Role"];
         };
-        /** @description Only the supplied fields change. */
+        /** @description Only the supplied fields change. A name is trimmed, and a change of name is recorded in the audit log as `user.renamed`, without the names. */
         UserUpdate: {
             full_name?: string;
             role?: components["schemas"]["Role"];

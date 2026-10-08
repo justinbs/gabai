@@ -111,6 +111,13 @@ async def update_user(
     if target is None:
         raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Not found")
 
+    # Retention replaced this account's name; a rename or reactivation would undo that.
+    if target.anonymized_at is not None and (payload.full_name is not None or payload.is_active):
+        raise HTTPException(
+            status_code=http_status.HTTP_409_CONFLICT,
+            detail="This account's personal data was removed",
+        )
+
     would_strand_admins = False
     if target.role == Role.admin and target.is_active:
         active_admin_count = (
@@ -133,6 +140,7 @@ async def update_user(
 
     previous_role = target.role
     previous_active = target.is_active
+    previous_name = target.full_name
 
     if payload.full_name is not None:
         target.full_name = payload.full_name
@@ -146,6 +154,18 @@ async def update_user(
             target.deactivated_at = None
 
     ip = http_request.client.host if http_request.client else None
+
+    # Names are personal data, so the entry records the change, not the names.
+    if payload.full_name is not None and payload.full_name != previous_name:
+        await write_audit(
+            db,
+            actor_id=admin.id,
+            action="user.renamed",
+            object_type="user",
+            object_id=str(target.id),
+            detail=None,
+            ip_address=ip,
+        )
 
     if payload.role is not None and payload.role != previous_role:
         await write_audit(
