@@ -870,8 +870,10 @@ export interface paths {
         /**
          * Requests awaiting manual classification
          * @description Staff and admin. Requests whose lower confidence score fell below the
-         *     threshold and which therefore have status `under_review`. Oldest first, because
-         *     this queue is a backlog and urgency here is not yet trustworthy.
+         *     threshold and which therefore have status `under_review`, plus any request
+         *     still at `submitted` two minutes after it was sent, meaning its
+         *     classification never finished. Oldest first, because this queue is a
+         *     backlog and urgency here is not yet trustworthy.
          */
         get: {
             parameters: {

@@ -240,7 +240,13 @@ async def set_classification(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role(Role.staff, Role.admin)),
 ):
-    query = select(Request).where(Request.id == request_id).options(*_load_options())
+    # Locked so a late classification cannot overwrite this label.
+    query = (
+        select(Request)
+        .where(Request.id == request_id)
+        .options(*_load_options())
+        .with_for_update(of=Request)
+    )
     scope = _scope_filter(user)
     if scope is not None:
         query = query.where(scope)

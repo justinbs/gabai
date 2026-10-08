@@ -99,7 +99,7 @@ The site and the API share one origin deliberately. The session cookie is
 and every signed-in request would fail.
 
 Keeping the classifier in the API process means there is no second service to
-deploy or pay for. Quantizing it to int8 takes each head from 679 MB to 171 MB,
+deploy or pay for. Quantizing it to int8 takes each head from 1,061 MiB to 266 MiB,
 which is what lets the whole system run on a small CPU-only instance.
 
 ## Backups and retention

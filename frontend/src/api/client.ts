@@ -18,6 +18,18 @@ import type {
 
 // Everything below now talks to the real backend. No fixture data left.
 
+// Lists come back 100 rows at a time at most, so the screens read every page.
+async function everyPage<T>(url: (offset: number) => string): Promise<Paginated<T>> {
+  const items: T[] = [];
+  for (;;) {
+    const page = await http.get<Paginated<T>>(url(items.length));
+    items.push(...page.items);
+    if (page.items.length === 0 || items.length >= page.total) {
+      return { items, total: page.total, limit: items.length, offset: 0 };
+    }
+  }
+}
+
 // ---------------------------------------------------------------- auth ----
 
 export const signIn = async (email: string, password: string): Promise<boolean> => {
@@ -129,12 +141,21 @@ export const listRequests = async (
   params: ListParams = {},
 ): Promise<Paginated<RequestSummary>> => {
   const query = new URLSearchParams();
-  if (params.limit) query.set("limit", String(params.limit));
-  if (params.offset) query.set("offset", String(params.offset));
   if (params.urgency) query.set("urgency", params.urgency);
   if (params.categoryId) query.set("category_id", String(params.categoryId));
   params.status?.forEach((s) => query.append("status", s));
-  return http.get<Paginated<RequestSummary>>(`/api/requests?${query.toString()}`);
+  if (params.limit) {
+    query.set("limit", String(params.limit));
+    if (params.offset) query.set("offset", String(params.offset));
+    return http.get<Paginated<RequestSummary>>(`/api/requests?${query.toString()}`);
+  }
+  // No limit given: the whole list, as the queue and My requests screens need.
+  return everyPage<RequestSummary>((offset) => {
+    const page = new URLSearchParams(query);
+    page.set("limit", "100");
+    page.set("offset", String(offset));
+    return `/api/requests?${page.toString()}`;
+  });
 };
 
 export const getRequest = async (
@@ -161,7 +182,7 @@ export const uploadAttachment = async (requestId: number, file: File): Promise<v
 };
 
 export const listReviewQueue = (): Promise<Paginated<RequestSummary>> =>
-  http.get<Paginated<RequestSummary>>("/api/review-queue");
+  everyPage<RequestSummary>((offset) => `/api/review-queue?limit=100&offset=${offset}`);
 
 export const updateStatus = async (
   _user: User,
@@ -309,13 +330,13 @@ export const listAuditLog = async (filters: AuditFilters = {}) => {
   const query = new URLSearchParams();
   if (filters.actorId) query.set("actor_id", filters.actorId);
   if (filters.action) query.set("action", filters.action);
-  const page = await http.get<{
-    items: AuditLogEntry[];
-    total: number;
-    limit: number;
-    offset: number;
-  }>(`/api/admin/audit-log?${query.toString()}`);
-  return page.items;
+  const all = await everyPage<AuditLogEntry>((offset) => {
+    const page = new URLSearchParams(query);
+    page.set("limit", "100");
+    page.set("offset", String(offset));
+    return `/api/admin/audit-log?${page.toString()}`;
+  });
+  return all.items;
 };
 
 // ---------------------------------------------------------------- site ----

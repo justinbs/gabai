@@ -80,6 +80,12 @@ async def classify_and_route(request_id: int) -> None:
             log.exception("classification failed for request %s", request_id)
             return
 
+        # Staff can label a request that sat at submitted too long. Lock the row
+        # and check again so a label saved during inference is kept.
+        await db.refresh(request, with_for_update=True)
+        if request.status != RequestStatus.submitted:
+            return
+
         category_id = await _category_id_for(db, prediction.category_slug)
         if prediction.category_slug and category_id is None:
             log.warning(

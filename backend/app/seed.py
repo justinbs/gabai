@@ -15,6 +15,7 @@ from fastapi_users.password import PasswordHelper
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import passwords
 from app.core.config import get_settings
 from app.core.eventloop import use_selector_loop_on_windows
 from app.db.session import AsyncSessionLocal
@@ -103,6 +104,13 @@ async def seed() -> None:
         )
     if settings.seed_demo and not settings.seed_demo_password:
         sys.exit("SEED_DEMO is on, so SEED_DEMO_PASSWORD must be set.")
+    reason = passwords.problem(settings.seed_admin_password, settings.seed_admin_email)
+    if reason:
+        sys.exit(f"SEED_ADMIN_PASSWORD: {reason}")
+    if settings.seed_demo:
+        reason = passwords.problem(settings.seed_demo_password)
+        if reason:
+            sys.exit(f"SEED_DEMO_PASSWORD: {reason}")
 
     async with AsyncSessionLocal() as db:
         admin, created = await _upsert_user(

@@ -242,6 +242,32 @@ check("resident told the request moved", maria.call("GET", "/api/notifications")
 check("reclassification audited", psql(
     f"select count(*) from audit_log_entries where action='request.reclassified' and object_id='{target['id']}'"), "1")
 
+# --- requests whose classification never ran ---------------------------------------------------
+area("Requests left unclassified")
+
+
+def in_review_queue(c, rid):
+    ids, offset = [], 0
+    while True:
+        page = c.call("GET", f"/api/review-queue?limit=100&offset={offset}")[1]
+        ids += [x["id"] for x in page["items"]]
+        offset += 100
+        if not page["items"] or offset >= page["total"]:
+            return rid in ids
+
+
+# Put a classified request back to submitted, as if the background step never ran.
+sid = wait_classified(maria, maria.call("POST", "/api/requests", {"description": texts[1]})[1]["id"])["id"]
+psql(f"update requests set status='submitted', assigned_staff_id=null where id={sid}")
+check("a request at submitted for under 2 minutes is not in the review queue", in_review_queue(divina, sid), False)
+psql(f"update requests set created_at=now() - interval '3 minutes' where id={sid}")
+check("one at submitted for over 2 minutes is in the review queue", in_review_queue(divina, sid), True)
+s, sl = divina.call("PATCH", f"/api/requests/{sid}/classification",
+                    {"final_category_id": cats["utilities"], "final_urgency": "high"})
+check("staff label it and it goes to that category's handler",
+      (s, sl["status"], (sl["assigned_staff"] or {}).get("id")), (200, "routed", rules["utilities"]))
+check("it leaves the review queue", in_review_queue(divina, sid), False)
+
 # --- administrator functions --------------------------------------------------------------------------
 area("Administrator functions")
 s, log = admin.call("GET", "/api/admin/audit-log?limit=50")

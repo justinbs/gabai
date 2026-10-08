@@ -9,10 +9,10 @@ same functions through the browser.
 
 | Script | Covers | Checks |
 |---|---|---|
-| `functional/accounts_and_passwords.py` | Sign-up, password rules, admin-created accounts, temporary passwords, admin reset | 33 |
+| `functional/accounts_and_passwords.py` | Sign-up, name and password rules, admin-created accounts, temporary passwords, admin reset | 34 |
 | `functional/resident_approval.py` | Purok or street at sign-up, pending accounts, staff approval and turning down | 33 |
 | `functional/email_links.py` | Email confirmation and password reset links | 29 |
-| `functional/request_workflow.py` | Submission, classification and routing, attachments, access control, status updates, notifications, reclassification, administrator functions, routing to deactivated accounts | 61 |
+| `functional/request_workflow.py` | Submission, classification and routing, attachments, access control, status updates, notifications, reclassification, requests left unclassified, administrator functions, routing to deactivated accounts | 65 |
 | `functional/terms_site_categories.py` | Terms acceptance, site settings and logo, category management | 58 |
 | `functional/database_protections.py` | Append-only logs, retention, backup and restore, migration rollback | 37 |
 
@@ -73,7 +73,7 @@ record, send each one to a dated file, for example
 - `request_workflow.py` needs at least one of its six requests to be routed;
   with the current model five are. Two of its checks run only when the first
   request is routed (the assigned staff member can open it, the other one
-  can't), so the total can be 59 instead of 61. It switches routing to a test
+  can't), so the total can be 63 instead of 65. It switches routing to a test
   account and back; if it stops partway, check Routing.
 - `database_protections.py` works on a scratch database, `gabai_review`, which it
   creates and drops. It also restores a backup into `gabai_restore` to compare row

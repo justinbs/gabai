@@ -21,7 +21,7 @@ class UserRead(schemas.BaseUser[uuid.UUID]):
 
 
 class UserCreate(schemas.BaseUserCreate):
-    full_name: str
+    full_name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=150)]
     residence: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=150)]
     # Checked against app/terms.py by the register route before this is used.
     terms_version: str = Field(max_length=20)

@@ -461,7 +461,8 @@ function Reclassify({
   onSaved: () => void;
 }) {
   const { state } = useAsync<Category[]>(() => api.getCategories(), []);
-  const [open, setOpen] = useState(request.status === "under_review");
+  const unlabelled = request.status === "under_review" || request.status === "submitted";
+  const [open, setOpen] = useState(unlabelled);
   const [categoryId, setCategoryId] = useState<number | "">("");
   const [urgency, setUrgency] = useState<Urgency | "">("");
   const [busy, setBusy] = useState(false);
@@ -525,7 +526,7 @@ function Reclassify({
       ) : (
         <>
           <h3 className="font-medium text-ink">
-            {request.status === "under_review"
+            {unlabelled
               ? "Assign a category and urgency"
               : "Correct the classification"}
           </h3>

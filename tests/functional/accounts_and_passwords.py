@@ -79,6 +79,9 @@ for pw, reason in [
     s, b, _ = anon.call("POST", "/api/auth/register", {"email": reg_email, "password": pw, "full_name": "Maria Test", "residence": "Purok 1"})
     check(f"register rejects {pw[:12]!r}", (s, b.get("detail") if isinstance(b, dict) else b), (422, reason))
 
+s, b, _ = anon.call("POST", "/api/auth/register", {"email": reg_email, "password": "kalsada-butas-9", "full_name": "M" * 151, "residence": "Purok 1"})
+check("register rejects a 151-character name", s, 422)
+
 s, b, _ = anon.call("POST", "/api/auth/register", {"email": reg_email, "password": "kalsada-butas-9", "full_name": "Maria Test", "residence": "Purok 1"})
 check("register accepts a good password", (s, b["must_change_password"]), (201, False))
 
