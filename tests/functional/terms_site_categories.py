@@ -239,8 +239,8 @@ s, place = admin.call("POST", "/api/admin/locations", {"name": name})
 check("admin adds a purok", (s, place["name"]), (201, name))
 check("the same name twice is refused", admin.call("POST", "/api/admin/locations", {"name": name})[0], 409)
 check("a resident sees it in the list", any(x["id"] == place["id"] for x in maria.call("GET", "/api/locations")[1]), True)
-check("once a place is listed, a submission without one is refused",
-      maria.call("POST", "/api/requests", {"description": "May butas sa daan sa kanto namin po."})[0], 422)
+check("a submission from a place not on the list is still accepted",
+      maria.call("POST", "/api/requests", {"description": "May butas sa daan sa kanto namin po."})[0], 201)
 check("a submission naming the place is accepted",
       maria.call("POST", "/api/requests", {"description": "May butas sa daan sa kanto namin po.", "location_id": place["id"]})[0], 201)
 s, b = admin.call("PATCH", f"/api/admin/locations/{place['id']}", {"name": name + " A"})

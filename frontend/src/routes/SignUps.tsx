@@ -19,6 +19,9 @@ export function SignUps() {
   const [busy, setBusy] = useState<string>();
   // How staff checked each person, picked before approving.
   const [method, setMethod] = useState<Record<string, VerificationMethod | "">>({});
+  const [lastMethod, setLastMethod] = useState<VerificationMethod | "">("");
+  // Unconfirmed rows always start blank, so nobody is approved by a leftover choice.
+  const chosen = (person: User) => method[person.id] ?? (person.is_verified ? lastMethod : "");
 
   const decide = async (person: User, decision: "approved" | "rejected") => {
     if (
@@ -34,7 +37,7 @@ export function SignUps() {
       await api.decideRegistration(
         person.id,
         decision,
-        decision === "approved" ? (method[person.id] as VerificationMethod) : undefined,
+        decision === "approved" ? (chosen(person) as VerificationMethod) : undefined,
       );
       setMessage(
         decision === "approved"
@@ -123,7 +126,7 @@ export function SignUps() {
                     <td className="py-3 pr-4 align-top">{person.full_name}</td>
                     <td className="py-3 pr-4 align-top text-muted">{person.email}</td>
                     <td className="py-3 pr-4 align-top">
-                      {person.is_verified ? "Yes" : "Not yet"}
+                      {person.is_verified ? "Yes" : "Not yet, approve only after seeing their ID"}
                     </td>
                     <td className="py-3 pr-4 align-top">{person.residence}</td>
                     <td className="whitespace-nowrap py-3 pr-4 align-top text-muted">
@@ -136,10 +139,12 @@ export function SignUps() {
                         </label>
                         <select
                           id={`method-${person.id}`}
-                          value={method[person.id] ?? ""}
-                          onChange={(e) =>
-                            setMethod({ ...method, [person.id]: e.target.value as VerificationMethod | "" })
-                          }
+                          value={chosen(person)}
+                          onChange={(e) => {
+                            const picked = e.target.value as VerificationMethod | "";
+                            setMethod({ ...method, [person.id]: picked });
+                            if (picked) setLastMethod(picked);
+                          }}
                           className="border-2 border-ink bg-white px-2 py-1 focus:outline-3 focus:outline-ink"
                         >
                           <option value="">How did you check?</option>
@@ -150,7 +155,7 @@ export function SignUps() {
                           ))}
                         </select>
                         <Button
-                          disabled={busy === person.id || !method[person.id]}
+                          disabled={busy === person.id || !chosen(person)}
                           aria-label={`Approve ${person.full_name}`}
                           onClick={() => decide(person, "approved")}
                         >

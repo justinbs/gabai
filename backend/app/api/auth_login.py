@@ -74,7 +74,10 @@ async def login(
     if by_account >= settings.sign_in_account_limit or by_address >= settings.sign_in_address_limit:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Too many tries. Wait {settings.sign_in_window_minutes} minutes and try again",
+            detail=(
+                f"Too many tries, wait {settings.sign_in_window_minutes} minutes · "
+                f"Masyadong maraming subok, maghintay ng {settings.sign_in_window_minutes} minuto"
+            ),
         )
 
     user = await user_manager.authenticate(credentials)

@@ -65,9 +65,10 @@ class Request(Base):
     )
 
     # The resident marked it urgent, once, with a reason. Pins it to the top of
-    # the staff queues; never changes the urgency label.
+    # the staff queues until staff first act on it; never changes the urgency label.
     urgent_flagged_at: Mapped[datetime | None] = mapped_column()
     urgent_reason: Mapped[str | None] = mapped_column(EncryptedText)
+    urgent_seen_at: Mapped[datetime | None] = mapped_column()
 
     status_history = relationship(
         "StatusHistoryEntry",
@@ -97,6 +98,12 @@ class Request(Base):
         # The last status change, or when it was submitted.
         times = [entry.created_at for entry in self.status_history]
         return max(times) if times else self.created_at
+
+    @property
+    def urgent_pinned(self) -> bool:
+        from app.queue_order import OPEN
+
+        return self.urgent_flagged_at is not None and self.urgent_seen_at is None and self.status in OPEN
 
     @property
     def aged(self) -> bool:

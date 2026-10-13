@@ -235,7 +235,7 @@ OPEN = ("submitted", "under_review", "routed", "in_progress")
 
 
 def queue_key(i):
-    flagged = 0 if i["urgent_flagged_at"] and i["status"] in OPEN else 1
+    flagged = 0 if i["urgent_pinned"] else 1
     # A request left waiting sorts one level higher; the label itself stays.
     return (flagged, i["status"] == "resolved", rank[i["urgency"]] - (1 if i["aged"] else 0), i["created_at"])
 
@@ -262,8 +262,8 @@ check("a reason that looks like stored ciphertext is accepted and encrypted",
       other.call("PUT", f"/api/requests/{planted}/urgent-flag", {"reason": "gabai:enc:1:AAAAAAAAAAAA"})[0], 200)
 check("the staff queue still loads after it", admin.call("GET", "/api/requests?limit=100")[0], 200)
 check("the reason reads back as typed", admin.call("GET", f"/api/requests/{planted}")[1]["urgent_reason"], "gabai:enc:1:AAAAAAAAAAAA")
-check("a reason under 10 characters is refused",
-      maria.call("PUT", f"/api/requests/{rid}/urgent-flag", {"reason": "bilis"})[0], 422)
+check("a blank reason is refused",
+      maria.call("PUT", f"/api/requests/{rid}/urgent-flag", {"reason": "   "})[0], 422)
 notes_before = None
 if done[0]["status"] == "routed":
     handler = ramon if rules[done[0]["predicted_category"]["slug"]] == RAMON else divina
@@ -280,8 +280,15 @@ check("the audit row has no reason text",
       psql(f"select coalesce(detail::text,'null') from audit_log_entries where action='request.flagged_urgent' and object_id='{rid}'"), "null")
 check("flagged requests come first in the staff queue", queue_ordered(admin), True)
 review = admin.call("GET", "/api/review-queue?limit=100")[1]["items"]
-flags = [0 if i["urgent_flagged_at"] else 1 for i in review]
+flags = [0 if i["urgent_pinned"] else 1 for i in review]
 check("flagged requests come first in For review", flags == sorted(flags), True)
+# Staff relabelling it, even to the same labels, means they've read the flag.
+pin = admin.call("GET", f"/api/requests/{planted}")[1]
+cat = pin["category"]["id"] if pin["category"] else admin.call("GET", "/api/categories")[1][0]["id"]
+admin.call("PATCH", f"/api/requests/{planted}/classification", {"final_category_id": cat, "final_urgency": pin["urgency"] or "low"})
+pin = admin.call("GET", f"/api/requests/{planted}")[1]
+check("a staff action ends the pin, the flag itself stays", (pin["urgent_pinned"], pin["urgent_flagged_at"] is not None), (False, True))
+check("the queue order still holds after", queue_ordered(admin), True)
 
 # Waiting time: make one open request look untouched for three days. Status
 # history refuses edits, so the suite lifts that protection for this one update,
@@ -309,7 +316,15 @@ check("skipping straight to closed is refused",
       staff.call("PATCH", f"/api/requests/{r2}/status", {"to_status": "closed"})[0], 409)
 check("in progress to resolved", staff.call("PATCH", f"/api/requests/{r2}/status",
       {"to_status": "resolved", "note": "Naayos na po."})[0], 200)
-queue = staff.call("GET", "/api/requests?status=routed&status=in_progress&status=classified&status=resolved&limit=100")[1]["items"]
+# Every page: earlier runs leave many open requests ahead of it.
+queue, offset = [], 0
+while True:
+    page = staff.call("GET", "/api/requests?status=routed&status=in_progress&status=classified&status=resolved"
+                             f"&limit=100&offset={offset}")[1]
+    queue += page["items"]
+    offset += 100
+    if offset >= page["total"]:
+        break
 seen = [i["status"] == "resolved" for i in queue]
 check("a resolved request stays in the staff queue, below the open ones",
       (r2 in [i["id"] for i in queue], seen == sorted(seen)), (True, True))
@@ -408,13 +423,8 @@ check("linking to a report that's itself linked is refused",
       admin.call("PUT", f"/api/requests/{d3['id']}/duplicate-of", {"reference_number": d2["reference_number"]})[0], 409)
 check("linking a report others follow is refused",
       admin.call("PUT", f"/api/requests/{d1['id']}/duplicate-of", {"reference_number": d3["reference_number"]})[0], 409)
-# A report still being sorted can't be linked either way; the classifier would
-# overwrite the link. Local test database: set the status back afterwards.
-was = psql(f"select status from requests where id={d3['id']}")
-psql(f"update requests set status='submitted' where id={d3['id']}")
-check("a report still being sorted can't be linked",
-      admin.call("PUT", f"/api/requests/{d3['id']}/duplicate-of", {"reference_number": d1["reference_number"]})[0], 409)
-psql(f"update requests set status='{was}' where id={d3['id']}")
+# A main report has to be sorted first, so it has labels to pass on. Local test
+# database: set the status back afterwards.
 was = psql(f"select status from requests where id={d1['id']}")
 psql(f"update requests set status='submitted' where id={d1['id']}")
 check("a report can't be linked to one still being sorted",
@@ -446,8 +456,10 @@ for d in (d2, d3):
           (main["status"], (main["assigned_staff"] or {}).get("id")))
 m_before = maria.call("GET", "/api/notifications")[1]["total"]
 o_before = other.call("GET", "/api/notifications")[1]["total"]
-s, b = admin.call("PATCH", f"/api/requests/{d1['id']}/status", {"to_status": "in_progress"})
+s, b = admin.call("PATCH", f"/api/requests/{d1['id']}/status", {"to_status": "in_progress", "note": "Darating ang tubig bukas"})
 check("the main report moves to in progress", s, 200)
+check("the staff note reaches the linked reports too",
+      [h["note"] for h in other.call("GET", f"/api/requests/{d2['id']}")[1]["status_history"]][-1], "Darating ang tubig bukas")
 check("linked reports move with it",
       [admin.call("GET", f"/api/requests/{d['id']}")[1]["status"] for d in (d2, d3)], ["in_progress", "in_progress"])
 check("a resident with two reports in the group hears once", maria.call("GET", "/api/notifications")[1]["total"] - m_before, 1)
@@ -463,6 +475,56 @@ surges = admin.call("GET", "/api/request-surges")[1]
 check("five reports about one problem in an hour show as a surge",
       any(x["category"]["id"] == d1["category"]["id"] and x["count"] >= 5 for x in surges), True)
 check("a resident can't see surges", maria.call("GET", "/api/request-surges")[0], 403)
+
+# Linking many at once, from the main report or the surge notice.
+surge = next(x for x in surges if x["category"]["id"] == d1["category"]["id"])
+# Earlier runs within the hour can be in the same surge, so only its shape is checked.
+check("the surge names a report to link the others to", surge["main"] is not None, True)
+check("a resident can't list reports to link", maria.call("GET", f"/api/requests/{d1['id']}/same-problem")[0], 403)
+same = admin.call("GET", f"/api/requests/{d1['id']}/same-problem")[1]
+fresh = [r for r in same if r["likely"] and r["id"] != d3["id"]]
+check("the main report lists the new reports as likely the same", len(fresh) >= 2, True)
+check("a report already linked isn't listed", d2["id"] in [r["id"] for r in same], False)
+held = fresh[-1]
+# As if its classification had failed and it never left submitted.
+psql(f"update requests set status='submitted' where id={held['id']}")
+m_before = maria.call("GET", "/api/notifications")[1]["total"]
+since = psql("select now()")
+# Staff untick one as a different problem.
+unticked = fresh[0]["id"]
+picked = [r["id"] for r in fresh[1:]] + [d3["id"]]
+s, res = admin.call("POST", f"/api/requests/{d1['id']}/linked-reports", {"request_ids": picked, "not_same": [unticked]})
+check("one action links them all, one still being sorted included", (s, len(res["linked"]), res["skipped"]),
+      (200, len(picked), []))
+check("the resident hears once for all of their linked reports",
+      maria.call("GET", "/api/notifications")[1]["total"] - m_before, 1)
+check("an audit row records each one",
+      int(psql(f"select count(*) from audit_log_entries where action='request.linked' and created_at >= '{since}' "
+               f"and object_id in ({','.join(repr(str(i)) for i in picked)})")), len(picked))
+time.sleep(3)
+check("the classifier leaves the one that was still being sorted alone",
+      admin.call("GET", f"/api/requests/{held['id']}")[1]["duplicate_of"]["id"], d1["id"])
+main = admin.call("GET", f"/api/requests/{d1['id']}")[1]
+check("the main report counts every linked report", main["linked_count"], 1 + len(picked))
+check("linked reports all have the main report's status",
+      {admin.call("GET", f"/api/requests/{i}")[1]["status"] for i in picked}, {main["status"]})
+check("they leave the staff queue", any(i in staff_queue_ids(admin) for i in picked), False)
+left = [r["id"] for r in admin.call("GET", f"/api/requests/{d1['id']}/same-problem")[1]]
+check("nothing is left to link", [i for i in left if i in picked], [])
+check("a report staff unticked isn't listed again", unticked in left, False)
+after = next((x["count"] for x in admin.call("GET", "/api/request-surges")[1]
+              if x["category"]["id"] == d1["category"]["id"]), 0)
+check("linked reports no longer count toward the surge", after < surge["count"], True)
+
+# A wrong link can be undone even after the job is finished.
+admin.call("PATCH", f"/api/requests/{d1['id']}/status", {"to_status": "resolved", "note": "Naayos na po"})
+s, b = admin.call("DELETE", f"/api/requests/{held['id']}/duplicate-of")
+check("a wrong link is undone after the main report is resolved", (s, b["status"], b["assigned_staff"]),
+      (200, "under_review", None))
+check("it's back in For review",
+      held["id"] in [i["id"] for i in admin.call("GET", "/api/review-queue?limit=100")[1]["items"]], True)
+check("its resident is told it's being checked again",
+      maria.call("GET", "/api/notifications?limit=1")[1]["items"][0]["message"], "Your request is being checked again")
 
 # --- encryption at rest --------------------------------------------------------------------
 area("Encryption at rest")
@@ -493,7 +555,7 @@ check("the server refuses to start without a data key", "DATA_KEYS is not set" i
 
 # --- administrator functions --------------------------------------------------------------------------
 area("Administrator functions")
-s, log = admin.call("GET", "/api/admin/audit-log?limit=50")
+s, log = admin.call("GET", "/api/admin/audit-log?limit=100")
 check("administrator reads the audit log", s, 200)
 check("audit log includes the status changes above",
       any(e["action"] == "request.status_changed" and e["object_id"] == str(r2) for e in log["items"]), True)

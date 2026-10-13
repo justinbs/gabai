@@ -77,6 +77,17 @@ def verify_email(name: str, url: str) -> tuple[str, str]:
     )
 
 
+def approved_email(name: str, url: str) -> tuple[str, str]:
+    return (
+        "Your GABAI account is approved",
+        f"Hi {name},\n\n"
+        "You can now sign in and send requests · "
+        "Maaari na kayong mag-sign in at magpadala ng request\n"
+        f"{url}\n\n"
+        f"{PLACE}\n",
+    )
+
+
 def reset_email(name: str, url: str) -> tuple[str, str]:
     return (
         "Reset your GABAI password",

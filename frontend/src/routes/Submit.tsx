@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import * as api from "../api/client";
+import { ApiError } from "../api/http";
 import { Button, FOCUS_LINK, Help, PageHeading, Select, Textarea } from "../components/ui";
 import { shrinkPhoto } from "../lib/photos";
 import { usePageTitle } from "../lib/usePageTitle";
@@ -26,8 +27,11 @@ export function Submit() {
   // Files that didn't upload after the request was created.
   const [failed, setFailed] = useState<File[]>([]);
   const [retried, setRetried] = useState(false);
+  // Files the server couldn't open. Sending them again won't help.
+  const [unreadable, setUnreadable] = useState<string[]>([]);
   const latestPick = useRef(0);
   // Puroks or streets, if the barangay has listed any. Empty means don't ask.
+  // "none" is "Not on the list".
   const [places, setPlaces] = useState<Location[]>([]);
   const [place, setPlace] = useState("");
   const [placeError, setPlaceError] = useState("");
@@ -81,7 +85,7 @@ export function Submit() {
     setUploads(prepared);
   };
 
-  // Sends the files one at a time. Returns the ones that didn't go through.
+  // Sends the files one at a time. Returns the ones worth trying again.
   const sendFiles = async (requestId: number, files: File[]): Promise<File[]> => {
     for (let i = 0; i < files.length; i++) {
       setProgress(
@@ -89,7 +93,11 @@ export function Submit() {
       );
       try {
         await api.uploadAttachment(requestId, files[i]);
-      } catch {
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 415) {
+          setUnreadable((names) => [...names, files[i].name]);
+          continue;
+        }
         return files.slice(i);
       }
     }
@@ -120,7 +128,7 @@ export function Submit() {
     setProgress("");
     let request: ServiceRequest;
     try {
-      request = await api.createRequest(text.trim(), place ? Number(place) : undefined);
+      request = await api.createRequest(text.trim(), place && place !== "none" ? Number(place) : undefined);
     } catch {
       setError("Didn't send, try again · Hindi naipadala, subukan po muli");
       setBusy(false);
@@ -181,6 +189,14 @@ export function Submit() {
             </div>
           </div>
         )}
+        {unreadable.length > 0 && (
+          <p role="alert" className="mt-6 border-l-4 border-ink bg-wash p-4 text-[19px]">
+            <span className="font-bold">
+              Couldn't open {unreadable.join(", ")}, try another photo
+            </span>
+            <span className="block text-muted">Hindi mabuksan ang {unreadable.join(", ")}, subukan ang ibang larawan</span>
+          </p>
+        )}
         {retried && failed.length === 0 && (
           <p role="status" className="mt-6 text-[19px] font-bold">
             Photos uploaded · Na-upload na ang mga larawan
@@ -217,6 +233,7 @@ export function Submit() {
               setUploads([]);
               setFailed([]);
               setRetried(false);
+              setUnreadable([]);
             }}
           >
             Report something else · Mag-report ulit
@@ -236,8 +253,8 @@ export function Submit() {
       </Help>
       {/* Outside the help panel so it shows without a click. */}
       <p role="note" className="mb-6 border-l-4 border-danger pl-3 font-bold">
-        In an emergency, call 911 or go to the barangay hall right away.
-        <span className="block font-normal">Kung emergency, tumawag sa 911 o pumunta agad sa barangay hall.</span>
+        In an emergency, call 911 or go to the barangay hall right away
+        <span className="block font-normal">Kung emergency, tumawag sa 911 o pumunta agad sa barangay hall</span>
       </p>
       <p className="mb-6 text-[19px] text-muted">
         Tagalog, English, or a mix · Tagalog, English, o halo
@@ -263,6 +280,7 @@ export function Submit() {
                   {p.name}
                 </option>
               ))}
+              <option value="none">Not on the list · Wala sa listahan</option>
             </Select>
             <p id="place-error" role="alert" className={placeError ? "mt-2 font-bold text-danger" : "sr-only"}>
               {placeError}
@@ -272,7 +290,11 @@ export function Submit() {
         <Textarea
           name="description"
           label="What is your concern? · Ano po ang inyong hinaing?"
-          hint="Where it's happening, and why it's urgent · Saan ito nangyayari, at bakit ito urgent"
+          hint={
+            places.length > 0 && place !== "none"
+              ? "What happened, and since when · Ano ang nangyari, at kailan pa"
+              : "What happened, where, and since when · Ano ang nangyari, saan, at kailan pa"
+          }
           rows={7}
           maxLength={MAX_LENGTH}
           value={text}

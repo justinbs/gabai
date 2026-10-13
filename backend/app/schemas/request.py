@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.enums import RequestStatus, Urgency
 from app.schemas.attachment import AttachmentRead
@@ -68,11 +68,36 @@ class DuplicateSuggestionRead(BaseModel):
     candidate: DuplicateCandidate
 
 
+class SameProblemReport(DuplicateCandidate):
+    score: float
+    # Enough words in common to be ticked for linking at the start.
+    likely: bool
+
+
+class LinkReports(BaseModel):
+    request_ids: list[int] = Field(min_length=1, max_length=200)
+    # Listed as likely but unticked: not the same problem, so not suggested again.
+    not_same: list[int] = Field(default_factory=list, max_length=200)
+
+
+class SkippedReport(BaseModel):
+    id: int
+    reference_number: str
+    reason: str
+
+
+class LinkReportsResult(BaseModel):
+    linked: list[RequestRef]
+    skipped: list[SkippedReport]
+
+
 class Surge(BaseModel):
     category: CategoryRead
     location: LocationRead | None
     count: int
     since: datetime
+    # The report to open and link the others to.
+    main: RequestRef | None
 
 
 class StatusUpdate(BaseModel):
@@ -81,7 +106,15 @@ class StatusUpdate(BaseModel):
 
 
 class UrgentFlag(BaseModel):
-    reason: str = Field(min_length=10, max_length=200)
+    reason: str = Field(min_length=1, max_length=200)
+
+    @field_validator("reason")
+    @classmethod
+    def not_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Say why it's urgent")
+        return value
 
 
 class ReviewDecision(BaseModel):
@@ -125,6 +158,7 @@ class RequestRead(BaseModel):
     resolved_at: datetime | None
     urgent_flagged_at: datetime | None
     urgent_reason: str | None
+    urgent_pinned: bool
     waiting_since: datetime
     aged: bool
     location: LocationRead | None
@@ -149,6 +183,7 @@ class RequestSummary(BaseModel):
     assigned_staff: UserSummary | None
     created_at: datetime
     urgent_flagged_at: datetime | None
+    urgent_pinned: bool
     waiting_since: datetime
     aged: bool
     location: LocationRead | None

@@ -3,7 +3,7 @@ import { useState } from "react";
 import * as api from "../api/client";
 import { ApiError } from "../api/http";
 import type { Category, Location, ThemePreset } from "../api/types";
-import { Button, ErrorState, Input, Loading, PageHeading } from "../components/ui";
+import { Button, ErrorState, Input, Loading, PageHeading, Textarea } from "../components/ui";
 import { THEMES } from "../lib/themes";
 import { useAsync } from "../lib/useAsync";
 import { usePageTitle } from "../lib/usePageTitle";
@@ -321,7 +321,7 @@ function CategoryRow({ category, onSaved }: { category: Category; onSaved: (text
   );
 }
 
-// Optional. Once any place is listed, residents must pick where the problem is,
+// Optional. Once any place is listed, residents are asked where the problem is,
 // and duplicate reports are matched by place too.
 function Places({ onSaved }: { onSaved: (text: string) => void }) {
   const { state, reload } = useAsync(() => api.listAllLocations(), []);
@@ -330,28 +330,43 @@ function Places({ onSaved }: { onSaved: (text: string) => void }) {
 
   const add = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!name.trim()) return;
+    const names = [...new Set(name.split("\n").map((n) => n.trim()).filter(Boolean))];
+    if (names.length === 0) return;
     setBusy(true);
-    try {
-      await api.createLocation(name);
-      onSaved(`${name.trim()} added`);
-      setName("");
-      reload();
-    } catch (err) {
-      onSaved(errorText(err));
-    } finally {
-      setBusy(false);
+    const added: string[] = [];
+    const notAdded: string[] = [];
+    for (const n of names) {
+      try {
+        await api.createLocation(n);
+        added.push(n);
+      } catch (err) {
+        notAdded.push(`${n} (${errorText(err)})`);
+      }
     }
+    onSaved(
+      [added.length > 0 ? `Added ${added.join(", ")}` : "", notAdded.length > 0 ? `Not added: ${notAdded.join(", ")}` : ""]
+        .filter(Boolean)
+        .join(". "),
+    );
+    setName(notAdded.length > 0 ? names.filter((n) => !added.includes(n)).join("\n") : "");
+    reload();
+    setBusy(false);
   };
 
   return (
     <Section
       title="Puroks and streets"
-      hint="Once you add one, residents pick where the problem is"
+      hint="Once you add one, residents are asked where the problem is"
     >
       <form onSubmit={add} className="mb-6 flex flex-wrap items-end gap-3">
         <div className="min-w-0 flex-1">
-          <Input id="place-new" label="Add a purok or street" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} />
+          <Textarea
+            name="place-new"
+            label="Add puroks or streets, one per line"
+            rows={3}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
         </div>
         <Button type="submit" disabled={busy || !name.trim()}>
           Add
@@ -361,7 +376,7 @@ function Places({ onSaved }: { onSaved: (text: string) => void }) {
       {state.status === "error" && <ErrorState description={state.message} onRetry={reload} />}
       {state.status === "ready" &&
         (state.data.length === 0 ? (
-          <p className="text-muted">None listed, so residents aren't asked where the problem is.</p>
+          <p className="text-muted">None listed, so residents aren't asked where the problem is</p>
         ) : (
           <div className="grid gap-4">
             {state.data.map((place) => (

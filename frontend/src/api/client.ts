@@ -4,6 +4,7 @@ import type {
   Category,
   CategoryUpdate,
   DuplicateSuggestion,
+  LinkReportsResult,
   Location,
   LocationUpdate,
   Notification,
@@ -12,6 +13,7 @@ import type {
   RequestSummary,
   Role,
   RoutingRule,
+  SameProblemReport,
   ServiceRequest,
   SiteSettings,
   SiteSettingsUpdate,
@@ -199,6 +201,15 @@ export const linkDuplicate = (requestId: number, referenceNumber: string) =>
 
 export const unlinkDuplicate = (requestId: number) =>
   http.del<ServiceRequest>(`/api/requests/${requestId}/duplicate-of`);
+
+export const listSameProblem = (requestId: number) =>
+  http.get<SameProblemReport[]>(`/api/requests/${requestId}/same-problem`);
+
+export const linkReports = (requestId: number, requestIds: number[], notSame: number[]) =>
+  http.post<LinkReportsResult>(`/api/requests/${requestId}/linked-reports`, {
+    request_ids: requestIds,
+    not_same: notSame,
+  });
 
 export const listSurges = () => http.get<Surge[]>("/api/request-surges");
 

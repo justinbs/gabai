@@ -102,12 +102,11 @@ async def main():
         check("resend inside two minutes is still 202", r.status_code, 202)
         check("but no second email", len(mails_to(email)), 1)
 
-        # --- staff can't approve until it's confirmed -----------------------------
+        # --- staff can't approve until it's confirmed, unless they saw an ID ------
         await login(staff, "ramon.delgado@example.com", DEMO_PW)
         uid = psql(f"select id from users where email='{email}'")
-        r = await staff.patch(f"/api/registrations/{uid}", json={"approval_status": "approved", "verification_method": "id_in_person"})
-        check("approve before confirming is 409", (r.status_code, r.json().get("detail")),
-              (409, "Their email isn't confirmed yet"))
+        r = await staff.patch(f"/api/registrations/{uid}", json={"approval_status": "approved", "verification_method": "personally_known"})
+        check("approve before confirming is 409", (r.status_code, "confirmed" in r.json().get("detail", "")), (409, True))
         r = await staff.get("/api/registrations?limit=100")
         row = next((u for u in r.json()["items"] if u["id"] == uid), None)
         check("sign-ups list shows it unconfirmed", row and row["is_verified"], False)

@@ -3,12 +3,13 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request as HTTPRequest, Response, status as http_status
 from fastapi_users.exceptions import InvalidPasswordException
-from sqlalchemy import func as sqlfunc, select
+from sqlalchemy import delete, func as sqlfunc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import passwords
 from app.audit import write_audit
 from app.db.session import get_db
+from app.models.sign_in_failure import SignInFailure
 from app.models.user import ApprovalStatus, Role, User
 from app.schemas.user import AdminUserCreate, AdminUserUpdate, PaginatedUsers, TemporaryPassword, UserRead
 from app.users import UserManager, get_user_manager, require_role
@@ -226,6 +227,8 @@ async def reset_password(
     temporary = passwords.generate_temporary()
     target.hashed_password = user_manager.password_helper.hash(temporary)
     target.must_change_password = True
+    # Resetting is how an admin unlocks an account after too many tries.
+    await db.execute(delete(SignInFailure).where(SignInFailure.user_id == target.id))
 
     # No detail. The audit log is readable by every admin, and the plaintext
     # must exist only in this response.

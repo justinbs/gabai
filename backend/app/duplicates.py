@@ -1,12 +1,12 @@
 """Duplicate reports: suggesting them, linking them, and spotting surges.
 
-When many residents report one problem, staff link the newer reports to the
-oldest one, the main report. Linked reports leave the queues, take the main
+When many residents report one problem, staff link the others to one main
+report, all at once from that report's page or from the surge notice. Linked reports leave the queues, take the main
 report's labels and handler, and follow its status, so one action reaches
 everyone who reported it.
 
-Suggestions only: staff confirm every link, so a different problem is never
-hidden by mistake. Word overlap compares two reports with each other; it never
+Suggestions only: staff confirm every link, and a wrong one can be undone at
+any time. Word overlap compares two reports with each other; it never
 touches urgency or the model.
 """
 
@@ -15,7 +15,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException, status as http_status
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -115,13 +115,14 @@ def _move(db: AsyncSession, request: Request, to_status: RequestStatus, actor_id
         request.resolved_at = datetime.now(timezone.utc)
 
 
-async def link(db: AsyncSession, child: Request, main: Request, actor_id: uuid.UUID, ip: str | None) -> None:
+async def link(
+    db: AsyncSession, child: Request, main: Request, actor_id: uuid.UUID, ip: str | None, tell_resident: bool = True
+) -> None:
     """Link child to main, then bring child up to main's labels, handler and status."""
     if child.id == main.id:
         raise HTTPException(status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY, detail="A report can't be linked to itself")
-    # The classifier would overwrite a link made while it's still working.
-    if RequestStatus.submitted in (child.status, main.status):
-        raise _conflict("Still being sorted, try again in a minute")
+    if main.status == RequestStatus.submitted:
+        raise _conflict(f"{main.reference_number} isn't sorted yet. Label it in For review first")
     if child.duplicate_of_id is not None:
         raise _conflict("This report is already linked")
     if main.duplicate_of_id is not None:
@@ -139,6 +140,9 @@ async def link(db: AsyncSession, child: Request, main: Request, actor_id: uuid.U
         raise _conflict(f"This report is further along than {main.reference_number}. Link that one to this report instead")
 
     note = f"Linked to {main.reference_number}"
+    # The classifier leaves alone anything no longer at submitted.
+    if child.status == RequestStatus.submitted:
+        _move(db, child, RequestStatus.under_review, actor_id, note)
     child.duplicate_of_id = main.id
     child.final_category_id = effective_category_id(main)
     child.final_urgency = main.final_urgency or main.predicted_urgency
@@ -164,23 +168,147 @@ async def link(db: AsyncSession, child: Request, main: Request, actor_id: uuid.U
         detail={"to": main.id},
         ip_address=ip,
     )
+    if tell_resident:
+        await _tell_linked(db, child, main)
+
+
+async def _tell_linked(db: AsyncSession, child: Request, main: Request) -> None:
     await notify(
         db,
         user_id=child.citizen_id,
-        message=f"Others reported the same problem. Your report now follows {main.reference_number}",
+        message="Others reported the same problem. You'll get the same updates",
         request_id=child.id,
         reference_number=child.reference_number,
     )
 
 
+async def link_many(
+    db: AsyncSession, main: Request, children: list[Request], actor_id: uuid.UUID, ip: str | None
+) -> tuple[list[Request], list[tuple[Request, str]]]:
+    """Link each report to main. One that can't be linked is skipped with the reason."""
+    linked, skipped, told = [], [], set()
+    for child in children:
+        try:
+            await link(db, child, main, actor_id, ip, tell_resident=False)
+        except HTTPException as exc:
+            skipped.append((child, exc.detail))
+            continue
+        linked.append(child)
+        # One notice per resident, however many of their reports were linked.
+        if child.citizen_id not in told:
+            told.add(child.citizen_id)
+            await _tell_linked(db, child, main)
+    return linked, skipped
+
+
+async def mark_not_same(
+    db: AsyncSession, main: Request, others: list[Request], actor_id: uuid.UUID, ip: str | None
+) -> None:
+    """Staff unticked these, so they aren't listed against main again."""
+    for other in others:
+        await db.execute(
+            insert(DuplicateSuggestion)
+            .values(
+                request_id=other.id,
+                candidate_id=main.id,
+                score=round(overlap(main.description, other.description), 3),
+                decision="dismissed",
+                decided_by=actor_id,
+                decided_at=func.now(),
+            )
+            .on_conflict_do_update(
+                constraint="uq_duplicate_suggestion_pair",
+                set_={"decision": "dismissed", "decided_by": actor_id, "decided_at": func.now()},
+            )
+        )
+        await write_audit(
+            db,
+            actor_id=actor_id,
+            action="request.duplicate_dismissed",
+            object_type="request",
+            object_id=str(other.id),
+            detail={"candidate": main.id},
+            ip_address=ip,
+        )
+
+
+async def same_problem(db: AsyncSession, main: Request, scope) -> list[tuple[Request, float, bool]]:
+    """Open reports that could be linked to main, most alike first.
+
+    Within the window either side of main. Listed when the words mostly match,
+    whatever category the model gave it, since one flood can be sorted several
+    ways. Also listed, unticked: the same category, or the same place within
+    the hour. A place on both reports has to match. Reports staff marked as
+    not the same are left out.
+
+    Returns (report, word overlap, ticked at the start).
+    """
+    category_id = effective_category_id(main)
+    if category_id is None or main.duplicate_of_id is not None or main.status not in OPEN:
+        return []
+    query = select(Request).where(
+        Request.id != main.id,
+        Request.status.in_(OPEN),
+        Request.duplicate_of_id.is_(None),
+        Request.created_at >= main.created_at - WINDOW,
+        Request.created_at <= main.created_at + WINDOW,
+    )
+    if main.location_id is not None:
+        query = query.where((Request.location_id.is_(None)) | (Request.location_id == main.location_id))
+    if scope is not None:
+        query = query.where(scope)
+    dismissed = set(
+        (
+            await db.execute(
+                select(DuplicateSuggestion.request_id, DuplicateSuggestion.candidate_id).where(
+                    DuplicateSuggestion.decision == "dismissed",
+                    or_(DuplicateSuggestion.request_id == main.id, DuplicateSuggestion.candidate_id == main.id),
+                )
+            )
+        ).all()
+    )
+    parents = set(
+        (
+            await db.execute(select(Request.duplicate_of_id).where(Request.duplicate_of_id.is_not(None)).distinct())
+        ).scalars().all()
+    )
+    found = []
+    for other in (await db.execute(query)).scalars().all():
+        if other.id in parents or rank(other.status) > rank(main.status):
+            continue
+        if (other.id, main.id) in dismissed or (main.id, other.id) in dismissed:
+            continue
+        score = overlap(main.description, other.description)
+        same_category = effective_category_id(other) == category_id
+        same_place = (
+            main.location_id is not None
+            and other.location_id == main.location_id
+            and abs(other.created_at - main.created_at) <= SURGE_WINDOW
+        )
+        likely = score >= MIN_OVERLAP
+        if likely or same_category or same_place:
+            found.append((other, score, likely))
+    found.sort(key=lambda row: (not row[2], -row[1], row[0].created_at))
+    return found
+
+
 async def unlink(db: AsyncSession, child: Request, actor_id: uuid.UUID, ip: str | None) -> None:
-    """Undo a link while the main report is open. The report keeps its labels and status."""
+    """Undo a link. A report the link marked finished goes back to For review."""
     if child.duplicate_of_id is None:
         raise _conflict("This report isn't linked")
     main = await db.get(Request, child.duplicate_of_id)
-    if main is not None and main.status not in OPEN:
-        raise _conflict(f"{main.reference_number} is finished, so the link stays")
     child.duplicate_of_id = None
+    if child.status in (RequestStatus.resolved, RequestStatus.closed):
+        _move(db, child, RequestStatus.under_review, actor_id, "Linked by mistake, checking it again")
+        child.resolved_at = None
+        child.assigned_staff_id = None
+        await notify(
+            db,
+            user_id=child.citizen_id,
+            message="Your request is being checked again",
+            request_id=child.id,
+            reference_number=child.reference_number,
+        )
     await write_audit(
         db,
         actor_id=actor_id,
@@ -198,7 +326,9 @@ async def linked_to(db: AsyncSession, main: Request) -> list[Request]:
     )
 
 
-async def follow_status(db: AsyncSession, main: Request, to_status: RequestStatus, actor_id) -> list[Request]:
+async def follow_status(
+    db: AsyncSession, main: Request, to_status: RequestStatus, actor_id, note: str | None = None
+) -> list[Request]:
     """Move linked reports with the main one.
 
     Returns one report per resident to notify, their own, so a resident with
@@ -207,7 +337,7 @@ async def follow_status(db: AsyncSession, main: Request, to_status: RequestStatu
     per_citizen = {main.citizen_id: main}
     for child in await linked_to(db, main):
         if LEGAL_TRANSITIONS.get(child.status) == to_status:
-            _move(db, child, to_status, actor_id, f"Follows {main.reference_number}")
+            _move(db, child, to_status, actor_id, note or f"Follows {main.reference_number}")
             per_citizen.setdefault(child.citizen_id, child)
     return list(per_citizen.values())
 
@@ -237,4 +367,21 @@ async def surges(db: AsyncSession, scope) -> list[dict]:
     )
     if scope is not None:
         query = query.where(scope)
-    return [dict(row._mapping) for row in (await db.execute(query)).all()]
+    found = []
+    for row in (await db.execute(query)).all():
+        surge = dict(row._mapping)
+        members = select(Request).where(
+            Request.created_at >= since,
+            Request.duplicate_of_id.is_(None),
+            category == surge["category_id"],
+            Request.status.in_(OPEN),
+            Request.status != RequestStatus.submitted,
+            Request.location_id.is_(None) if surge["location_id"] is None else Request.location_id == surge["location_id"],
+        )
+        if scope is not None:
+            members = members.where(scope)
+        candidates = (await db.execute(members)).scalars().all()
+        # The report to link the rest to: the one furthest along, then the oldest.
+        surge["main"] = min(candidates, key=lambda r: (-rank(r.status), r.created_at)) if candidates else None
+        found.append(surge)
+    return found

@@ -1,6 +1,7 @@
 import * as api from "../api/client";
 import { RequestTable } from "../components/RequestTable";
-import { EmptyState, ErrorState, Help, Loading, PageHeading } from "../components/ui";
+import { Link } from "react-router-dom";
+import { EmptyState, ErrorState, FOCUS_LINK, Help, Loading, PageHeading } from "../components/ui";
 import { useAsync } from "../lib/useAsync";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useUser } from "../session-context";
@@ -58,9 +59,19 @@ function SurgeNotice({ surges }: { surges: Surge[] }) {
   return (
     <div role="status" className="mb-6 border-l-4 border-danger py-1 pl-4">
       {surges.map((surge) => (
-        <p key={`${surge.category.id}-${surge.location?.id ?? "any"}`} className="font-bold">
-          {surge.count} reports about {surge.category.name}
-          {surge.location ? ` in ${surge.location.name}` : ""} in the last hour
+        <p key={`${surge.category.id}-${surge.location?.id ?? "any"}`}>
+          <span className="font-bold">
+            {surge.count} reports about {surge.category.name}
+            {surge.location ? ` in ${surge.location.name}` : ""} in the last hour
+          </span>{" "}
+          ·{" "}
+          {surge.main ? (
+            <Link to={`/requests/${surge.main.id}#same-problem`} className={`text-link underline ${FOCUS_LINK}`}>
+              Check and link them together
+            </Link>
+          ) : (
+            "Still being sorted"
+          )}
         </p>
       ))}
     </div>
