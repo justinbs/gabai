@@ -750,9 +750,11 @@ export interface paths {
         put?: never;
         /**
          * Attach a file
-         * @description The owning citizen, or staff assigned to the request. MIME type and size
-         *     are validated server-side against the declared allowlist. The `accept`
-         *     attribute on a file input is a hint to the user, not a control.
+         * @description The owning citizen, or staff assigned to the request. Anyone else gets
+         *     404, the same as for a request that doesn't exist. MIME type and size
+         *     are validated server-side against the declared allowlist, and the file's
+         *     first bytes must match its declared type. The `accept` attribute on a
+         *     file input is a hint to the user, not a control.
          */
         post: {
             parameters: {
@@ -793,7 +795,7 @@ export interface paths {
                         "application/json": components["schemas"]["Error"];
                     };
                 };
-                /** @description MIME type not allowed. */
+                /** @description MIME type not allowed, or the contents don't match it. */
                 415: {
                     headers: {
                         [name: string]: unknown;
@@ -1198,7 +1200,10 @@ export interface paths {
          *     turned down here, since that would let staff lock residents out, which
          *     is an admin's call through `PATCH /api/admin/users/{user_id}`. Approving
          *     needs a confirmed email while `REQUIRE_VERIFIED_EMAIL` is on, 409
-         *     otherwise. Writes an audit row, `user.approved` or `user.rejected`.
+         *     otherwise. Approving needs `verification_method`, how staff checked
+         *     that the person lives in the barangay; only that choice is stored, never
+         *     an ID number or a copy of an ID. Writes an audit row, `user.approved`
+         *     (detail: the method) or `user.rejected`.
          */
         patch: {
             parameters: {
@@ -1231,11 +1236,18 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
+                    content?: never;
+                };
+                409: components["responses"]["Conflict"];
+                /** @description Approving without a verification method. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
                     content: {
                         "application/json": components["schemas"]["Error"];
                     };
                 };
-                409: components["responses"]["Conflict"];
             };
         };
         trace?: never;
@@ -1957,7 +1969,15 @@ export interface components {
         RegistrationDecision: {
             /** @enum {string} */
             approval_status: "approved" | "rejected";
+            /** @description Required when approving, ignored when turning down. */
+            verification_method?: components["schemas"]["VerificationMethod"];
         };
+        /**
+         * @description How staff confirmed a resident lives in the barangay: a valid ID shown
+         *     in person, someone staff know personally, or the barangay's own records.
+         * @enum {string}
+         */
+        VerificationMethod: "id_in_person" | "personally_known" | "barangay_record";
         /**
          * @description Staff and admin accounts are always `approved`.
          * @enum {string}
@@ -1999,6 +2019,13 @@ export interface components {
              *     and admin accounts.
              */
             residence?: string | null;
+            /**
+             * @description How staff checked this resident when approving. Null for staff and
+             *     admin accounts, residents not yet approved, residents created by an
+             *     administrator or the seed (nobody checked them through Sign-ups), and
+             *     residents approved before this was recorded.
+             */
+            verification_method?: components["schemas"]["VerificationMethod"] | null;
             /**
              * @description Set when an admin creates the account or resets its password, cleared
              *     when the person sets their own. Enforced server-side.

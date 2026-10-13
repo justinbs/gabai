@@ -123,12 +123,17 @@ check("resident sees turned down", b["approval_status"], "rejected")
 check("turned down still can't reach data", res.call("GET", "/api/requests")[0], 403)
 s, b = staff.call("GET", "/api/registrations?status=rejected")
 check("it shows under turned down", any(u["id"] == new["id"] for u in b["items"]), True)
-s, b = staff.call("PATCH", f"/api/registrations/{new['id']}", {"approval_status": "approved"})
+s, b = staff.call("PATCH", f"/api/registrations/{new['id']}", {"approval_status": "approved", "verification_method": "id_in_person"})
 check("unconfirmed email can't be approved", (s, b.get("detail")), (409, "Their email isn't confirmed yet"))
 # The email flow has its own suite. Here, confirm it directly and carry on.
 psql(f"update users set is_verified=true where id='{new['id']}'")
 s, b = staff.call("PATCH", f"/api/registrations/{new['id']}", {"approval_status": "approved"})
+check("approving without saying how they were checked is 422", s, 422)
+s, b = staff.call("PATCH", f"/api/registrations/{new['id']}", {"approval_status": "approved", "verification_method": "fingerprint"})
+check("an unknown verification method is 422", s, 422)
+s, b = staff.call("PATCH", f"/api/registrations/{new['id']}", {"approval_status": "approved", "verification_method": "id_in_person"})
 check("a mistake can be undone, approve", (s, b["approval_status"]), (200, "approved"))
+check("the verification method is stored", b.get("verification_method"), "id_in_person")
 
 # --- approved: same session now works, no re-login --------------------------------
 check("approved resident reaches requests with the same session", res.call("GET", "/api/requests")[0], 200)
@@ -138,7 +143,7 @@ check("approved resident can submit", s, 201)
 # --- staff can't use this to lock out an approved resident ------------------------
 s, b = staff.call("PATCH", f"/api/registrations/{new['id']}", {"approval_status": "rejected"})
 check("can't turn down an approved resident", (s, b.get("detail")), (409, "Already approved"))
-s, b = staff.call("PATCH", f"/api/registrations/{new['id']}", {"approval_status": "approved"})
+s, b = staff.call("PATCH", f"/api/registrations/{new['id']}", {"approval_status": "approved", "verification_method": "id_in_person"})
 check("approving twice is also 409", s, 409)
 
 # --- staff and admin accounts are never subject to approval ----------------------
@@ -154,5 +159,9 @@ rows = psql(f"select action from audit_log_entries where object_id='{new['id']}'
 check("audit rows: turned down then approved", rows.split("\n"), ["user.rejected", "user.approved"])
 actor = psql(f"select u.email from audit_log_entries a join users u on u.id=a.actor_id where a.object_id='{new['id']}' and a.action='user.approved'")
 check("approval attributed to the staff member", actor, "ramon.delgado@example.com")
+detail = psql(f"select detail::text from audit_log_entries where object_id='{new['id']}' and action='user.approved'")
+check("approval audit records only the method", detail, '{"method": "id_in_person"}')
+rej = psql(f"select coalesce(detail::text,'null') from audit_log_entries where object_id='{new['id']}' and action='user.rejected'")
+check("turning down records no method", rej, "null")
 
 print(f"\n{sum(results)}/{len(results)} passed")

@@ -72,14 +72,17 @@ async def decide_registration(
         )
     if target.approval_status != decision:
         target.approval_status = decision
+        approving = decision == ApprovalStatus.approved
+        # Only the method is kept. Turning down clears it.
+        target.verification_method = payload.verification_method if approving else None
         ip = http_request.client.host if http_request.client else None
         await write_audit(
             db,
             actor_id=staff.id,
-            action="user.approved" if decision == ApprovalStatus.approved else "user.rejected",
+            action="user.approved" if approving else "user.rejected",
             object_type="user",
             object_id=str(target.id),
-            detail=None,
+            detail={"method": payload.verification_method.value} if approving else None,
             ip_address=ip,
         )
         await db.commit()

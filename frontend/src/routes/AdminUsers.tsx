@@ -272,6 +272,12 @@ function NameCell({
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(user.full_name);
   const trimmed = name.trim();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Focus the field when it opens, so a keyboard user can type straight away.
+  useEffect(() => {
+    if (editing) inputRef.current?.focus();
+  }, [editing]);
 
   if (!editing) {
     return (
@@ -312,7 +318,7 @@ function NameCell({
         id={`name-${user.id}`}
         value={name}
         maxLength={150}
-        autoFocus
+        ref={inputRef}
         onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "Escape") setEditing(false);

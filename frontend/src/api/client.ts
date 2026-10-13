@@ -14,6 +14,7 @@ import type {
   SiteSettingsUpdate,
   Urgency,
   User,
+  VerificationMethod,
 } from "./types";
 
 // Everything below now talks to the real backend. No fixture data left.
@@ -252,8 +253,15 @@ export const listRegistrations = async (
 
 // Throws ApiError 409 with the reason: already approved, or email not
 // confirmed yet. 404 when it isn't a resident's account.
-export const decideRegistration = (id: string, decision: "approved" | "rejected") =>
-  http.patch<User>(`/api/registrations/${id}`, { approval_status: decision });
+export const decideRegistration = (
+  id: string,
+  decision: "approved" | "rejected",
+  verificationMethod?: VerificationMethod,
+) =>
+  http.patch<User>(`/api/registrations/${id}`, {
+    approval_status: decision,
+    ...(decision === "approved" ? { verification_method: verificationMethod } : {}),
+  });
 
 // ------------------------------------------------------- admin: users -----
 

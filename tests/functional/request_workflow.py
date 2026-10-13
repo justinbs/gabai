@@ -122,7 +122,7 @@ check("new account is pending", u["approval_status"], "pending")
 check("pending account can't submit", (other.login(oemail, "tubig-walang-7"),
       other.call("POST", "/api/requests", {"description": "May tagas ang tubo sa kanto namin"})[0]), (204, 403))
 psql(f"update users set is_verified=true where email='{oemail}'")  # email confirmation, tested separately
-check("staff approve the sign-up", divina.call("PATCH", f"/api/registrations/{u['id']}", {"approval_status": "approved"})[0], 200)
+check("staff approve the sign-up", divina.call("PATCH", f"/api/registrations/{u['id']}", {"approval_status": "approved", "verification_method": "personally_known"})[0], 200)
 
 # --- submission ------------------------------------------------------------------
 area("Request submission")
@@ -174,6 +174,11 @@ s, _ = maria.upload(rid, "tool.exe", b"MZ" + b"\x00" * 64, "application/x-msdown
 check("executable refused", 400 <= s < 500, True)
 s, _ = maria.upload(rid, "big.png", b"\x89PNG" + b"\x00" * (5 * 1024 * 1024 + 10), "image/png")
 check("file over 5 MB refused", 400 <= s < 500, True)
+s, _ = maria.upload(rid, "notes.png", b"just some text, not an image" * 4, "image/png")
+check("text file named .png refused by its contents", s, 415)
+pdf = b"%PDF-1.4\n" + b"\x00" * 64
+check("PDF attachment accepted", maria.upload(rid, "resibo.pdf", pdf, "application/pdf")[0], 201)
+check("another resident uploading to it gets 404", other.upload(rid, "x.png", png, "image/png")[0], 404)
 
 # --- access scope ------------------------------------------------------------------------
 area("Access control")

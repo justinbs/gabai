@@ -20,6 +20,12 @@ class ApprovalStatus(str, enum.Enum):
     rejected = "rejected"
 
 
+class VerificationMethod(str, enum.Enum):
+    id_in_person = "id_in_person"
+    personally_known = "personally_known"
+    barangay_record = "barangay_record"
+
+
 class User(SQLAlchemyBaseUserTableUUID, Base):
     __tablename__ = "users"
 
@@ -36,6 +42,11 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     )
     # Purok or street, typed at sign-up. Only there for that check.
     residence: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    # How staff confirmed the person lives in the barangay, chosen when approving.
+    # Only the method is kept, never an ID number or a copy of the ID.
+    verification_method: Mapped[VerificationMethod | None] = mapped_column(
+        SAEnum(VerificationMethod, native_enum=False, length=20), nullable=True
+    )
     # Set when an admin chose the password, so the admin knows it. Cleared when
     # the person picks their own.
     must_change_password: Mapped[bool] = mapped_column(

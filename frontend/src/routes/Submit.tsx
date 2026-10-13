@@ -220,8 +220,12 @@ export function Submit() {
         <p>Say what happened, where (purok, street or landmark), and since when. Filipino, English or Taglish are all fine.<span className="block text-muted">Sabihin kung ano ang nangyari, saan (purok, kalye o palatandaan), at kailan pa. Puwede ang Filipino, English o Taglish.</span></p>
         <p>Add photos if they help. JPEG, PNG, WebP or PDF. Photos are made smaller before sending. PDFs can be up to 5 MB.<span className="block text-muted">Magdagdag ng litrato kung makakatulong. JPEG, PNG, WebP o PDF. Pinapaliit muna ang litrato bago ipadala. Hanggang 5 MB ang PDF.</span></p>
         <p>The system sorts your report and sends it to the staff member who handles that concern, or a staff member sorts it first. You get a reference number to follow it.<span className="block text-muted">Aayusin ng sistema ang inyong report at ipapadala sa staff na humahawak nito, o isang staff muna ang mag-aayos nito. Makakakuha kayo ng reference number para masubaybayan ito.</span></p>
-        <p>In an emergency, call 911 or go to the barangay hall right away.<span className="block text-muted">Kung emergency, tumawag sa 911 o pumunta agad sa barangay hall.</span></p>
       </Help>
+      {/* Outside the help panel so it shows without a click. */}
+      <p role="note" className="mb-6 border-l-4 border-danger pl-3 font-bold">
+        In an emergency, call 911 or go to the barangay hall right away.
+        <span className="block font-normal">Kung emergency, tumawag sa 911 o pumunta agad sa barangay hall.</span>
+      </p>
       <p className="mb-6 text-[19px] text-muted">
         Tagalog, English, or a mix · Tagalog, English, o halo
       </p>

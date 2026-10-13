@@ -492,9 +492,11 @@ paths:
       tags: [requests]
       summary: Attach a file
       description: |
-        The owning citizen, or staff assigned to the request. MIME type and size
-        are validated server-side against the declared allowlist. The `accept`
-        attribute on a file input is a hint to the user, not a control.
+        The owning citizen, or staff assigned to the request. Anyone else gets
+        404, the same as for a request that doesn't exist. MIME type and size
+        are validated server-side against the declared allowlist, and the file's
+        first bytes must match its declared type. The `accept` attribute on a
+        file input is a hint to the user, not a control.
       requestBody:
         required: true
         content:
@@ -526,7 +528,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "415":
-          description: MIME type not allowed.
+          description: MIME type not allowed, or the contents don't match it.
           content:
             application/json:
               schema:
@@ -788,7 +790,10 @@ paths:
         turned down here, since that would let staff lock residents out, which
         is an admin's call through `PATCH /api/admin/users/{user_id}`. Approving
         needs a confirmed email while `REQUIRE_VERIFIED_EMAIL` is on, 409
-        otherwise. Writes an audit row, `user.approved` or `user.rejected`.
+        otherwise. Approving needs `verification_method`, how staff checked
+        that the person lives in the barangay; only that choice is stored, never
+        an ID number or a copy of an ID. Writes an audit row, `user.approved`
+        (detail: the method) or `user.rejected`.
       requestBody:
         required: true
         content:
@@ -808,6 +813,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           description: No citizen account with that id.
+        "422":
+          description: Approving without a verification method.
           content:
             application/json:
               schema:
@@ -1421,6 +1428,16 @@ components:
         approval_status:
           type: string
           enum: [approved, rejected]
+        verification_method:
+          $ref: "#/components/schemas/VerificationMethod"
+          description: Required when approving, ignored when turning down.
+
+    VerificationMethod:
+      type: string
+      enum: [id_in_person, personally_known, barangay_record]
+      description: |
+        How staff confirmed a resident lives in the barangay: a valid ID shown
+        in person, someone staff know personally, or the barangay's own records.
 
     # --------------------------------------------------------- enums ------
     ApprovalStatus:
@@ -1485,6 +1502,15 @@ components:
             Purok or street, as the resident typed it at sign-up. Only there so
             staff can confirm the person lives in the barangay. Null for staff
             and admin accounts.
+        verification_method:
+          oneOf:
+            - $ref: "#/components/schemas/VerificationMethod"
+            - type: "null"
+          description: |
+            How staff checked this resident when approving. Null for staff and
+            admin accounts, residents not yet approved, residents created by an
+            administrator or the seed (nobody checked them through Sign-ups), and
+            residents approved before this was recorded.
         must_change_password:
           type: boolean
           description: |

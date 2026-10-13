@@ -3,8 +3,8 @@ import { useState } from "react";
 import * as api from "../api/client";
 import { EmptyState, ErrorState, Help, Loading, PageHeading, Select } from "../components/ui";
 import { fullDate } from "../lib/format";
-import { AUDIT_ACTION_LABELS } from "../api/types";
-import type { AuditLogEntry, User } from "../api/types";
+import { AUDIT_ACTION_LABELS, VERIFICATION_LABELS } from "../api/types";
+import type { AuditLogEntry, User, VerificationMethod } from "../api/types";
 import { useAsync } from "../lib/useAsync";
 import { usePageTitle } from "../lib/usePageTitle";
 
@@ -105,7 +105,11 @@ export function AdminAudit() {
                   <td className="py-3 pr-4 align-top text-muted">
                     {row.detail
                       ? Object.entries(row.detail)
-                          .map(([k, v]) => `${k}: ${format(v)}`)
+                          .map(([k, v]) =>
+                            k === "method" && typeof v === "string" && v in VERIFICATION_LABELS
+                              ? `checked by: ${VERIFICATION_LABELS[v as VerificationMethod]}`
+                              : `${k}: ${format(v)}`,
+                          )
                           .join(", ")
                       : ""}
                   </td>

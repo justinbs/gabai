@@ -7,6 +7,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.audit import write_audit
+from app.core import filetypes
 from app.core.storage import UPLOAD_DIR
 from app.db.session import get_db
 from app.models.site_settings import SiteSettings
@@ -19,12 +20,6 @@ router = APIRouter(tags=["site"])
 
 LOGO_DIR = UPLOAD_DIR / "site"
 MAX_LOGO_BYTES = 1024 * 1024
-# Checked against the file's first bytes, not just the declared type.
-SIGNATURES = {
-    "image/png": (b"\x89PNG\r\n\x1a\n",),
-    "image/jpeg": (b"\xff\xd8\xff",),
-    "image/webp": (b"RIFF",),
-}
 EXTENSIONS = {"image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp"}
 # Fields copied into the audit entry.
 PUBLIC_FIELDS = ("barangay_name", "place", "address", "hotline", "office_hours", "theme")
@@ -120,9 +115,8 @@ async def upload_logo(
     if len(contents) > MAX_LOGO_BYTES:
         raise HTTPException(status_code=http_status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="The logo must be 1 MB or smaller")
     kind = file.content_type
-    if kind not in SIGNATURES or not contents.startswith(SIGNATURES[kind]) or (
-        kind == "image/webp" and contents[8:12] != b"WEBP"
-    ):
+    # Checked against the file's first bytes, not just the declared type.
+    if kind not in EXTENSIONS or not filetypes.matches(kind, contents):
         raise HTTPException(
             status_code=http_status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
             detail="Upload a PNG, JPEG or WebP image",

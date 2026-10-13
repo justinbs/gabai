@@ -6,6 +6,7 @@ type S = components["schemas"];
 
 export type Role = S["Role"];
 export type ApprovalStatus = S["ApprovalStatus"];
+export type VerificationMethod = S["VerificationMethod"];
 export type Urgency = S["Urgency"];
 export type RequestStatus = S["RequestStatus"];
 export type Category = S["Category"];
@@ -43,6 +44,12 @@ export const STAFF_STATUS_LABELS: Record<RequestStatus, string> = {
   in_progress: "In progress",
   resolved: "Resolved",
   closed: "Closed",
+};
+
+export const VERIFICATION_LABELS: Record<VerificationMethod, string> = {
+  id_in_person: "Valid ID, shown in person",
+  personally_known: "I know them personally",
+  barangay_record: "Checked barangay records",
 };
 
 export const ROLE_LABELS: Record<Role, string> = {

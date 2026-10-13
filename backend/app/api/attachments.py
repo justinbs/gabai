@@ -6,6 +6,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import filetypes
 from app.core.storage import UPLOAD_DIR
 from app.db.session import get_db
 from app.models.attachment import Attachment
@@ -33,10 +34,11 @@ async def upload_attachment(
         raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Not found")
 
     # Narrower than general read-scope on purpose: only the owning citizen or
-    # the staff member currently assigned may attach a file.
+    # the staff member currently assigned may attach a file. Anyone else gets
+    # the same answer as for a request that doesn't exist.
     allowed = request.citizen_id == user.id or request.assigned_staff_id == user.id
     if not allowed:
-        raise HTTPException(status_code=http_status.HTTP_403_FORBIDDEN, detail="Not allowed")
+        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Not found")
 
     if file.content_type not in ALLOWED_TYPES:
         raise HTTPException(
@@ -47,6 +49,11 @@ async def upload_attachment(
     if len(contents) > MAX_FILE_BYTES:
         raise HTTPException(
             status_code=http_status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="File exceeds 5 MB"
+        )
+    if not filetypes.matches(file.content_type, contents):
+        raise HTTPException(
+            status_code=http_status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="The file's contents don't match its type",
         )
 
     extension = Path(file.filename or "").suffix

@@ -105,7 +105,7 @@ async def main():
         # --- staff can't approve until it's confirmed -----------------------------
         await login(staff, "ramon.delgado@example.com", DEMO_PW)
         uid = psql(f"select id from users where email='{email}'")
-        r = await staff.patch(f"/api/registrations/{uid}", json={"approval_status": "approved"})
+        r = await staff.patch(f"/api/registrations/{uid}", json={"approval_status": "approved", "verification_method": "id_in_person"})
         check("approve before confirming is 409", (r.status_code, r.json().get("detail")),
               (409, "Their email isn't confirmed yet"))
         r = await staff.get("/api/registrations?limit=100")
@@ -119,7 +119,7 @@ async def main():
         check("the emailed link confirms it", (r.status_code, r.json().get("is_verified")), (200, True))
         r = await anon.post("/api/auth/verify", json={"token": token})
         check("second click says already confirmed", r.json().get("detail"), "VERIFY_USER_ALREADY_VERIFIED")
-        r = await staff.patch(f"/api/registrations/{uid}", json={"approval_status": "approved"})
+        r = await staff.patch(f"/api/registrations/{uid}", json={"approval_status": "approved", "verification_method": "id_in_person"})
         check("now staff can approve", (r.status_code, r.json()["approval_status"]), (200, "approved"))
 
         # --- forgot password: no email to unknown or unconfirmed addresses --------------

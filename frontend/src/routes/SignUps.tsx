@@ -2,7 +2,8 @@ import { useState } from "react";
 
 import * as api from "../api/client";
 import { ApiError } from "../api/http";
-import type { User } from "../api/types";
+import { VERIFICATION_LABELS } from "../api/types";
+import type { User, VerificationMethod } from "../api/types";
 import { Button, EmptyState, ErrorState, FOCUS_LINK, Help, Loading, PageHeading } from "../components/ui";
 import { fullDate } from "../lib/format";
 import { useAsync } from "../lib/useAsync";
@@ -16,6 +17,8 @@ export function SignUps() {
   const { state, reload } = useAsync(() => api.listRegistrations(view), [view]);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState<string>();
+  // How staff checked each person, picked before approving.
+  const [method, setMethod] = useState<Record<string, VerificationMethod | "">>({});
 
   const decide = async (person: User, decision: "approved" | "rejected") => {
     if (
@@ -28,7 +31,11 @@ export function SignUps() {
     }
     setBusy(person.id);
     try {
-      await api.decideRegistration(person.id, decision);
+      await api.decideRegistration(
+        person.id,
+        decision,
+        decision === "approved" ? (method[person.id] as VerificationMethod) : undefined,
+      );
       setMessage(
         decision === "approved"
           ? `Approved ${person.full_name}`
@@ -58,7 +65,7 @@ export function SignUps() {
     <>
       <PageHeading title="Sign-ups" />
       <Help>
-        <p>Check that each person lives in the barangay, using the purok or street they gave.</p>
+        <p>Check that each person lives in the barangay, using the purok or street they gave. Choose how you checked before approving.</p>
         <p>They have to confirm their email before you can approve them. A sign-up you turn down can still be approved later if it was a mistake.</p>
       </Help>
 
@@ -123,9 +130,27 @@ export function SignUps() {
                       {fullDate(person.created_at)}
                     </td>
                     <td className="py-3 align-top">
-                      <div className="flex flex-wrap gap-3">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <label className="sr-only" htmlFor={`method-${person.id}`}>
+                          How did you check {person.full_name}?
+                        </label>
+                        <select
+                          id={`method-${person.id}`}
+                          value={method[person.id] ?? ""}
+                          onChange={(e) =>
+                            setMethod({ ...method, [person.id]: e.target.value as VerificationMethod | "" })
+                          }
+                          className="border-2 border-ink bg-white px-2 py-1 focus:outline-3 focus:outline-ink"
+                        >
+                          <option value="">How did you check?</option>
+                          {(Object.keys(VERIFICATION_LABELS) as VerificationMethod[]).map((m) => (
+                            <option key={m} value={m}>
+                              {VERIFICATION_LABELS[m]}
+                            </option>
+                          ))}
+                        </select>
                         <Button
-                          disabled={busy === person.id}
+                          disabled={busy === person.id || !method[person.id]}
                           aria-label={`Approve ${person.full_name}`}
                           onClick={() => decide(person, "approved")}
                         >

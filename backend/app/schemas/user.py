@@ -4,9 +4,9 @@ from datetime import datetime, timezone
 from fastapi_users import schemas
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints, model_validator
 
-from app.models.user import ApprovalStatus, Role
+from app.models.user import ApprovalStatus, Role, VerificationMethod
 
 
 class UserRead(schemas.BaseUser[uuid.UUID]):
@@ -14,6 +14,7 @@ class UserRead(schemas.BaseUser[uuid.UUID]):
     role: Role
     approval_status: ApprovalStatus
     residence: str | None
+    verification_method: VerificationMethod | None = None
     must_change_password: bool
     terms_accepted_version: str | None
     terms_accepted_at: datetime | None
@@ -73,6 +74,14 @@ class TemporaryPassword(BaseModel):
 
 class RegistrationDecision(BaseModel):
     approval_status: Literal["approved", "rejected"]
+    # Required when approving: how staff confirmed the person lives here.
+    verification_method: VerificationMethod | None = None
+
+    @model_validator(mode="after")
+    def method_when_approving(self):
+        if self.approval_status == "approved" and self.verification_method is None:
+            raise ValueError("Choose how you checked that they live in the barangay")
+        return self
 
 
 class TermsAcceptance(BaseModel):
