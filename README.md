@@ -43,6 +43,14 @@ cp .env.example .env
 docker compose up -d
 ```
 
+Then set `DATA_KEYS` in `.env`, the key that encrypts personal data at rest.
+The API won't start without it. Keep a copy somewhere safe: without it the data
+can't be read, backups included.
+
+```bash
+python -c "import os,base64;print('1:'+base64.b64encode(os.urandom(32)).decode())"
+```
+
 Backend:
 
 ```bash

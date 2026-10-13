@@ -28,6 +28,14 @@ class Settings(BaseSettings):
     # (ml/scripts/evaluate_deployed.py): about a quarter of requests go to review
     # and 92% of the rest reach the right category's handler.
     confidence_threshold: float = 0.70
+    # A request the model rates low urgency is only routed without a person if
+    # the model is at least this sure of that urgency. Otherwise staff set it.
+    low_urgency_min_confidence: float = 0.85
+
+    # Keys for encrypting personal data at rest, "<id>:<base64 32 bytes>", newest
+    # first. Kept only in the environment, never in the database or backups.
+    # Make one: python -c "import os,base64;print('1:'+base64.b64encode(os.urandom(32)).decode())"
+    data_keys: str = ""
 
     # Email through Resend. Empty key means nothing is sent, see app/mail.py.
     resend_api_key: str = ""
@@ -83,6 +91,16 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @model_validator(mode="after")
+    def require_data_keys(self) -> "Settings":
+        # Without a key, personal data can't be stored or read, in any environment.
+        if not self.data_keys.strip():
+            raise ValueError(
+                "DATA_KEYS is not set. Make one: "
+                "python -c \"import os,base64;print('1:'+base64.b64encode(os.urandom(32)).decode())\""
+            )
+        return self
 
     @model_validator(mode="after")
     def reject_default_secret_outside_development(self) -> "Settings":

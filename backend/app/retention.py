@@ -30,6 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.audit import write_audit
 from app.core.config import get_settings
 from app.core.eventloop import use_selector_loop_on_windows
+from app.core.markers import REDACTED_TEXT, REMOVED_NAME
 from app.core.storage import UPLOAD_DIR
 from app.db.session import AsyncSessionLocal
 from app.models.attachment import Attachment
@@ -42,8 +43,6 @@ from app.models.user import ApprovalStatus, Role, User
 
 settings = get_settings()
 
-REDACTED_TEXT = "[Removed after the retention period]"
-REMOVED_NAME = "Removed account"
 FINISHED = (RequestStatus.resolved, RequestStatus.closed)
 
 

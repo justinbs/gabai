@@ -28,6 +28,9 @@ the repository; get them from Justin and put them in `backend/models/`.
    - `SEED_ADMIN_PASSWORD` and `SEED_DEMO_PASSWORD`: any passwords that meet
      the password rules.
    - `SEED_DEMO=1`
+   - `DATA_KEYS`: the output of
+     `python -c "import os,base64;print('1:'+base64.b64encode(os.urandom(32)).decode())"`.
+     The API won't start without it.
    - Leave `RESEND_API_KEY` empty, `ENVIRONMENT=development` and
      `PUBLIC_URL=http://localhost:5173`. No email is sent, and the suites read
      the links from the development log instead.
