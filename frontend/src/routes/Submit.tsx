@@ -234,7 +234,7 @@ export function Submit() {
         <Textarea
           name="description"
           label="What is your concern? · Ano po ang inyong hinaing?"
-          hint="Where it's happening, and why it's urgent · Saan ito nangyayari, at bakit madalian"
+          hint="Where it's happening, and why it's urgent · Saan ito nangyayari, at bakit ito urgent"
           rows={7}
           maxLength={MAX_LENGTH}
           value={text}

@@ -241,7 +241,7 @@ function UrgentFlag({ request, onChanged }: { request: ServiceRequest; onChanged
     return (
       <p className="mb-5 border-l-4 border-rule py-1 pl-4">
         You marked this as urgent. Staff see it first.
-        <span className="block text-muted">Minarkahan ninyo itong madalian. Ito ang unang makikita ng staff.</span>
+        <span className="block text-muted">Minarkahan ninyo itong urgent. Ito ang unang makikita ng staff.</span>
       </p>
     );
   }
@@ -251,7 +251,7 @@ function UrgentFlag({ request, onChanged }: { request: ServiceRequest; onChanged
     return (
       <div className="mb-5">
         <Button variant="secondary" onClick={() => setOpen(true)}>
-          This is urgent · Madalian ito
+          This is urgent · Urgent po ito
         </Button>
       </div>
     );
@@ -279,7 +279,7 @@ function UrgentFlag({ request, onChanged }: { request: ServiceRequest; onChanged
     <form onSubmit={save} className="mb-5 border-l-4 border-rule py-1 pl-4" noValidate>
       <Textarea
         name="urgent-reason"
-        label="Why is it urgent? · Bakit ito madalian?"
+        label="Why is it urgent? · Bakit po ito urgent?"
         hint="Once only. For an emergency, call 911 · Isang beses lang. Kung emergency, tumawag sa 911"
         rows={3}
         maxLength={200}
