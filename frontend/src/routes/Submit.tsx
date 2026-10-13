@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import * as api from "../api/client";
-import { Button, FOCUS_LINK, Help, PageHeading, Textarea } from "../components/ui";
+import { Button, FOCUS_LINK, Help, PageHeading, Select, Textarea } from "../components/ui";
 import { shrinkPhoto } from "../lib/photos";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useUser } from "../session-context";
-import type { ServiceRequest } from "../api/types";
+import type { Location, ServiceRequest } from "../api/types";
 
 const MIN_LENGTH = 10;
 const MAX_LENGTH = 5000;
@@ -27,6 +27,14 @@ export function Submit() {
   const [failed, setFailed] = useState<File[]>([]);
   const [retried, setRetried] = useState(false);
   const latestPick = useRef(0);
+  // Puroks or streets, if the barangay has listed any. Empty means don't ask.
+  const [places, setPlaces] = useState<Location[]>([]);
+  const [place, setPlace] = useState("");
+  const [placeError, setPlaceError] = useState("");
+
+  useEffect(() => {
+    api.listLocations().then(setPlaces).catch(() => setPlaces([]));
+  }, []);
 
   // Ask before leaving while something is still being sent.
   useEffect(() => {
@@ -102,12 +110,17 @@ export function Submit() {
       setError("Tell us a bit more · Kulang pa po ang detalye");
       return;
     }
+    if (places.length > 0 && !place) {
+      setPlaceError("Pick where the problem is · Piliin kung saan ang problema");
+      return;
+    }
     setError(undefined);
+    setPlaceError("");
     setBusy(true);
     setProgress("");
     let request: ServiceRequest;
     try {
-      request = await api.createRequest(text.trim());
+      request = await api.createRequest(text.trim(), place ? Number(place) : undefined);
     } catch {
       setError("Didn't send, try again · Hindi naipadala, subukan po muli");
       setBusy(false);
@@ -231,6 +244,31 @@ export function Submit() {
       </p>
 
       <form onSubmit={submit} noValidate>
+        {places.length > 0 && (
+          <div className="mb-6">
+            <Select
+              name="place"
+              label="Where is the problem? · Saan po ang problema?"
+              value={place}
+              aria-invalid={placeError ? true : undefined}
+              aria-describedby={placeError ? "place-error" : undefined}
+              onChange={(e) => {
+                setPlace(e.target.value);
+                setPlaceError("");
+              }}
+            >
+              <option value="">Choose a purok or street · Pumili ng purok o kalye</option>
+              {places.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </Select>
+            <p id="place-error" role="alert" className={placeError ? "mt-2 font-bold text-danger" : "sr-only"}>
+              {placeError}
+            </p>
+          </div>
+        )}
         <Textarea
           name="description"
           label="What is your concern? · Ano po ang inyong hinaing?"

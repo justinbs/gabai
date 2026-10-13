@@ -4,6 +4,7 @@ import { EmptyState, ErrorState, Help, Loading, PageHeading } from "../component
 import { useAsync } from "../lib/useAsync";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useUser } from "../session-context";
+import type { Surge } from "../api/types";
 
 // Highest urgency first, then oldest. That is the order the queue is worked.
 // Sorting, not a separate pipeline: urgency changes position, never routing.
@@ -17,6 +18,7 @@ export function StaffQueue() {
       }),
     [user.id],
   );
+  const surges = useAsync(() => api.listSurges(), [user.id]);
 
   return (
     <>
@@ -25,7 +27,12 @@ export function StaffQueue() {
         <p>These are the requests assigned to you and those in the categories you handle, highest urgency first and oldest first within each level.</p>
         <p>Open a request to move it along: in progress, then resolved, then closed. A note you add is sent to the resident. Resolved requests stay at the bottom until you close them.</p>
         <p>If the category or urgency is wrong, correct it on the request. It moves to the person who handles the new category.</p>
+        <p>When several residents report the same problem, link the newer reports to the first one on its page. They leave the queue and follow it.</p>
       </Help>
+
+      {surges.state.status === "ready" && surges.state.data.length > 0 && (
+        <SurgeNotice surges={surges.state.data} />
+      )}
 
       {state.status === "loading" && <Loading label="Loading" />}
 
@@ -43,5 +50,19 @@ export function StaffQueue() {
           <RequestTable items={state.data.items} caption="Requests not yet closed" />
         ))}
     </>
+  );
+}
+
+// Many reports about one problem in the last hour, usually one incident.
+function SurgeNotice({ surges }: { surges: Surge[] }) {
+  return (
+    <div role="status" className="mb-6 border-l-4 border-danger py-1 pl-4">
+      {surges.map((surge) => (
+        <p key={`${surge.category.id}-${surge.location?.id ?? "any"}`} className="font-bold">
+          {surge.count} reports about {surge.category.name}
+          {surge.location ? ` in ${surge.location.name}` : ""} in the last hour
+        </p>
+      ))}
+    </div>
   );
 }

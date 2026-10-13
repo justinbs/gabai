@@ -19,6 +19,10 @@ export type AuditLogEntry = S["AuditLogEntry"];
 export type RoutingRule = S["RoutingRule"];
 export type RequestSummary = S["RequestSummary"];
 export type SiteSettings = S["SiteSettings"];
+export type Location = S["Location"];
+export type LocationUpdate = S["LocationUpdate"];
+export type DuplicateSuggestion = S["DuplicateSuggestion"];
+export type Surge = S["Surge"];
 export type SiteSettingsUpdate = S["SiteSettingsUpdate"];
 export type ThemePreset = S["ThemePreset"];
 export type CategoryUpdate = S["CategoryUpdate"];
@@ -63,9 +67,17 @@ export const ROLE_LABELS: Record<Role, string> = {
 export const AUDIT_ACTION_LABELS: Record<string, string> = {
   "request.auto_routed": "Routed automatically",
   "request.reclassified": "Category corrected",
+  "request.submitted": "Request submitted",
   "request.status_changed": "Status changed",
+  "request.flagged_urgent": "Marked urgent by resident",
+  "request.linked": "Linked to another report",
+  "request.unlinked": "Link removed",
+  "request.duplicate_dismissed": "Marked not a duplicate",
   "routing_rules.replaced": "Routing changed",
   "user.created": "Account added",
+  "user.signed_in": "Signed in",
+  "user.sign_in_failed": "Sign-in failed",
+  "user.sign_in_locked": "Sign-in locked after too many tries",
   "user.deactivated": "Account deactivated",
   "user.reactivated": "Account reactivated",
   "user.password_reset": "Password reset",
@@ -78,6 +90,8 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   "site.logo_changed": "Logo changed",
   "site.logo_removed": "Logo removed",
   "category.updated": "Category changed",
+  "location.created": "Place added",
+  "location.updated": "Place changed",
   "retention.applied": "Old personal data removed",
 };
 

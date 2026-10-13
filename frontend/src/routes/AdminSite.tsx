@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import * as api from "../api/client";
 import { ApiError } from "../api/http";
-import type { Category, ThemePreset } from "../api/types";
+import type { Category, Location, ThemePreset } from "../api/types";
 import { Button, ErrorState, Input, Loading, PageHeading } from "../components/ui";
 import { THEMES } from "../lib/themes";
 import { useAsync } from "../lib/useAsync";
@@ -38,6 +38,7 @@ export function AdminSite() {
         <Loading />
       )}
       <Categories onSaved={say} />
+      <Places onSaved={say} />
     </>
   );
 }
@@ -317,5 +318,104 @@ function CategoryRow({ category, onSaved }: { category: Category; onSaved: (text
         </div>
       </form>
     </div>
+  );
+}
+
+// Optional. Once any place is listed, residents must pick where the problem is,
+// and duplicate reports are matched by place too.
+function Places({ onSaved }: { onSaved: (text: string) => void }) {
+  const { state, reload } = useAsync(() => api.listAllLocations(), []);
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const add = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!name.trim()) return;
+    setBusy(true);
+    try {
+      await api.createLocation(name);
+      onSaved(`${name.trim()} added`);
+      setName("");
+      reload();
+    } catch (err) {
+      onSaved(errorText(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Section
+      title="Puroks and streets"
+      hint="Once you add one, residents pick where the problem is"
+    >
+      <form onSubmit={add} className="mb-6 flex flex-wrap items-end gap-3">
+        <div className="min-w-0 flex-1">
+          <Input id="place-new" label="Add a purok or street" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} />
+        </div>
+        <Button type="submit" disabled={busy || !name.trim()}>
+          Add
+        </Button>
+      </form>
+      {state.status === "loading" && <Loading />}
+      {state.status === "error" && <ErrorState description={state.message} onRetry={reload} />}
+      {state.status === "ready" &&
+        (state.data.length === 0 ? (
+          <p className="text-muted">None listed, so residents aren't asked where the problem is.</p>
+        ) : (
+          <div className="grid gap-4">
+            {state.data.map((place) => (
+              <PlaceRow key={place.id} place={place} onSaved={(text) => { onSaved(text); reload(); }} />
+            ))}
+          </div>
+        ))}
+    </Section>
+  );
+}
+
+function PlaceRow({ place, onSaved }: { place: Location; onSaved: (text: string) => void }) {
+  const [name, setName] = useState(place.name);
+  const [busy, setBusy] = useState(false);
+
+  const save = async (changes: Parameters<typeof api.updateLocation>[1], done: string) => {
+    setBusy(true);
+    try {
+      await api.updateLocation(place.id, changes);
+      onSaved(done);
+    } catch (err) {
+      onSaved(errorText(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (name.trim()) save({ name: name.trim() }, `${name.trim()} saved`);
+      }}
+      className={`flex flex-wrap items-end gap-3 border-l-4 pl-4 ${place.is_active ? "border-brand" : "border-rule"}`}
+    >
+      <div className="min-w-0 flex-1">
+        <Input
+          id={`place-${place.id}`}
+          label={place.is_active ? "Name" : "Name (switched off)"}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={80}
+        />
+      </div>
+      <Button type="submit" disabled={busy || !name.trim() || name.trim() === place.name}>
+        Save
+      </Button>
+      <Button
+        variant="secondary"
+        disabled={busy}
+        onClick={() => save({ is_active: !place.is_active }, `${place.name} switched ${place.is_active ? "off" : "on"}`)}
+      >
+        {place.is_active ? "Switch off" : "Switch on"}
+      </Button>
+    </form>
   );
 }

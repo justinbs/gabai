@@ -87,8 +87,13 @@ export interface paths {
          *     readable by JavaScript is XSS-exposed.
          *
          *     The body is form-encoded, not JSON, and the email goes in the `username`
-         *     field. This is the one deviation from the JSON convention: it matches the
-         *     `fastapi-users` default so the login route needs no custom code.
+         *     field, the `fastapi-users` convention.
+         *
+         *     Failed attempts are limited: 5 within 15 minutes for one account, or 30
+         *     from one address, and sign-in is refused with 429 until the window
+         *     passes, even with the right password. Each sign-in, failure and lockout
+         *     is written to the audit log (`user.signed_in`, `user.sign_in_failed`,
+         *     `user.sign_in_locked`); the typed email is never stored.
          */
         post: {
             parameters: {
@@ -114,6 +119,15 @@ export interface paths {
                 };
                 /** @description Bad credentials, or the account is deactivated. */
                 400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Too many failed attempts; wait and try again. */
+                429: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -559,9 +573,6 @@ export interface paths {
                     status?: components["schemas"]["RequestStatus"][];
                     category_id?: number;
                     urgency?: components["schemas"]["Urgency"];
-                    /** @description Case-insensitive substring match on description and reference number. */
-                    q?: string;
-                    sort?: "urgency_desc" | "created_asc" | "created_desc" | "updated_desc";
                 };
                 header?: never;
                 path?: never;
@@ -569,7 +580,13 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description A page of requests. */
+                /**
+                 * @description A page of requests. Residents: their own, newest first, linked
+                 *     reports included. Staff and admins: reports a resident marked urgent
+                 *     first, then highest urgency (a request left waiting sorts one level
+                 *     higher), then oldest; resolved requests last; linked reports are left
+                 *     out because they follow their main report.
+                 */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -910,6 +927,430 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/requests/{request_id}/duplicate-suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: components["parameters"]["RequestId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Possible duplicates of this report
+         * @description Staff and admins, within their scope. Open, unlinked reports from the
+         *     72 hours before this one, in the same category (and place, when both
+         *     have one), with at least 30% of their distinct words in common. Staff
+         *     decide; nothing is linked automatically.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    request_id: components["parameters"]["RequestId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Pending suggestions, closest first. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DuplicateSuggestion"][];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/requests/{request_id}/duplicate-suggestions/{suggestion_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: components["parameters"]["RequestId"];
+                suggestion_id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Say a suggestion is not a duplicate
+         * @description Writes an audit row, `request.duplicate_dismissed`.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    request_id: components["parameters"]["RequestId"];
+                    suggestion_id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SuggestionDecision"];
+                };
+            };
+            responses: {
+                /** @description Dismissed. */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        trace?: never;
+    };
+    "/api/requests/{request_id}/duplicate-of": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: components["parameters"]["RequestId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Link this report to the main report about the same problem
+         * @description Staff and admins. This report takes the main report's labels and
+         *     handler and is brought up to its status through the allowed steps, one
+         *     history row each. It then leaves the queues and follows every later
+         *     status change. One level only. Refused when the main report is itself
+         *     linked or closed, when this report has reports linked to it, or when
+         *     this report is further along than the main one. Writes an audit row,
+         *     `request.linked`, and notifies the resident.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    request_id: components["parameters"]["RequestId"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["DuplicateLink"];
+                };
+            };
+            responses: {
+                /** @description Linked. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Request"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                /** @description This report, or the main one, is not found in the caller's scope. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description The link isn't allowed (see above). */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Linked to itself. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        post?: never;
+        /**
+         * Undo a link
+         * @description While the main report is open. The report keeps its current labels and
+         *     status and returns to the queues. Writes an audit row, `request.unlinked`.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    request_id: components["parameters"]["RequestId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Unlinked. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Request"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description Not linked, or the main report is finished. */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/request-surges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Many reports about one problem in the last hour
+         * @description Staff and admins, within their scope. Five or more unlinked reports in
+         *     one category (and place, when listed) within the last hour.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Current surges. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Surge"][];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/locations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Places residents can pick for "Where is the problem?"
+         * @description Switched-on places, in the admin's order. Empty until the admin adds one.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The places. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Location"][];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/locations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every place, including switched-off ones */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The places. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Location"][];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        /**
+         * Add a purok or street
+         * @description Writes an audit row, `location.created`.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["LocationCreate"];
+                };
+            };
+            responses: {
+                /** @description Added. */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Location"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                /** @description That place is already listed. */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/locations/{location_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                location_id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Rename, reorder or switch a place on or off
+         * @description Places are never deleted. Writes an audit row, `location.updated`.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    location_id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["LocationUpdate"];
+                };
+            };
+            responses: {
+                /** @description Saved. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Location"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description That place is already listed. */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         trace?: never;
     };
     "/api/requests/{request_id}/urgent-flag": {
@@ -2221,6 +2662,64 @@ export interface components {
         RequestCreate: {
             /** @description Free text in Filipino, English, or a mix. */
             description: string;
+            /**
+             * @description Where the problem is, from `GET /api/locations`. Required once the
+             *     admin has listed any place; 422 if missing then, or if the place is
+             *     switched off.
+             */
+            location_id?: number | null;
+        };
+        Location: {
+            id: number;
+            /** @description A purok or street. */
+            name: string;
+            is_active: boolean;
+            sort_order: number;
+        };
+        LocationCreate: {
+            name: string;
+            /** @default 0 */
+            sort_order: number;
+        };
+        LocationUpdate: {
+            name?: string;
+            is_active?: boolean;
+            sort_order?: number;
+        };
+        RequestRef: {
+            id: number;
+            reference_number: string;
+        };
+        DuplicateLink: {
+            /** @description The main report this one follows. */
+            reference_number: string;
+        };
+        SuggestionDecision: {
+            /** @enum {string} */
+            decision: "dismissed";
+        };
+        DuplicateSuggestion: {
+            id: number;
+            /**
+             * Format: float
+             * @description Share of distinct words the two reports have in common.
+             */
+            score: number;
+            candidate: {
+                id: number;
+                reference_number: string;
+                description: string;
+                status: components["schemas"]["RequestStatus"];
+                /** Format: date-time */
+                created_at: string;
+            };
+        };
+        Surge: {
+            category: components["schemas"]["Category"];
+            location: components["schemas"]["Location"] | null;
+            count: number;
+            /** Format: date-time */
+            since: string;
         };
         /** @description List rows. Enough for the staff queue without loading history. */
         RequestSummary: {
@@ -2263,6 +2762,11 @@ export interface components {
              *     stored urgency does not change.
              */
             aged: boolean;
+            location: components["schemas"]["Location"] | null;
+            /** @description The main report this one follows, once staff link it. */
+            duplicate_of: components["schemas"]["RequestRef"] | null;
+            /** @description How many other reports follow this one. */
+            linked_count: number;
         };
         /**
          * @description Nullable fields are always present in the response, carrying `null` when
@@ -2338,6 +2842,13 @@ export interface components {
              *     stored urgency does not change.
              */
             aged: boolean;
+            location: components["schemas"]["Location"] | null;
+            /** @description The main report this one follows, once staff link it. */
+            duplicate_of: components["schemas"]["RequestRef"] | null;
+            /** @description How many other reports follow this one. */
+            linked_count: number;
+            /** @description The reports that follow this one, oldest first. */
+            linked_reports: components["schemas"]["RequestRef"][];
             /** @description The resident's reason for marking it urgent. Stored encrypted. */
             urgent_reason: string | null;
             attachments: components["schemas"]["Attachment"][];

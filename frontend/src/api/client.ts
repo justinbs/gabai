@@ -3,6 +3,9 @@ import type {
   AuditLogEntry,
   Category,
   CategoryUpdate,
+  DuplicateSuggestion,
+  Location,
+  LocationUpdate,
   Notification,
   Paginated,
   RequestStatus,
@@ -12,6 +15,7 @@ import type {
   ServiceRequest,
   SiteSettings,
   SiteSettingsUpdate,
+  Surge,
   Urgency,
   User,
   VerificationMethod,
@@ -40,7 +44,9 @@ export const signIn = async (email: string, password: string): Promise<boolean> 
   try {
     await http.postForm<void>("/api/auth/login", body);
     return true;
-  } catch {
+  } catch (err) {
+    // Too many tries is its own message; anything else reads as wrong details.
+    if (err instanceof ApiError && err.status === 429) throw err;
     return false;
   }
 };
@@ -173,8 +179,37 @@ export const getRequest = async (
 
 // The request is created first, then each file is sent on its own, so the page
 // can show progress and retry only the files that failed.
-export const createRequest = (description: string): Promise<ServiceRequest> =>
-  http.post<ServiceRequest>("/api/requests", { description });
+export const createRequest = (description: string, locationId?: number): Promise<ServiceRequest> =>
+  http.post<ServiceRequest>("/api/requests", { description, location_id: locationId ?? null });
+
+// ------------------------------------------------------- duplicates -------
+
+export const listDuplicateSuggestions = (requestId: number) =>
+  http.get<DuplicateSuggestion[]>(`/api/requests/${requestId}/duplicate-suggestions`);
+
+export const dismissSuggestion = (requestId: number, suggestionId: number) =>
+  http.patch<void>(`/api/requests/${requestId}/duplicate-suggestions/${suggestionId}`, {
+    decision: "dismissed",
+  });
+
+export const linkDuplicate = (requestId: number, referenceNumber: string) =>
+  http.put<ServiceRequest>(`/api/requests/${requestId}/duplicate-of`, {
+    reference_number: referenceNumber.trim(),
+  });
+
+export const unlinkDuplicate = (requestId: number) =>
+  http.del<ServiceRequest>(`/api/requests/${requestId}/duplicate-of`);
+
+export const listSurges = () => http.get<Surge[]>("/api/request-surges");
+
+// ------------------------------------------------------- locations --------
+
+export const listLocations = () => http.get<Location[]>("/api/locations");
+export const listAllLocations = () => http.get<Location[]>("/api/admin/locations");
+export const createLocation = (name: string) =>
+  http.post<Location>("/api/admin/locations", { name: name.trim() });
+export const updateLocation = (id: number, changes: LocationUpdate) =>
+  http.patch<Location>(`/api/admin/locations/${id}`, changes);
 
 export const uploadAttachment = async (requestId: number, file: File): Promise<void> => {
   const form = new FormData();

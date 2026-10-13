@@ -130,9 +130,9 @@ check("staff never anonymized",
 check("active citizen with a live request kept",
       psql("select full_name from users where id='11111111-1111-1111-1111-111111111111'")[1], "Active With Old Request")
 check("old IPs cleared, recent kept",
-      psql("select string_agg(coalesce(host(ip_address::inet),'NULL'), ',' order by created_at) from audit_log_entries where action<>'retention.applied'")[1],
+      psql("select string_agg(coalesce(host(ip_address::inet),'NULL'), ',' order by created_at) from audit_log_entries where action not in ('retention.applied', 'data.encrypted')")[1],
       "NULL,NULL,10.0.0.7")
-check("audit rows all still there", psql("select count(*) from audit_log_entries where action<>'retention.applied'")[1], "3")
+check("audit rows all still there", psql("select count(*) from audit_log_entries where action not in ('retention.applied', 'data.encrypted')")[1], "3")
 check("retention.applied logged once", psql("select count(*) from audit_log_entries where action='retention.applied'")[1], "1")
 code, out = retention(True, env)
 check("second run finds nothing, logs nothing", ("Nothing is past" in out,

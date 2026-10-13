@@ -113,7 +113,9 @@ which is what lets the whole system run on a small CPU-only instance.
 ## Backups and retention
 
 `scripts/backup.sh` dumps the database and archives the attachments into
-`BACKUP_DIR`, keeping `BACKUP_KEEP_DAYS` of them. Restore steps and the cron
+`BACKUP_DIR`, keeping `BACKUP_KEEP_DAYS` of them. Each file is encrypted with
+`age` for the public key in `BACKUP_AGE_RECIPIENT` before it is written; the
+private key is kept off the server. Restore steps and the cron
 lines are at the top of the script. Copy the backups off the server as well; a
 backup on the same disk doesn't survive losing the disk.
 

@@ -1,12 +1,12 @@
 import uuid
-from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status as http_status
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import filetypes
+from app.core import crypto, filetypes
 from app.core.storage import UPLOAD_DIR
 from app.db.session import get_db
 from app.models.attachment import Attachment
@@ -56,9 +56,9 @@ async def upload_attachment(
             detail="The file's contents don't match its type",
         )
 
-    extension = Path(file.filename or "").suffix
-    stored_name = f"{uuid.uuid4().hex}{extension}"
-    (UPLOAD_DIR / stored_name).write_bytes(contents)
+    # Stored encrypted, with no extension, so the file on disk says nothing.
+    stored_name = uuid.uuid4().hex
+    (UPLOAD_DIR / stored_name).write_bytes(crypto.encrypt_bytes(contents))
 
     attachment = Attachment(
         request_id=request.id,
@@ -96,8 +96,11 @@ async def download_attachment(
     if attachment is None:
         raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Not found")
 
-    return FileResponse(
-        UPLOAD_DIR / attachment.stored_path,
+    # Decrypted in memory; files are 5 MB at most. Files stored before
+    # encryption have no header and are sent as they are.
+    contents = crypto.decrypt_bytes((UPLOAD_DIR / attachment.stored_path).read_bytes())
+    return Response(
+        contents,
         media_type=attachment.mime_type,
-        filename=attachment.filename,
+        headers={"Content-Disposition": f"attachment; filename*=utf-8''{quote(attachment.filename)}"},
     )

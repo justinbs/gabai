@@ -1,11 +1,12 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, Text, func
+from sqlalchemy import ForeignKey, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.types import EncryptedText
 from app.models.enums import RequestStatus, request_status_enum
 
 
@@ -22,5 +23,5 @@ class StatusHistoryEntry(Base):
     actor_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
     actor = relationship("User", foreign_keys=[actor_id])
 
-    note: Mapped[str | None] = mapped_column(Text)
+    note: Mapped[str | None] = mapped_column(EncryptedText)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now(), nullable=False)

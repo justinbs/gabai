@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import * as api from "../api/client";
@@ -17,8 +17,10 @@ import { usePageTitle } from "../lib/usePageTitle";
 import { useUser } from "../session-context";
 import { citizenStatus, citizenStatusNote } from "../lib/citizenStatus";
 import { STAFF_STATUS_LABELS, URGENCY_LABELS } from "../api/types";
+import { ApiError } from "../api/http";
 import type {
   Category,
+  DuplicateSuggestion,
   RequestStatus,
   ServiceRequest,
   Urgency,
@@ -94,6 +96,12 @@ function Detail({
 
       {!isStaff && <ResidentUpdate request={request} />}
       {!isStaff && <UrgentFlag request={request} onChanged={onChanged} />}
+      {!isStaff && request.duplicate_of && (
+        <p className="mb-5 border-l-4 border-rule py-1 pl-4">
+          Others reported the same problem. Your report follows {request.duplicate_of.reference_number}, and you get its updates.
+          <span className="block text-muted">May iba pang nag-report ng parehong problema. Sinusundan ng inyong report ang {request.duplicate_of.reference_number}.</span>
+        </p>
+      )}
       {isStaff && request.urgent_flagged_at && OPEN_STATUSES.includes(request.status) && (
         <div role="note" className="mb-5 border-l-4 border-danger py-1 pl-4">
           <p className="font-bold">
@@ -151,7 +159,8 @@ function Detail({
             )}
           </section>
 
-          {isStaff && (
+          {isStaff && <SameProblem request={request} onChanged={onChanged} />}
+          {isStaff && !request.duplicate_of && (
             <StaffActions request={request} user={user} onChanged={onChanged} />
           )}
         </div>
@@ -299,6 +308,144 @@ function UrgentFlag({ request, onChanged }: { request: ServiceRequest; onChanged
         </Button>
       </div>
     </form>
+  );
+}
+
+// Linking reports about one problem, so staff act once for everyone who reported it.
+function SameProblem({ request, onChanged }: { request: ServiceRequest; onChanged: () => void }) {
+  const [suggestions, setSuggestions] = useState<DuplicateSuggestion[]>([]);
+  const [reference, setReference] = useState("");
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+  const open = OPEN_STATUSES.includes(request.status);
+
+  useEffect(() => {
+    if (request.duplicate_of || !open) return;
+    api.listDuplicateSuggestions(request.id).then(setSuggestions).catch(() => setSuggestions([]));
+  }, [request.id, request.duplicate_of, open]);
+
+  const act = async (work: () => Promise<unknown>, done: string) => {
+    setBusy(true);
+    setMessage("");
+    try {
+      await work();
+      setMessage(done);
+      onChanged();
+    } catch (err) {
+      setMessage(err instanceof ApiError && err.status !== 500 ? err.message : "Didn't save, try again");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (request.duplicate_of) {
+    return (
+      <section className="border-t-2 border-ink pt-5">
+        <h2 className="text-[24px] font-bold">Same problem</h2>
+        <p className="mt-2">
+          This report follows{" "}
+          <Link to={`/requests/${request.duplicate_of.id}`} className={`font-bold text-link underline ${FOCUS_LINK}`}>
+            {request.duplicate_of.reference_number}
+          </Link>
+          . Update that one; this report and its resident follow it.
+        </p>
+        <Button
+          variant="secondary"
+          className="mt-3"
+          disabled={busy}
+          onClick={() => act(() => api.unlinkDuplicate(request.id), "Link removed")}
+        >
+          Remove the link
+        </Button>
+        <p role="status" className={message ? "mt-3 font-bold" : "sr-only"}>{message}</p>
+      </section>
+    );
+  }
+
+  if (!open && request.linked_count === 0) return null;
+
+  return (
+    <section className="border-t-2 border-ink pt-5">
+      <h2 className="text-[24px] font-bold">Same problem</h2>
+      {request.linked_count > 0 && (
+        <p className="mt-2">
+          {request.linked_count} other {request.linked_count === 1 ? "report follows" : "reports follow"} this one:{" "}
+          {request.linked_reports.map((r, i) => (
+            <span key={r.id}>
+              {i > 0 && ", "}
+              <Link to={`/requests/${r.id}`} className={`text-link underline ${FOCUS_LINK}`}>
+                {r.reference_number}
+              </Link>
+            </span>
+          ))}
+          . Status changes here reach them too.
+        </p>
+      )}
+
+      {open && suggestions.length > 0 && (
+        <div className="mt-4">
+          <h3 className="font-bold">Possible duplicates</h3>
+          <ul className="mt-2 space-y-3">
+            {suggestions.map((s) => (
+              <li key={s.id} className="border-l-4 border-rule pl-3">
+                <Link to={`/requests/${s.candidate.id}`} className={`font-bold text-link underline ${FOCUS_LINK}`}>
+                  {s.candidate.reference_number}
+                </Link>
+                <span className="text-muted"> · {timeAgo(s.candidate.created_at)}</span>
+                <p className="line-clamp-2">{s.candidate.description}</p>
+                <div className="mt-2 flex flex-wrap gap-3">
+                  <Button
+                    disabled={busy}
+                    onClick={() =>
+                      act(
+                        () => api.linkDuplicate(request.id, s.candidate.reference_number),
+                        `Linked to ${s.candidate.reference_number}`,
+                      )
+                    }
+                  >
+                    Link
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    disabled={busy}
+                    onClick={() => act(() => api.dismissSuggestion(request.id, s.id), "Marked not a duplicate")}
+                  >
+                    Not a duplicate
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {open && request.linked_count === 0 && (
+        <form
+          className="mt-4 flex flex-wrap items-end gap-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (reference.trim()) act(() => api.linkDuplicate(request.id, reference), `Linked to ${reference.trim().toUpperCase()}`);
+          }}
+        >
+          <div>
+            <label htmlFor="link-reference" className="block font-bold">
+              Link to another report about the same problem
+            </label>
+            <input
+              id="link-reference"
+              value={reference}
+              placeholder="GAB-2026-00000"
+              onChange={(e) => setReference(e.target.value)}
+              className="mt-1 w-48 border-2 border-ink bg-white px-2 py-1 font-mono focus:outline-3 focus:outline-ink"
+            />
+          </div>
+          <Button type="submit" variant="secondary" disabled={busy || !reference.trim()}>
+            Link
+          </Button>
+        </form>
+      )}
+      <p role="status" className={message ? "mt-3 font-bold" : "sr-only"}>{message}</p>
+    </section>
   );
 }
 

@@ -4,6 +4,7 @@ from sqlalchemy import ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.types import EncryptedText
 
 
 class Attachment(Base):
@@ -13,7 +14,8 @@ class Attachment(Base):
     request_id: Mapped[int] = mapped_column(ForeignKey("requests.id"), nullable=False)
     request = relationship("Request", back_populates="attachments")
 
-    filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Residents often name files after themselves, so encrypted too.
+    filename: Mapped[str] = mapped_column(EncryptedText, nullable=False)
     stored_path: Mapped[str] = mapped_column(String(255), nullable=False)
     mime_type: Mapped[str] = mapped_column(String(100), nullable=False)
     size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)

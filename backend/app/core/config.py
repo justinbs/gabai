@@ -32,6 +32,12 @@ class Settings(BaseSettings):
     # the model is at least this sure of that urgency. Otherwise staff set it.
     low_urgency_min_confidence: float = 0.85
 
+    # Sign-in limit: this many failures within the window, for one account or
+    # from one address, and sign-in is refused until the window passes.
+    sign_in_account_limit: int = 5
+    sign_in_address_limit: int = 30
+    sign_in_window_minutes: int = 15
+
     # Keys for encrypting personal data at rest, "<id>:<base64 32 bytes>", newest
     # first. Kept only in the environment, never in the database or backups.
     # Make one: python -c "import os,base64;print('1:'+base64.b64encode(os.urandom(32)).decode())"

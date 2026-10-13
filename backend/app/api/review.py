@@ -29,6 +29,9 @@ def _load_options():
         selectinload(Request.final_category),
         selectinload(Request.assigned_staff),
         selectinload(Request.status_history).selectinload(StatusHistoryEntry.actor),
+        selectinload(Request.location),
+        selectinload(Request.duplicate_of),
+        selectinload(Request.linked_reports),
     )
 
 
@@ -44,7 +47,9 @@ async def list_review_queue(
         or_(
             Request.status == RequestStatus.under_review,
             and_(Request.status == RequestStatus.submitted, Request.created_at < stuck_before),
-        )
+        ),
+        # Linked reports follow their main report.
+        Request.duplicate_of_id.is_(None),
     )
 
     total = (

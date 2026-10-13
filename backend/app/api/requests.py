@@ -14,21 +14,27 @@ from sqlalchemy import func as sqlfunc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app import duplicates as dup
 from app.audit import notify, write_audit
 from app.classification import classify_and_route, handler_for
 from app.db.session import get_db
 from app.models.category import Category
+from app.models.duplicate import DuplicateSuggestion
+from app.models.location import Location
 from app.models.enums import RequestStatus, Urgency
 from app.models.request import Request
 from app.models.status_history import StatusHistoryEntry
 from app.models.user import Role, User
 from app.queue_order import OPEN, aged_urgency_rank, flagged_first
 from app.schemas.request import (
+    DuplicateLink,
+    DuplicateSuggestionRead,
     PaginatedRequests,
     RequestCreate,
     RequestRead,
     ReviewDecision,
     StatusUpdate,
+    SuggestionDecision,
     UrgentFlag,
 )
 from app.scoping import request_scope_filter as _scope_filter
@@ -36,11 +42,7 @@ from app.users import current_active_user, require_role
 
 router = APIRouter(prefix="/api/requests", tags=["requests"])
 
-LEGAL_TRANSITIONS: dict[RequestStatus, RequestStatus] = {
-    RequestStatus.routed: RequestStatus.in_progress,
-    RequestStatus.in_progress: RequestStatus.resolved,
-    RequestStatus.resolved: RequestStatus.closed,
-}
+LEGAL_TRANSITIONS = dup.LEGAL_TRANSITIONS
 
 STATUS_MESSAGES: dict[RequestStatus, str] = {
     RequestStatus.in_progress: "Your request is being worked on",
@@ -57,6 +59,9 @@ def _load_options():
         selectinload(Request.assigned_staff),
         selectinload(Request.attachments),
         selectinload(Request.status_history).selectinload(StatusHistoryEntry.actor),
+        selectinload(Request.location),
+        selectinload(Request.duplicate_of),
+        selectinload(Request.linked_reports),
     )
 
 
@@ -71,14 +76,31 @@ async def _reload(db: AsyncSession, request_id: int) -> Request:
 @router.post("", response_model=RequestRead, status_code=201)
 async def submit_request(
     payload: RequestCreate,
+    http_request: HTTPRequest,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role(Role.citizen)),
 ):
+    # Once the admin lists any places, residents pick where the problem is.
+    places_listed = (
+        await db.execute(select(sqlfunc.count()).select_from(Location).where(Location.is_active.is_(True)))
+    ).scalar_one()
+    if payload.location_id is not None:
+        location = await db.get(Location, payload.location_id)
+        if location is None or not location.is_active:
+            raise HTTPException(
+                status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Pick a place from the list"
+            )
+    elif places_listed:
+        raise HTTPException(
+            status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Say where the problem is"
+        )
+
     request = Request(
         reference_number=f"TEMP-{uuid.uuid4().hex[:8]}",
         citizen_id=user.id,
         description=payload.description,
+        location_id=payload.location_id,
         status=RequestStatus.submitted,
     )
     db.add(request)
@@ -86,6 +108,17 @@ async def submit_request(
 
     year = datetime.now(timezone.utc).year
     request.reference_number = f"GAB-{year}-{request.id:05d}"
+
+    # Who submitted what, and when, without the text itself.
+    await write_audit(
+        db,
+        actor_id=user.id,
+        action="request.submitted",
+        object_type="request",
+        object_id=str(request.id),
+        detail=None,
+        ip_address=http_request.client.host if http_request.client else None,
+    )
 
     db.add(
         StatusHistoryEntry(
@@ -123,6 +156,10 @@ async def list_requests(
     scope = _scope_filter(user)
     if scope is not None:
         query = query.where(scope)
+    # Linked reports follow their main report, so staff work only the main one.
+    # Residents still see their own.
+    if user.role != Role.citizen:
+        query = query.where(Request.duplicate_of_id.is_(None))
     if status_filter:
         query = query.where(Request.status.in_(status_filter))
     if category_id:
@@ -189,6 +226,12 @@ async def update_status(
     if request is None:
         raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Not found")
 
+    if request.duplicate_of_id is not None:
+        raise HTTPException(
+            status_code=http_status.HTTP_409_CONFLICT,
+            detail=f"This report follows {request.duplicate_of.reference_number}. Update that one",
+        )
+
     to_status = RequestStatus(payload.to_status)
     if LEGAL_TRANSITIONS.get(request.status) != to_status:
         raise HTTPException(
@@ -222,15 +265,18 @@ async def update_status(
         ip_address=ip,
     )
 
+    # Linked reports move too. Each resident hears once, even with several reports.
+    reports = await dup.follow_status(db, request, to_status, user.id)
     message = STATUS_MESSAGES.get(to_status)
     if message:
-        await notify(
-            db,
-            user_id=request.citizen_id,
-            message=message,
-            request_id=request.id,
-            reference_number=request.reference_number,
-        )
+        for report in reports:
+            await notify(
+                db,
+                user_id=report.citizen_id,
+                message=message,
+                request_id=report.id,
+                reference_number=report.reference_number,
+            )
 
     await db.commit()
     return await _reload(db, request.id)
@@ -260,6 +306,12 @@ async def flag_urgent(
 
     request.urgent_flagged_at = datetime.now(timezone.utc)
     request.urgent_reason = payload.reason
+    # A linked report is off the queues, so the main report carries the pin.
+    pinned = request
+    if request.duplicate_of_id is not None:
+        pinned = await db.get(Request, request.duplicate_of_id)
+        if pinned.urgent_flagged_at is None:
+            pinned.urgent_flagged_at = request.urgent_flagged_at
 
     # The reason stays on the request only, not in the audit log.
     ip = http_request.client.host if http_request.client else None
@@ -272,13 +324,13 @@ async def flag_urgent(
         detail=None,
         ip_address=ip,
     )
-    if request.assigned_staff_id:
+    if pinned.assigned_staff_id:
         await notify(
             db,
-            user_id=request.assigned_staff_id,
+            user_id=pinned.assigned_staff_id,
             message="A resident marked this request as urgent",
-            request_id=request.id,
-            reference_number=request.reference_number,
+            request_id=pinned.id,
+            reference_number=pinned.reference_number,
         )
 
     await db.commit()
@@ -312,6 +364,11 @@ async def set_classification(
         raise HTTPException(
             status_code=http_status.HTTP_409_CONFLICT,
             detail="Request is finished and cannot be relabelled.",
+        )
+    if request.duplicate_of_id is not None:
+        raise HTTPException(
+            status_code=http_status.HTTP_409_CONFLICT,
+            detail=f"This report follows {request.duplicate_of.reference_number}. Change that one",
         )
 
     # The category must exist and be switched on.
@@ -359,6 +416,11 @@ async def set_classification(
         ip_address=ip,
     )
 
+    # Linked reports take the same labels, handler and status.
+    await dup.follow_labels(db, request, user.id)
+    # A new category can match other open reports.
+    await dup.suggest_for(db, request)
+
     moved = handler_id is not None and handler_id != previous_assigned_staff_id
     if moved:
         message = (
@@ -376,3 +438,112 @@ async def set_classification(
 
     await db.commit()
     return await _reload(db, request.id)
+
+async def _in_scope(db: AsyncSession, user: User, request_id: int, lock: bool = False) -> Request:
+    query = select(Request).where(Request.id == request_id).options(*_load_options())
+    if lock:
+        query = query.with_for_update(of=Request)
+    scope = _scope_filter(user)
+    if scope is not None:
+        query = query.where(scope)
+    request = (await db.execute(query)).scalar_one_or_none()
+    if request is None:
+        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Not found")
+    return request
+
+
+@router.get("/{request_id}/duplicate-suggestions", response_model=list[DuplicateSuggestionRead])
+async def list_duplicate_suggestions(
+    request_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role(Role.staff, Role.admin)),
+):
+    request = await _in_scope(db, user, request_id)
+    if request.duplicate_of_id is not None:
+        return []
+    rows = (
+        await db.execute(
+            select(DuplicateSuggestion)
+            .join(Request, Request.id == DuplicateSuggestion.candidate_id)
+            .where(
+                DuplicateSuggestion.request_id == request.id,
+                DuplicateSuggestion.decision.is_(None),
+                Request.status.in_(OPEN),
+                Request.duplicate_of_id.is_(None),
+                # Only reports the caller may see.
+                *([scope] if (scope := _scope_filter(user)) is not None else []),
+            )
+            .order_by(DuplicateSuggestion.score.desc())
+            .options(selectinload(DuplicateSuggestion.candidate))
+        )
+    ).scalars().all()
+    return rows
+
+
+@router.patch("/{request_id}/duplicate-suggestions/{suggestion_id}", status_code=204)
+async def dismiss_duplicate_suggestion(
+    request_id: int,
+    suggestion_id: int,
+    payload: SuggestionDecision,
+    http_request: HTTPRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role(Role.staff, Role.admin)),
+):
+    await _in_scope(db, user, request_id)
+    suggestion = await db.get(DuplicateSuggestion, suggestion_id)
+    if suggestion is None or suggestion.request_id != request_id:
+        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Not found")
+    if suggestion.decision is None:
+        suggestion.decision = payload.decision
+        suggestion.decided_by = user.id
+        suggestion.decided_at = datetime.now(timezone.utc)
+        await write_audit(
+            db,
+            actor_id=user.id,
+            action="request.duplicate_dismissed",
+            object_type="request",
+            object_id=str(request_id),
+            detail={"candidate": suggestion.candidate_id},
+            ip_address=http_request.client.host if http_request.client else None,
+        )
+        await db.commit()
+
+
+@router.put("/{request_id}/duplicate-of", response_model=RequestRead)
+async def link_duplicate(
+    request_id: int,
+    payload: DuplicateLink,
+    http_request: HTTPRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role(Role.staff, Role.admin)),
+):
+    child = await _in_scope(db, user, request_id)
+    main_query = select(Request).where(Request.reference_number == payload.reference_number.strip().upper())
+    scope = _scope_filter(user)
+    if scope is not None:
+        main_query = main_query.where(scope)
+    main = (await db.execute(main_query)).scalar_one_or_none()
+    if main is None:
+        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="No report with that number")
+    # Lock both rows, lower id first, so two staff linking opposite ways can't deadlock.
+    await db.execute(
+        select(Request.id).where(Request.id.in_([child.id, main.id])).order_by(Request.id).with_for_update()
+    )
+    await db.refresh(child)
+    await db.refresh(main)
+    await dup.link(db, child, main, user.id, http_request.client.host if http_request.client else None)
+    await db.commit()
+    return await _reload(db, child.id)
+
+
+@router.delete("/{request_id}/duplicate-of", response_model=RequestRead)
+async def unlink_duplicate(
+    request_id: int,
+    http_request: HTTPRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role(Role.staff, Role.admin)),
+):
+    child = await _in_scope(db, user, request_id, lock=True)
+    await dup.unlink(db, child, user.id, http_request.client.host if http_request.client else None)
+    await db.commit()
+    return await _reload(db, child.id)

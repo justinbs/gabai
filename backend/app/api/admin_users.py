@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request as HTTPRequest, Response, status as http_status
 from fastapi_users.exceptions import InvalidPasswordException
-from sqlalchemy import func as sqlfunc, or_, select
+from sqlalchemy import func as sqlfunc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import passwords
@@ -31,16 +31,21 @@ async def list_users(
         query = query.where(User.role == role)
     if is_active is not None:
         query = query.where(User.is_active == is_active)
+    query = query.order_by(User.created_at.desc(), User.id)
     if q:
-        like = f"%{q}%"
-        query = query.where(or_(User.email.ilike(like), User.full_name.ilike(like)))
+        # Names are encrypted, so the database can't search them. The accounts
+        # are filtered here instead; a barangay has hundreds, not millions.
+        needle = q.casefold()
+        matches = [
+            u for u in (await db.execute(query)).scalars().all()
+            if needle in u.email.casefold() or needle in u.full_name.casefold()
+        ]
+        return PaginatedUsers(items=matches[offset:offset + limit], total=len(matches), limit=limit, offset=offset)
 
     total = (
         await db.execute(select(sqlfunc.count()).select_from(query.subquery()))
     ).scalar_one()
-
-    query = query.order_by(User.created_at.desc(), User.id).offset(offset).limit(limit)
-    items = (await db.execute(query)).scalars().all()
+    items = (await db.execute(query.offset(offset).limit(limit))).scalars().all()
 
     return PaginatedUsers(items=items, total=total, limit=limit, offset=offset)
 

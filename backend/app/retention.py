@@ -24,7 +24,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 from fastapi_users.password import PasswordHelper
-from sqlalchemy import String, cast, func, select, update
+from sqlalchemy import String, cast, delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.audit import write_audit
@@ -38,6 +38,7 @@ from app.models.audit_log import AuditLogEntry
 from app.models.enums import RequestStatus
 from app.models.notification import Notification
 from app.models.request import Request
+from app.models.sign_in_failure import SignInFailure
 from app.models.status_history import StatusHistoryEntry
 from app.models.user import ApprovalStatus, Role, User
 
@@ -143,7 +144,8 @@ async def _clear_ips(db: AsyncSession, now: datetime, days: int) -> dict:
         .where(AuditLogEntry.created_at < cutoff, AuditLogEntry.ip_address.is_not(None))
         .values(ip_address=None)
     )
-    return {"ip_addresses": result.rowcount}
+    failures = await db.execute(delete(SignInFailure).where(SignInFailure.created_at < cutoff))
+    return {"ip_addresses": result.rowcount + failures.rowcount}
 
 
 def _remove_files(attachments: list[Attachment]) -> None:

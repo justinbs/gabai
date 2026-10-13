@@ -66,6 +66,11 @@ export function RequestTable({
                   <span className="block text-[15px] text-muted">
                     {STAFF_STATUS_LABELS[item.status]}
                   </span>
+                  {item.linked_count > 0 && (
+                    <span className="block text-[15px] font-bold">
+                      {item.linked_count + 1} reports
+                    </span>
+                  )}
                 </td>
                 <td className="py-3 pr-4 align-top">
                   <span className="line-clamp-2">{item.description}</span>

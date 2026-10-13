@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, String, Text, func
+from sqlalchemy import ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -19,7 +19,8 @@ class Request(Base):
     citizen_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     citizen = relationship("User", foreign_keys=[citizen_id])
 
-    description: Mapped[str] = mapped_column(Text, nullable=False)
+    # Encrypted at rest; the classifier and the screens get it decrypted.
+    description: Mapped[str] = mapped_column(EncryptedText, nullable=False)
 
     predicted_category_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id"))
     predicted_category = relationship("Category", foreign_keys=[predicted_category_id])
@@ -48,6 +49,21 @@ class Request(Base):
     # Set once retention has removed the text and attachments. See app/retention.py.
     redacted_at: Mapped[datetime | None] = mapped_column()
 
+    # Where the problem is, if the admin has listed puroks or streets.
+    location_id: Mapped[int | None] = mapped_column(ForeignKey("locations.id"))
+    location = relationship("Location")
+
+    # Set when staff link this report to an older one about the same problem.
+    # One level only: the main report is never itself linked.
+    duplicate_of_id: Mapped[int | None] = mapped_column(ForeignKey("requests.id"))
+    duplicate_of = relationship("Request", remote_side="Request.id", foreign_keys=[duplicate_of_id])
+    linked_reports = relationship(
+        "Request",
+        foreign_keys=[duplicate_of_id],
+        order_by="Request.created_at",
+        viewonly=True,
+    )
+
     # The resident marked it urgent, once, with a reason. Pins it to the top of
     # the staff queues; never changes the urgency label.
     urgent_flagged_at: Mapped[datetime | None] = mapped_column()
@@ -71,6 +87,10 @@ class Request(Base):
     @property
     def urgency(self):
         return self.final_urgency or self.predicted_urgency
+
+    @property
+    def linked_count(self) -> int:
+        return len(self.linked_reports)
 
     @property
     def waiting_since(self) -> datetime:

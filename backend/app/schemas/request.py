@@ -11,6 +11,68 @@ from app.schemas.user import UserSummary
 
 class RequestCreate(BaseModel):
     description: str = Field(min_length=10, max_length=5000)
+    # Required only once the admin has listed puroks or streets.
+    location_id: int | None = None
+
+
+class LocationRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    is_active: bool
+    sort_order: int
+
+
+class LocationCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    sort_order: int = 0
+
+
+class LocationUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=80)
+    is_active: bool | None = None
+    sort_order: int | None = None
+
+
+class RequestRef(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    reference_number: str
+
+
+class DuplicateLink(BaseModel):
+    reference_number: str = Field(min_length=1, max_length=20)
+
+
+class SuggestionDecision(BaseModel):
+    decision: Literal["dismissed"]
+
+
+class DuplicateCandidate(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    reference_number: str
+    description: str
+    status: RequestStatus
+    created_at: datetime
+
+
+class DuplicateSuggestionRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    score: float
+    candidate: DuplicateCandidate
+
+
+class Surge(BaseModel):
+    category: CategoryRead
+    location: LocationRead | None
+    count: int
+    since: datetime
 
 
 class StatusUpdate(BaseModel):
@@ -65,6 +127,10 @@ class RequestRead(BaseModel):
     urgent_reason: str | None
     waiting_since: datetime
     aged: bool
+    location: LocationRead | None
+    duplicate_of: RequestRef | None
+    linked_reports: list[RequestRef]
+    linked_count: int
     attachments: list[AttachmentRead]
     status_history: list[StatusHistoryEntryRead]
 
@@ -85,6 +151,9 @@ class RequestSummary(BaseModel):
     urgent_flagged_at: datetime | None
     waiting_since: datetime
     aged: bool
+    location: LocationRead | None
+    duplicate_of: RequestRef | None
+    linked_count: int
 
 
 class PaginatedRequests(BaseModel):

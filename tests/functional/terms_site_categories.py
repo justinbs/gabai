@@ -227,6 +227,33 @@ for x in cats:
 s, after = admin.call("GET", "/api/admin/categories")
 check("categories restored", [(x["name"], x["is_active"]) for x in after], [(x["name"], True) for x in cats])
 
+# --- puroks and streets --------------------------------------------------------------------
+area("Puroks and streets")
+name = f"Purok Test {STAMP}"
+listed = maria.call("GET", "/api/locations")[1]
+if not listed:
+    check("no place listed means none is needed to submit",
+          maria.call("POST", "/api/requests", {"description": "May butas sa daan sa kanto namin po."})[0], 201)
+check("staff can't add a place", staff.call("POST", "/api/admin/locations", {"name": name})[0], 403)
+s, place = admin.call("POST", "/api/admin/locations", {"name": name})
+check("admin adds a purok", (s, place["name"]), (201, name))
+check("the same name twice is refused", admin.call("POST", "/api/admin/locations", {"name": name})[0], 409)
+check("a resident sees it in the list", any(x["id"] == place["id"] for x in maria.call("GET", "/api/locations")[1]), True)
+check("once a place is listed, a submission without one is refused",
+      maria.call("POST", "/api/requests", {"description": "May butas sa daan sa kanto namin po."})[0], 422)
+check("a submission naming the place is accepted",
+      maria.call("POST", "/api/requests", {"description": "May butas sa daan sa kanto namin po.", "location_id": place["id"]})[0], 201)
+s, b = admin.call("PATCH", f"/api/admin/locations/{place['id']}", {"name": name + " A"})
+check("admin renames it", (s, b["name"]), (200, name + " A"))
+check("the changes are audited",
+      int(psql(f"select count(*) from audit_log_entries where action in ('location.created','location.updated') and object_id='{place['id']}'")), 2)
+s, b = admin.call("PATCH", f"/api/admin/locations/{place['id']}", {"is_active": False})
+check("admin switches it off", (s, b["is_active"]), (200, False))
+check("a switched-off place can't be picked",
+      maria.call("POST", "/api/requests", {"description": "May butas sa daan sa kanto namin po.", "location_id": place["id"]})[0], 422)
+check("switched off, it leaves the residents' list",
+      any(x["id"] == place["id"] for x in maria.call("GET", "/api/locations")[1]), False)
+
 print(f"\n{sum(results)}/{len(results)} checks passed")
 for a, (p, f) in areas.items():
     print(f"  {a}: {p} passed, {f} failed")

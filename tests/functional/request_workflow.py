@@ -3,6 +3,7 @@ submission, classification and routing, access scope, status changes,
 reclassification, notifications, admin functions and the audit trail."""
 
 import json
+import os
 import re
 import subprocess
 import time
@@ -22,6 +23,7 @@ ENV = dict(
 )
 ADMIN = (ENV["SEED_ADMIN_EMAIL"].strip(), ENV["SEED_ADMIN_PASSWORD"].strip())
 DEMO_PW = ENV["SEED_DEMO_PASSWORD"].strip()
+PLACE = None  # set below if the admin has listed places
 THRESHOLD = 0.70
 LOW_URGENCY_MIN = 0.85
 STAMP = str(int(time.time()))
@@ -38,6 +40,9 @@ class Client:
     def call(self, method, path, body=None, form=None, raw=None, ctype=None):
         if path == "/api/auth/register" and isinstance(body, dict):
             body = {"terms_version": TERMS_VERSION, **body}
+        # Once the admin lists places, a submission has to name one.
+        if method == "POST" and path == "/api/requests" and isinstance(body, dict) and PLACE and "location_id" not in body:
+            body = {**body, "location_id": PLACE}
         data, headers = None, {}
         if form is not None:
             data = urllib.parse.urlencode(form).encode()
@@ -65,6 +70,13 @@ class Client:
             # Test accounts accept the current terms, as a person would on the accept screen.
             self.call("POST", "/api/auth/terms", {"version": TERMS_VERSION})
         return status
+
+    def get_bytes(self, path):
+        try:
+            with self.opener.open(BASE + path) as r:
+                return r.status, r.read()
+        except urllib.error.HTTPError as e:
+            return e.code, e.read()
 
     def upload(self, rid, filename, content, mime):
         boundary = uuid.uuid4().hex
@@ -94,6 +106,17 @@ def psql(sql):
                           capture_output=True, text=True).stdout.strip()
 
 
+def staff_queue_ids(c):
+    # Every page: the local test database holds hundreds of requests from earlier runs.
+    ids, offset = set(), 0
+    while True:
+        page = c.call("GET", f"/api/requests?limit=100&offset={offset}")[1]
+        ids |= {i["id"] for i in page["items"]}
+        offset += 100
+        if offset >= page["total"]:
+            return ids
+
+
 def wait_classified(c, rid):
     for _ in range(60):
         s, r = c.call("GET", f"/api/requests/{rid}")
@@ -109,6 +132,7 @@ ramon.login("ramon.delgado@example.com", DEMO_PW)
 divina.login("divina.bautista@example.com", DEMO_PW)
 admin.login(*ADMIN)
 RAMON = ramon.call("GET", "/api/auth/me")[1]["id"]
+PLACE = next((p["id"] for p in admin.call("GET", "/api/locations")[1]), None)
 rules = {r["category"]["slug"]: r["staff"]["id"]
          for r in admin.call("GET", "/api/admin/routing-rules")[1] if r["is_active"]}
 
@@ -146,6 +170,8 @@ check("all six submissions accepted", [s for s, _ in made], [201] * 6)
 check("each gets a GAB-YYYY-NNNNN reference number",
       all(re.fullmatch(r"GAB-\d{4}-\d{5}", r["reference_number"]) for _, r in made), True)
 check("reference returned before classification finishes", made[0][1]["status"], "submitted")
+check("each submission is audited without its text",
+      psql(f"select count(*), count(*) filter (where coalesce(detail::text, 'null') <> 'null') from audit_log_entries where action='request.submitted' and object_id='{made[0][1]['id']}'"), "1|0")
 
 # --- classification and routing -----------------------------------------------------
 area("Classification and routing")
@@ -340,6 +366,130 @@ s, sl = divina.call("PATCH", f"/api/requests/{sid}/classification",
 check("staff label it and it goes to that category's handler",
       (s, sl["status"], (sl["assigned_staff"] or {}).get("id")), (200, "routed", rules["utilities"]))
 check("it leaves the review queue", in_review_queue(divina, sid), False)
+
+# --- duplicate reports ----------------------------------------------------------------------
+area("Duplicate reports")
+water = [
+    "Walang tubig sa buong Purok 4 mula pa kahapon, wala na po kaming maiinom at maipanligo.",
+    "Wala pong tubig dito sa Purok 4 mula kahapon, wala na kaming maiinom.",
+    "Purok 4 po, wala pa ring tubig mula kahapon, wala na kaming maiinom dito.",
+]
+d1 = wait_classified(maria, maria.call("POST", "/api/requests", {"description": water[0]})[1]["id"])
+d2 = wait_classified(other, other.call("POST", "/api/requests", {"description": water[1]})[1]["id"])
+d3 = wait_classified(maria, maria.call("POST", "/api/requests", {"description": water[2]})[1]["id"])
+same_cat = d1["category"] and d2["category"] and d3["category"] and \
+    d1["category"]["id"] == d2["category"]["id"] == d3["category"]["id"]
+check("three reports of one problem land in one category", bool(same_cat), True)
+
+sug2 = admin.call("GET", f"/api/requests/{d2['id']}/duplicate-suggestions")[1]
+check("the second report suggests the first", d1["id"] in [s["candidate"]["id"] for s in sug2], True)
+sug3 = admin.call("GET", f"/api/requests/{d3['id']}/duplicate-suggestions")[1]
+check("the third report suggests both earlier ones",
+      {d1["id"], d2["id"]} <= {s["candidate"]["id"] for s in sug3}, True)
+check("a resident can't see suggestions", maria.call("GET", f"/api/requests/{d3['id']}/duplicate-suggestions")[0], 403)
+to_d2 = next(s for s in sug3 if s["candidate"]["id"] == d2["id"])
+check("staff mark one as not a duplicate",
+      admin.call("PATCH", f"/api/requests/{d3['id']}/duplicate-suggestions/{to_d2['id']}", {"decision": "dismissed"})[0], 204)
+sug3 = admin.call("GET", f"/api/requests/{d3['id']}/duplicate-suggestions")[1]
+check("a dismissed suggestion stays gone", d2["id"] in [s["candidate"]["id"] for s in sug3], False)
+
+before_other = other.call("GET", "/api/notifications")[1]["total"]
+s, b = admin.call("PUT", f"/api/requests/{d2['id']}/duplicate-of", {"reference_number": d1["reference_number"]})
+check("link the second report to the first", (s, (b.get("duplicate_of") or {}).get("id")), (200, d1["id"]))
+check("the linked report takes the first one's category", b["category"]["id"], d1["category"]["id"])
+check("the resident is told it's linked", other.call("GET", "/api/notifications")[1]["total"] - before_other, 1)
+check("the main report counts it", admin.call("GET", f"/api/requests/{d1['id']}")[1]["linked_count"], 1)
+check("a linked report leaves the staff queue", d2["id"] in staff_queue_ids(admin), False)
+check("the resident still sees their linked report",
+      d2["id"] in [i["id"] for i in other.call("GET", "/api/requests")[1]["items"]], True)
+check("the resident sees which report it follows",
+      other.call("GET", f"/api/requests/{d2['id']}")[1]["duplicate_of"]["reference_number"], d1["reference_number"])
+check("linking to a report that's itself linked is refused",
+      admin.call("PUT", f"/api/requests/{d3['id']}/duplicate-of", {"reference_number": d2["reference_number"]})[0], 409)
+check("linking a report others follow is refused",
+      admin.call("PUT", f"/api/requests/{d1['id']}/duplicate-of", {"reference_number": d3["reference_number"]})[0], 409)
+# A report still being sorted can't be linked either way; the classifier would
+# overwrite the link. Local test database: set the status back afterwards.
+was = psql(f"select status from requests where id={d3['id']}")
+psql(f"update requests set status='submitted' where id={d3['id']}")
+check("a report still being sorted can't be linked",
+      admin.call("PUT", f"/api/requests/{d3['id']}/duplicate-of", {"reference_number": d1["reference_number"]})[0], 409)
+psql(f"update requests set status='{was}' where id={d3['id']}")
+was = psql(f"select status from requests where id={d1['id']}")
+psql(f"update requests set status='submitted' where id={d1['id']}")
+check("a report can't be linked to one still being sorted",
+      admin.call("PUT", f"/api/requests/{d3['id']}/duplicate-of", {"reference_number": d1["reference_number"]})[0], 409)
+psql(f"update requests set status='{was}' where id={d1['id']}")
+check("linking a report to itself is refused",
+      admin.call("PUT", f"/api/requests/{d3['id']}/duplicate-of", {"reference_number": d3["reference_number"]})[0], 422)
+check("an unknown reference number is 404",
+      admin.call("PUT", f"/api/requests/{d3['id']}/duplicate-of", {"reference_number": "GAB-1999-99999"})[0], 404)
+s, b = admin.call("PUT", f"/api/requests/{d3['id']}/duplicate-of", {"reference_number": d1["reference_number"]})
+check("link the third report too", s, 200)
+check("the main report now counts two", admin.call("GET", f"/api/requests/{d1['id']}")[1]["linked_count"], 2)
+check("a linked report's status can't be changed on its own",
+      admin.call("PATCH", f"/api/requests/{d2['id']}/status", {"to_status": "in_progress"})[0], 409)
+check("an audit row records each link",
+      int(psql(f"select count(*) from audit_log_entries where action='request.linked' and object_id in ('{d2['id']}','{d3['id']}')")), 2)
+
+# Make sure the main report has a handler, then move it along.
+main = admin.call("GET", f"/api/requests/{d1['id']}")[1]
+if main["status"] != "routed":
+    cat = main["category"]["id"] if main["category"]["slug"] in rules else \
+        next(c["id"] for c in admin.call("GET", "/api/categories")[1] if c["slug"] in rules)
+    main = admin.call("PATCH", f"/api/requests/{d1['id']}/classification",
+                      {"final_category_id": cat, "final_urgency": "high"})[1]
+for d in (d2, d3):
+    child = admin.call("GET", f"/api/requests/{d['id']}")[1]
+    check(f"linked report {d['reference_number']} has the main report's status and handler",
+          (child["status"], (child["assigned_staff"] or {}).get("id")),
+          (main["status"], (main["assigned_staff"] or {}).get("id")))
+m_before = maria.call("GET", "/api/notifications")[1]["total"]
+o_before = other.call("GET", "/api/notifications")[1]["total"]
+s, b = admin.call("PATCH", f"/api/requests/{d1['id']}/status", {"to_status": "in_progress"})
+check("the main report moves to in progress", s, 200)
+check("linked reports move with it",
+      [admin.call("GET", f"/api/requests/{d['id']}")[1]["status"] for d in (d2, d3)], ["in_progress", "in_progress"])
+check("a resident with two reports in the group hears once", maria.call("GET", "/api/notifications")[1]["total"] - m_before, 1)
+check("the other resident hears once", other.call("GET", "/api/notifications")[1]["total"] - o_before, 1)
+s, b = admin.call("DELETE", f"/api/requests/{d3['id']}/duplicate-of")
+check("a link can be undone while the main report is open", (s, b.get("duplicate_of")), (200, None))
+check("the unlinked report returns to the staff queue", d3["id"] in staff_queue_ids(admin), True)
+
+# Five unlinked reports in one category within the hour show as a surge.
+for t in water:
+    wait_classified(maria, maria.call("POST", "/api/requests", {"description": t + " Pakiaksyunan po."})[1]["id"])
+surges = admin.call("GET", "/api/request-surges")[1]
+check("five reports about one problem in an hour show as a surge",
+      any(x["category"]["id"] == d1["category"]["id"] and x["count"] >= 5 for x in surges), True)
+check("a resident can't see surges", maria.call("GET", "/api/request-surges")[0], 403)
+
+# --- encryption at rest --------------------------------------------------------------------
+area("Encryption at rest")
+ENC = "gabai:enc:"
+check("a request's text is stored encrypted",
+      psql(f"select left(description, 10) from requests where id={rid}"), ENC)
+check("and shown as plain text to the resident", maria.call("GET", f"/api/requests/{rid}")[1]["description"], texts[0])
+check("a resident's name and purok are stored encrypted",
+      psql(f"select left(full_name, 10) || '|' || left(residence, 10) from users where email='{oemail}'"), ENC + "|" + ENC)
+check("staff notes are stored encrypted",
+      psql(f"select count(*) from status_history_entries where note is not null and note not like '{ENC}%' "
+           "and note <> '[Removed after the retention period]'"), "0")
+check("attachment file names are stored encrypted",
+      psql(f"select count(*) from attachments where filename not like '{ENC}%'"), "0")
+att = next(a for a in maria.call("GET", f"/api/requests/{rid}")[1]["attachments"] if a["filename"] == "butas.png")
+stored = psql(f"select stored_path from attachments where id={att['id']}")
+on_disk = (ROOT / "backend" / "uploads" / stored).read_bytes()
+check("an uploaded file is encrypted on disk", (on_disk[:9], b"PNG" in on_disk), (b"GABAIENC1", False))
+s_, body = maria.get_bytes(f"/api/requests/{rid}/attachments/{att['id']}")
+check("and downloads as the original file", (s_, body), (200, png))
+found = admin.call("GET", "/api/admin/users?q=Pedro%20Test&limit=100")[1]["items"]
+check("admin search still finds a resident by name", any(u["email"] == oemail for u in found), True)
+boot = subprocess.run(
+    [str(ROOT / "backend" / ".venv" / "Scripts" / "python"), "-c", "from app.core.config import Settings; Settings()"],
+    cwd=ROOT / "backend", env={**os.environ, "DATA_KEYS": ""}, capture_output=True, text=True,
+)
+check("the server refuses to start without a data key", "DATA_KEYS is not set" in boot.stderr, True)
 
 # --- administrator functions --------------------------------------------------------------------------
 area("Administrator functions")

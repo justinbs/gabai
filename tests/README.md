@@ -9,11 +9,11 @@ same functions through the browser.
 
 | Script | Covers | Checks |
 |---|---|---|
-| `functional/accounts_and_passwords.py` | Sign-up, name and password rules, admin-created accounts, temporary passwords, admin reset, admin name edits | 40 |
-| `functional/resident_approval.py` | Purok or street at sign-up, pending accounts, staff approval and turning down | 33 |
+| `functional/accounts_and_passwords.py` | Sign-up, name and password rules, admin-created accounts, temporary passwords, admin reset, admin name edits, the sign-in limit | 49 |
+| `functional/resident_approval.py` | Purok or street at sign-up, pending accounts, staff approval with how they checked, turning down | 38 |
 | `functional/email_links.py` | Email confirmation and password reset links | 29 |
-| `functional/request_workflow.py` | Submission, classification and routing, attachments, access control, status updates, notifications, reclassification, requests left unclassified, administrator functions, routing to deactivated accounts | 66 |
-| `functional/terms_site_categories.py` | Terms acceptance, site settings and logo, category management | 58 |
+| `functional/request_workflow.py` | Submission, classification and routing, attachments, access control, status updates, notifications, reclassification, requests left unclassified, administrator functions, routing to deactivated accounts, urgency safeguards, duplicate reports and surges, encryption at rest | 128 |
+| `functional/terms_site_categories.py` | Terms acceptance, site settings and logo, category management, puroks and streets | 70 |
 | `functional/database_protections.py` | Append-only logs, retention, backup and restore, migration rollback | 37 |
 
 ## Setup on a fresh clone
@@ -74,10 +74,15 @@ record, send each one to a dated file, for example
   site details, then puts them back. If it stops partway, check Site settings
   and switch any category back on by hand.
 - `request_workflow.py` needs at least one of its six requests to be routed;
-  with the current model five are. Two of its checks run only when the first
-  request is routed (the assigned staff member can open it, the other one
-  can't), so the total can be 64 instead of 66. It switches routing to a test
-  account and back; if it stops partway, check Routing.
+  with the current model five are. A few checks run only when the model routes
+  a particular request (the assigned staff member can open it, the handler is
+  notified of an urgent flag, a request can be made to look long-waiting), so
+  the total can be a little under 128. It switches routing to a test account
+  and back; if it stops partway, check Routing. Once places are listed under
+  Site settings, its submissions use the first one.
+- `terms_site_categories.py` adds a test purok and switches it off at the end.
+  If it stops partway, switch it off under Site settings, or every submission
+  will require a place.
 - `database_protections.py` works on a scratch database, `gabai_review`, which it
   creates and drops. It also restores a backup into `gabai_restore` to compare row
   counts. The real local database is not touched.

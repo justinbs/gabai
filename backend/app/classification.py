@@ -21,6 +21,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
 
+from app import duplicates
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.inference import classifier
@@ -129,5 +130,12 @@ async def classify_and_route(request_id: int) -> None:
                 note=None,
             )
         )
+        # Staff see these on the report and decide whether to link. A failure
+        # here must not undo the classification itself.
+        try:
+            async with db.begin_nested():
+                await duplicates.suggest_for(db, request)
+        except Exception:
+            log.exception("duplicate suggestions failed for request %s", request.id)
 
         await db.commit()

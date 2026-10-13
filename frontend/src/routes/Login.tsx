@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
+import { ApiError } from "../api/http";
 import { PublicShell } from "../components/SiteChrome";
 import { Button, FOCUS_LINK, Input } from "../components/ui";
 import { usePageTitle } from "../lib/usePageTitle";
@@ -26,8 +27,12 @@ export function Login() {
         return;
       }
       navigate("/");
-    } catch {
-      setError("Couldn't sign you in, try again");
+    } catch (err) {
+      setError(
+        err instanceof ApiError && err.status === 429
+          ? err.message
+          : "Couldn't sign you in, try again",
+      );
     } finally {
       setBusy(false);
     }

@@ -165,4 +165,34 @@ s, b, _ = admin.call("PATCH", f"/api/admin/users/{staff['id']}", {"full_name": "
 check("an account removed by retention can't be renamed", s, 409)
 psql(f"update users set anonymized_at = null where id='{staff['id']}'")
 
+# --- sign-in limit -----------------------------------------------------------------
+# Failures from earlier runs on this machine would count, so start clean.
+psql("delete from sign_in_failures")
+s, _, _ = Client().call("POST", "/api/auth/login", form={"username": staff_email, "password": "tulay-sira-44"})
+check("a successful sign-in is audited",
+      int(psql(f"select count(*) from audit_log_entries where action='user.signed_in' and object_id='{staff['id']}'")) >= 1, True)
+before = int(psql(f"select count(*) from audit_log_entries where action='user.sign_in_failed' and object_id='{staff['id']}'"))
+wrong = [Client().login(staff_email, f"mali-{n}-password") for n in range(5)]
+check("five wrong passwords are each refused", wrong, [400] * 5)
+check("the sixth try is refused even with the right password", Client().login(staff_email, "tulay-sira-44"), 429)
+rows = psql(f"select count(*), count(*) filter (where coalesce(detail::text, 'null') <> 'null') from audit_log_entries where action='user.sign_in_failed' and object_id='{staff['id']}'")
+total, with_detail = (int(x) for x in rows.split("|"))
+check("each failure is audited, with no typed details", (total - before, with_detail), (5, 0))
+check("one lockout entry, not one per refusal",
+      psql(f"select count(*) from audit_log_entries where action='user.sign_in_locked' and object_id='{staff['id']}'"), "1")
+check("the typed password appears nowhere in the audit log",
+      psql("select count(*) from audit_log_entries where detail::text like '%mali-%'"), "0")
+# The window passing is the same as the counted rows going away.
+psql("delete from sign_in_failures")
+check("after the wait, the right password works again", Client().login(staff_email, "tulay-sira-44"), 204)
+for n in range(4):
+    Client().login(staff_email, f"mali-{n}-password")
+Client().login(staff_email, "tulay-sira-44")
+check("a successful sign-in starts the count again",
+      (Client().login(staff_email, "mali-x-password"), Client().login(staff_email, "tulay-sira-44")), (400, 204))
+for n in range(30):
+    Client().login(f"nobody.{STAMP}.{n}@example.com", "whatever-123")
+check("thirty failures from one address lock that address", Client().login(staff_email, "tulay-sira-44"), 429)
+psql("delete from sign_in_failures")
+
 print(f"\n{sum(results)}/{len(results)} passed")

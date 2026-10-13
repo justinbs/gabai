@@ -45,6 +45,8 @@ tags:
     description: Account management, routing configuration, audit log
   - name: site
     description: The barangay's details and the site's look, shown before sign-in
+  - name: locations
+    description: Puroks and streets residents can pick for where a problem is
 
 security:
   - cookieAuth: []
@@ -103,8 +105,13 @@ paths:
         readable by JavaScript is XSS-exposed.
 
         The body is form-encoded, not JSON, and the email goes in the `username`
-        field. This is the one deviation from the JSON convention: it matches the
-        `fastapi-users` default so the login route needs no custom code.
+        field, the `fastapi-users` convention.
+
+        Failed attempts are limited: 5 within 15 minutes for one account, or 30
+        from one address, and sign-in is refused with 429 until the window
+        passes, even with the right password. Each sign-in, failure and lockout
+        is written to the audit log (`user.signed_in`, `user.sign_in_failed`,
+        `user.sign_in_locked`); the typed email is never stored.
       security: []
       requestBody:
         required: true
@@ -122,6 +129,12 @@ paths:
               example: gabai_session=...; HttpOnly; Secure; SameSite=Lax; Path=/
         "400":
           description: Bad credentials, or the account is deactivated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          description: Too many failed attempts; wait and try again.
           content:
             application/json:
               schema:
@@ -396,21 +409,14 @@ paths:
           in: query
           schema:
             $ref: "#/components/schemas/Urgency"
-        - name: q
-          in: query
-          description: Case-insensitive substring match on description and reference number.
-          schema:
-            type: string
-            maxLength: 200
-        - name: sort
-          in: query
-          schema:
-            type: string
-            enum: [urgency_desc, created_asc, created_desc, updated_desc]
-            default: urgency_desc
       responses:
         "200":
-          description: A page of requests.
+          description: |
+            A page of requests. Residents: their own, newest first, linked
+            reports included. Staff and admins: reports a resident marked urgent
+            first, then highest urgency (a request left waiting sorts one level
+            higher), then oldest; resolved requests last; linked reports are left
+            out because they follow their main report.
           content:
             application/json:
               schema:
@@ -597,6 +603,232 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+
+  /api/requests/{request_id}/duplicate-suggestions:
+    parameters:
+      - $ref: "#/components/parameters/RequestId"
+    get:
+      tags: [requests]
+      summary: Possible duplicates of this report
+      description: |
+        Staff and admins, within their scope. Open, unlinked reports from the
+        72 hours before this one, in the same category (and place, when both
+        have one), with at least 30% of their distinct words in common. Staff
+        decide; nothing is linked automatically.
+      responses:
+        "200":
+          description: Pending suggestions, closest first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DuplicateSuggestion"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/requests/{request_id}/duplicate-suggestions/{suggestion_id}:
+    parameters:
+      - $ref: "#/components/parameters/RequestId"
+      - name: suggestion_id
+        in: path
+        required: true
+        schema:
+          type: integer
+    patch:
+      tags: [requests]
+      summary: Say a suggestion is not a duplicate
+      description: Writes an audit row, `request.duplicate_dismissed`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SuggestionDecision"
+      responses:
+        "204":
+          description: Dismissed.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/requests/{request_id}/duplicate-of:
+    parameters:
+      - $ref: "#/components/parameters/RequestId"
+    put:
+      tags: [requests]
+      summary: Link this report to the main report about the same problem
+      description: |
+        Staff and admins. This report takes the main report's labels and
+        handler and is brought up to its status through the allowed steps, one
+        history row each. It then leaves the queues and follows every later
+        status change. One level only. Refused when the main report is itself
+        linked or closed, when this report has reports linked to it, or when
+        this report is further along than the main one. Writes an audit row,
+        `request.linked`, and notifies the resident.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DuplicateLink"
+      responses:
+        "200":
+          description: Linked.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Request"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: This report, or the main one, is not found in the caller's scope.
+        "409":
+          description: The link isn't allowed (see above).
+        "422":
+          description: Linked to itself.
+    delete:
+      tags: [requests]
+      summary: Undo a link
+      description: |
+        While the main report is open. The report keeps its current labels and
+        status and returns to the queues. Writes an audit row, `request.unlinked`.
+      responses:
+        "200":
+          description: Unlinked.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Request"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Not linked, or the main report is finished.
+
+  /api/request-surges:
+    get:
+      tags: [requests]
+      summary: Many reports about one problem in the last hour
+      description: |
+        Staff and admins, within their scope. Five or more unlinked reports in
+        one category (and place, when listed) within the last hour.
+      responses:
+        "200":
+          description: Current surges.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Surge"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/locations:
+    get:
+      tags: [locations]
+      summary: Places residents can pick for "Where is the problem?"
+      description: Switched-on places, in the admin's order. Empty until the admin adds one.
+      responses:
+        "200":
+          description: The places.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Location"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/admin/locations:
+    get:
+      tags: [admin]
+      summary: Every place, including switched-off ones
+      responses:
+        "200":
+          description: The places.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Location"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [admin]
+      summary: Add a purok or street
+      description: Writes an audit row, `location.created`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LocationCreate"
+      responses:
+        "201":
+          description: Added.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Location"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: That place is already listed.
+
+  /api/admin/locations/{location_id}:
+    parameters:
+      - name: location_id
+        in: path
+        required: true
+        schema:
+          type: integer
+    patch:
+      tags: [admin]
+      summary: Rename, reorder or switch a place on or off
+      description: Places are never deleted. Writes an audit row, `location.updated`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LocationUpdate"
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Location"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: That place is already listed.
 
   /api/requests/{request_id}/urgent-flag:
     parameters:
@@ -1793,6 +2025,119 @@ components:
           minLength: 10
           maxLength: 5000
           description: Free text in Filipino, English, or a mix.
+        location_id:
+          type: [integer, "null"]
+          description: |
+            Where the problem is, from `GET /api/locations`. Required once the
+            admin has listed any place; 422 if missing then, or if the place is
+            switched off.
+
+    Location:
+      type: object
+      required: [id, name, is_active, sort_order]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+          maxLength: 80
+          description: A purok or street.
+        is_active:
+          type: boolean
+        sort_order:
+          type: integer
+
+    LocationCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        sort_order:
+          type: integer
+          default: 0
+
+    LocationUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        is_active:
+          type: boolean
+        sort_order:
+          type: integer
+
+    RequestRef:
+      type: object
+      required: [id, reference_number]
+      properties:
+        id:
+          type: integer
+        reference_number:
+          type: string
+
+    DuplicateLink:
+      type: object
+      required: [reference_number]
+      properties:
+        reference_number:
+          type: string
+          maxLength: 20
+          description: The main report this one follows.
+
+    SuggestionDecision:
+      type: object
+      required: [decision]
+      properties:
+        decision:
+          type: string
+          enum: [dismissed]
+
+    DuplicateSuggestion:
+      type: object
+      required: [id, score, candidate]
+      properties:
+        id:
+          type: integer
+        score:
+          type: number
+          format: float
+          description: Share of distinct words the two reports have in common.
+        candidate:
+          type: object
+          required: [id, reference_number, description, status, created_at]
+          properties:
+            id:
+              type: integer
+            reference_number:
+              type: string
+            description:
+              type: string
+            status:
+              $ref: "#/components/schemas/RequestStatus"
+            created_at:
+              type: string
+              format: date-time
+
+    Surge:
+      type: object
+      required: [category, location, count, since]
+      properties:
+        category:
+          $ref: "#/components/schemas/Category"
+        location:
+          oneOf:
+            - $ref: "#/components/schemas/Location"
+            - type: "null"
+        count:
+          type: integer
+        since:
+          type: string
+          format: date-time
 
     RequestSummary:
       type: object
@@ -1811,6 +2156,9 @@ components:
         - urgent_flagged_at
         - waiting_since
         - aged
+        - location
+        - duplicate_of
+        - linked_count
       properties:
         id:
           type: integer
@@ -1869,6 +2217,18 @@ components:
             Waiting long enough to sort one urgency level higher: low untouched
             48 hours sorts with medium, medium untouched 24 hours with high. The
             stored urgency does not change.
+        location:
+          oneOf:
+            - $ref: "#/components/schemas/Location"
+            - type: "null"
+        duplicate_of:
+          oneOf:
+            - $ref: "#/components/schemas/RequestRef"
+            - type: "null"
+          description: The main report this one follows, once staff link it.
+        linked_count:
+          type: integer
+          description: How many other reports follow this one.
 
     Request:
       type: object
@@ -1900,6 +2260,10 @@ components:
         - urgent_reason
         - waiting_since
         - aged
+        - location
+        - duplicate_of
+        - linked_reports
+        - linked_count
         - attachments
         - status_history
       properties:
@@ -2003,6 +2367,23 @@ components:
             Waiting long enough to sort one urgency level higher: low untouched
             48 hours sorts with medium, medium untouched 24 hours with high. The
             stored urgency does not change.
+        location:
+          oneOf:
+            - $ref: "#/components/schemas/Location"
+            - type: "null"
+        duplicate_of:
+          oneOf:
+            - $ref: "#/components/schemas/RequestRef"
+            - type: "null"
+          description: The main report this one follows, once staff link it.
+        linked_count:
+          type: integer
+          description: How many other reports follow this one.
+        linked_reports:
+          type: array
+          description: The reports that follow this one, oldest first.
+          items:
+            $ref: "#/components/schemas/RequestRef"
         urgent_reason:
           type: [string, "null"]
           maxLength: 200

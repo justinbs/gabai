@@ -6,6 +6,7 @@ from sqlalchemy import Boolean, Enum as SAEnum, String, false, func, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.db.types import EncryptedText
 
 
 class Role(str, enum.Enum):
@@ -29,7 +30,8 @@ class VerificationMethod(str, enum.Enum):
 class User(SQLAlchemyBaseUserTableUUID, Base):
     __tablename__ = "users"
 
-    full_name: Mapped[str] = mapped_column(String(150), nullable=False)
+    # Encrypted at rest. The 150-character limit is checked at the API.
+    full_name: Mapped[str] = mapped_column(EncryptedText, nullable=False)
     role: Mapped[Role] = mapped_column(SAEnum(Role, name="role"), nullable=False, default=Role.citizen)
     # Residents wait for staff to confirm they live in the barangay. The
     # default is pending so any path that forgets to set it fails closed.
@@ -41,7 +43,7 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
         server_default=text("'pending'"),
     )
     # Purok or street, typed at sign-up. Only there for that check.
-    residence: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    residence: Mapped[str | None] = mapped_column(EncryptedText, nullable=True)
     # How staff confirmed the person lives in the barangay, chosen when approving.
     # Only the method is kept, never an ID number or a copy of the ID.
     verification_method: Mapped[VerificationMethod | None] = mapped_column(
