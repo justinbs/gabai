@@ -9,7 +9,9 @@ info:
     Residents submit free-text requests; a classifier assigns a category and an
     urgency level, each with its own confidence score. A request is auto-routed
     only when `min(category_confidence, urgency_confidence)` meets the configured
-    threshold; otherwise it enters the manual review queue for a human to label.
+    threshold (0.70) and, when the predicted urgency is low, the urgency
+    confidence also meets `LOW_URGENCY_MIN_CONFIDENCE` (0.85); otherwise it
+    enters the manual review queue for a human to label.
 
     **Conventions**
 
@@ -595,6 +597,41 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+
+  /api/requests/{request_id}/urgent-flag:
+    parameters:
+      - $ref: "#/components/parameters/RequestId"
+    put:
+      tags: [requests]
+      summary: Mark own request as urgent
+      description: |
+        The resident who sent it, once, while it is open. Pins it to the top of
+        the staff queue and For review and notifies the assigned staff member.
+        Does not change the urgency label. Writes an audit row,
+        `request.flagged_urgent`, without the reason.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UrgentFlag"
+      responses:
+        "200":
+          description: Marked.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Request"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Already marked, or the request is finished.
+        "422":
+          $ref: "#/components/responses/ValidationError"
 
   /api/requests/{request_id}/classification:
     parameters:
@@ -1465,9 +1502,10 @@ components:
         - resolved
         - closed
       description: |
-        `submitted` on creation. Then either `classified` → `routed` when both
-        confidence scores clear the threshold, or `under_review` when either does
-        not. From `routed`: `in_progress` → `resolved` → `closed`.
+        `submitted` on creation. Then `routed` when both confidence scores clear
+        the threshold (and a low urgency clears the stricter 0.85), or
+        `under_review` otherwise. `classified` is defined but not used. From
+        `routed`: `in_progress` → `resolved` → `closed`.
 
     # --------------------------------------------------------- users ------
     User:
@@ -1770,6 +1808,9 @@ components:
         - status
         - assigned_staff
         - created_at
+        - urgent_flagged_at
+        - waiting_since
+        - aged
       properties:
         id:
           type: integer
@@ -1811,6 +1852,23 @@ components:
         created_at:
           type: string
           format: date-time
+        urgent_flagged_at:
+          type: [string, "null"]
+          format: date-time
+          description: |
+            When the resident marked it urgent. Set once; pins the request to the
+            top of the staff queue and For review while it is open. Never changes
+            the urgency label.
+        waiting_since:
+          type: string
+          format: date-time
+          description: The last status change, or when it was submitted.
+        aged:
+          type: boolean
+          description: |
+            Waiting long enough to sort one urgency level higher: low untouched
+            48 hours sorts with medium, medium untouched 24 hours with high. The
+            stored urgency does not change.
 
     Request:
       type: object
@@ -1838,6 +1896,10 @@ components:
         - created_at
         - updated_at
         - resolved_at
+        - urgent_flagged_at
+        - urgent_reason
+        - waiting_since
+        - aged
         - attachments
         - status_history
       properties:
@@ -1924,6 +1986,27 @@ components:
         resolved_at:
           type: [string, "null"]
           format: date-time
+        urgent_flagged_at:
+          type: [string, "null"]
+          format: date-time
+          description: |
+            When the resident marked it urgent. Set once; pins the request to the
+            top of the staff queue and For review while it is open. Never changes
+            the urgency label.
+        waiting_since:
+          type: string
+          format: date-time
+          description: The last status change, or when it was submitted.
+        aged:
+          type: boolean
+          description: |
+            Waiting long enough to sort one urgency level higher: low untouched
+            48 hours sorts with medium, medium untouched 24 hours with high. The
+            stored urgency does not change.
+        urgent_reason:
+          type: [string, "null"]
+          maxLength: 200
+          description: The resident's reason for marking it urgent. Stored encrypted.
         attachments:
           type: array
           items:
@@ -1974,6 +2057,15 @@ components:
         created_at:
           type: string
           format: date-time
+
+    UrgentFlag:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 10
+          maxLength: 200
 
     ReviewDecision:
       type: object

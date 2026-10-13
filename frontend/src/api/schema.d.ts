@@ -912,6 +912,67 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/requests/{request_id}/urgent-flag": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: components["parameters"]["RequestId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Mark own request as urgent
+         * @description The resident who sent it, once, while it is open. Pins it to the top of
+         *     the staff queue and For review and notifies the assigned staff member.
+         *     Does not change the urgency label. Writes an audit row,
+         *     `request.flagged_urgent`, without the reason.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    request_id: components["parameters"]["RequestId"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UrgentFlag"];
+                };
+            };
+            responses: {
+                /** @description Marked. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Request"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description Already marked, or the request is finished. */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                422: components["responses"]["ValidationError"];
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/requests/{request_id}/classification": {
         parameters: {
             query?: never;
@@ -1991,9 +2052,10 @@ export interface components {
          */
         Urgency: "low" | "medium" | "high";
         /**
-         * @description `submitted` on creation. Then either `classified` → `routed` when both
-         *     confidence scores clear the threshold, or `under_review` when either does
-         *     not. From `routed`: `in_progress` → `resolved` → `closed`.
+         * @description `submitted` on creation. Then `routed` when both confidence scores clear
+         *     the threshold (and a low urgency clears the stricter 0.85), or
+         *     `under_review` otherwise. `classified` is defined but not used. From
+         *     `routed`: `in_progress` → `resolved` → `closed`.
          * @enum {string}
          */
         RequestStatus: "submitted" | "classified" | "routed" | "under_review" | "in_progress" | "resolved" | "closed";
@@ -2183,6 +2245,24 @@ export interface components {
             assigned_staff: components["schemas"]["UserSummary"] | null;
             /** Format: date-time */
             created_at: string;
+            /**
+             * Format: date-time
+             * @description When the resident marked it urgent. Set once; pins the request to the
+             *     top of the staff queue and For review while it is open. Never changes
+             *     the urgency label.
+             */
+            urgent_flagged_at: string | null;
+            /**
+             * Format: date-time
+             * @description The last status change, or when it was submitted.
+             */
+            waiting_since: string;
+            /**
+             * @description Waiting long enough to sort one urgency level higher: low untouched
+             *     48 hours sorts with medium, medium untouched 24 hours with high. The
+             *     stored urgency does not change.
+             */
+            aged: boolean;
         };
         /**
          * @description Nullable fields are always present in the response, carrying `null` when
@@ -2240,6 +2320,26 @@ export interface components {
             updated_at: string;
             /** Format: date-time */
             resolved_at: string | null;
+            /**
+             * Format: date-time
+             * @description When the resident marked it urgent. Set once; pins the request to the
+             *     top of the staff queue and For review while it is open. Never changes
+             *     the urgency label.
+             */
+            urgent_flagged_at: string | null;
+            /**
+             * Format: date-time
+             * @description The last status change, or when it was submitted.
+             */
+            waiting_since: string;
+            /**
+             * @description Waiting long enough to sort one urgency level higher: low untouched
+             *     48 hours sorts with medium, medium untouched 24 hours with high. The
+             *     stored urgency does not change.
+             */
+            aged: boolean;
+            /** @description The resident's reason for marking it urgent. Stored encrypted. */
+            urgent_reason: string | null;
             attachments: components["schemas"]["Attachment"][];
             /** @description Oldest first. Drives the citizen-facing status timeline. */
             status_history: components["schemas"]["StatusHistoryEntry"][];
@@ -2266,6 +2366,9 @@ export interface components {
             note: string | null;
             /** Format: date-time */
             created_at: string;
+        };
+        UrgentFlag: {
+            reason: string;
         };
         ReviewDecision: {
             final_category_id: number;

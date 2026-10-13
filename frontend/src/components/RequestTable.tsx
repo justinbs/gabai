@@ -11,6 +11,11 @@ import type { RequestSummary } from "../api/types";
 
 // The routing gate is the lower of the two heads, so that is the number shown.
 // One head alone does not tell an operator whether the request routed.
+// Same list as OPEN in backend/app/queue_order.py.
+const OPEN: RequestSummary["status"][] = ["submitted", "under_review", "routed", "in_progress"];
+
+const hoursSince = (iso: string) => Math.floor((Date.now() - new Date(iso).getTime()) / 3_600_000);
+
 const lowest = (r: RequestSummary) =>
   r.category_confidence === null || r.urgency_confidence === null
     ? null
@@ -70,6 +75,16 @@ export function RequestTable({
                 </td>
                 <td className="py-3 pr-4 align-top">
                   <UrgencyBadge urgency={item.urgency} />
+                  {item.urgent_flagged_at && OPEN.includes(item.status) && (
+                    <span className="mt-1 block text-[15px] font-bold text-danger">
+                      Marked urgent by resident
+                    </span>
+                  )}
+                  {item.aged && (
+                    <span className="mt-1 block text-[15px] font-bold text-warn">
+                      Waiting {hoursSince(item.waiting_since)}h
+                    </span>
+                  )}
                 </td>
                 <td
                   className={`py-3 pr-4 text-right align-top tabular-nums ${

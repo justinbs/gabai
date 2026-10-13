@@ -10,6 +10,7 @@ from app.models.enums import RequestStatus
 from app.models.request import Request
 from app.models.status_history import StatusHistoryEntry
 from app.models.user import Role, User
+from app.queue_order import flagged_first
 from app.schemas.request import PaginatedRequests
 from app.users import require_role
 
@@ -51,7 +52,9 @@ async def list_review_queue(
     ).scalar_one()
 
     query = (
-        base_query.order_by(Request.created_at.asc())
+        # Oldest first, because this is a backlog, except requests a resident
+        # marked urgent, which go to the top.
+        base_query.order_by(flagged_first(), Request.created_at.asc())
         .offset(offset)
         .limit(limit)
         .options(*_load_options())

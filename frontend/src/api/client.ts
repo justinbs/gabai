@@ -221,6 +221,17 @@ export const reclassify = async (
   }
 };
 
+// The resident's own request, once, while it's open. Null when the server
+// refuses it (already marked, finished, or not theirs).
+export const flagUrgent = async (id: number, reason: string): Promise<ServiceRequest | null> => {
+  try {
+    return await http.put<ServiceRequest>(`/api/requests/${id}/urgent-flag`, { reason: reason.trim() });
+  } catch (err) {
+    if (err instanceof ApiError && [404, 409].includes(err.status)) return null;
+    throw err;
+  }
+};
+
 // ------------------------------------------------------- notifications ----
 
 export const listNotifications = (): Promise<Paginated<Notification> & { unread_count: number }> =>

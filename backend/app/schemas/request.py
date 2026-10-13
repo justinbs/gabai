@@ -18,6 +18,10 @@ class StatusUpdate(BaseModel):
     note: str | None = Field(default=None, max_length=2000)
 
 
+class UrgentFlag(BaseModel):
+    reason: str = Field(min_length=10, max_length=200)
+
+
 class ReviewDecision(BaseModel):
     final_category_id: int
     final_urgency: Urgency
@@ -57,6 +61,10 @@ class RequestRead(BaseModel):
     created_at: datetime
     updated_at: datetime
     resolved_at: datetime | None
+    urgent_flagged_at: datetime | None
+    urgent_reason: str | None
+    waiting_since: datetime
+    aged: bool
     attachments: list[AttachmentRead]
     status_history: list[StatusHistoryEntryRead]
 
@@ -74,6 +82,9 @@ class RequestSummary(BaseModel):
     status: RequestStatus
     assigned_staff: UserSummary | None
     created_at: datetime
+    urgent_flagged_at: datetime | None
+    waiting_since: datetime
+    aged: bool
 
 
 class PaginatedRequests(BaseModel):

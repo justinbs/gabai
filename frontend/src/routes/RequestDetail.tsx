@@ -93,6 +93,15 @@ function Detail({
       </div>
 
       {!isStaff && <ResidentUpdate request={request} />}
+      {!isStaff && <UrgentFlag request={request} onChanged={onChanged} />}
+      {isStaff && request.urgent_flagged_at && OPEN_STATUSES.includes(request.status) && (
+        <div role="note" className="mb-5 border-l-4 border-danger py-1 pl-4">
+          <p className="font-bold">
+            Marked urgent by the resident {timeAgo(request.urgent_flagged_at)}
+          </p>
+          {request.urgent_reason && <p className="mt-1">{request.urgent_reason}</p>}
+        </div>
+      )}
 
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="space-y-5 lg:col-span-2">
@@ -216,6 +225,80 @@ function Attachment({
         />
       </dialog>
     </li>
+  );
+}
+
+// Same list as OPEN in backend/app/queue_order.py.
+const OPEN_STATUSES: RequestStatus[] = ["submitted", "under_review", "routed", "in_progress"];
+
+function UrgentFlag({ request, onChanged }: { request: ServiceRequest; onChanged: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  if (request.urgent_flagged_at) {
+    return (
+      <p className="mb-5 border-l-4 border-rule py-1 pl-4">
+        You marked this as urgent. Staff see it first.
+        <span className="block text-muted">Minarkahan ninyo itong madalian. Ito ang unang makikita ng staff.</span>
+      </p>
+    );
+  }
+  if (!OPEN_STATUSES.includes(request.status)) return null;
+
+  if (!open) {
+    return (
+      <div className="mb-5">
+        <Button variant="secondary" onClick={() => setOpen(true)}>
+          This is urgent · Madalian ito
+        </Button>
+      </div>
+    );
+  }
+
+  const save = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (reason.trim().length < 10) {
+      setError("Say why in at least 10 characters · Sabihin kung bakit, kahit 10 titik");
+      return;
+    }
+    setBusy(true);
+    try {
+      const saved = await api.flagUrgent(request.id, reason);
+      if (saved) onChanged();
+      else setError("Couldn't mark it, it may already be finished · Hindi na ito mamarkahan, baka tapos na");
+    } catch {
+      setError("Didn't save, try again · Hindi na-save, subukan ulit");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={save} className="mb-5 border-l-4 border-rule py-1 pl-4" noValidate>
+      <Textarea
+        name="urgent-reason"
+        label="Why is it urgent? · Bakit ito madalian?"
+        hint="Once only. For an emergency, call 911 · Isang beses lang. Kung emergency, tumawag sa 911"
+        rows={3}
+        maxLength={200}
+        value={reason}
+        error={error}
+        onChange={(e) => {
+          setReason(e.target.value);
+          setError("");
+        }}
+      />
+      <div className="mt-3 flex gap-3">
+        <Button type="submit" disabled={busy}>
+          Mark as urgent
+        </Button>
+        <Button type="button" variant="secondary" onClick={() => setOpen(false)}>
+          Cancel
+        </Button>
+      </div>
+    </form>
   );
 }
 

@@ -10,7 +10,7 @@ from fastapi import (
     Request as HTTPRequest,
     status as http_status,
 )
-from sqlalchemy import case, func as sqlfunc, select
+from sqlalchemy import func as sqlfunc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -22,12 +22,14 @@ from app.models.enums import RequestStatus, Urgency
 from app.models.request import Request
 from app.models.status_history import StatusHistoryEntry
 from app.models.user import Role, User
+from app.queue_order import OPEN, aged_urgency_rank, flagged_first
 from app.schemas.request import (
     PaginatedRequests,
     RequestCreate,
     RequestRead,
     ReviewDecision,
     StatusUpdate,
+    UrgentFlag,
 )
 from app.scoping import request_scope_filter as _scope_filter
 from app.users import current_active_user, require_role
@@ -135,18 +137,15 @@ async def list_requests(
     if user.role == Role.citizen:
         query = query.order_by(Request.created_at.desc())
     else:
-        # Highest urgency first, then oldest first — the order the queue is
-        # actually worked in. Unclassified (null urgency) sorts last, and
-        # resolved requests, which only wait to be closed, go below the rest.
-        urgency_rank = case(
-            (effective_urgency == Urgency.high, 0),
-            (effective_urgency == Urgency.medium, 1),
-            (effective_urgency == Urgency.low, 2),
-            else_=3,
-        )
+        # Requests a resident marked urgent first, then highest urgency, then
+        # oldest, the order the queue is actually worked in. A request left
+        # waiting sorts one level higher (app/queue_order.py). Unclassified
+        # (null urgency) sorts last, and resolved requests, which only wait to
+        # be closed, go below the rest.
         query = query.order_by(
+            flagged_first(),
             (Request.status == RequestStatus.resolved).asc(),
-            urgency_rank.asc(),
+            aged_urgency_rank().asc(),
             Request.created_at.asc(),
         )
 
@@ -229,6 +228,55 @@ async def update_status(
             db,
             user_id=request.citizen_id,
             message=message,
+            request_id=request.id,
+            reference_number=request.reference_number,
+        )
+
+    await db.commit()
+    return await _reload(db, request.id)
+
+
+@router.put("/{request_id}/urgent-flag", response_model=RequestRead)
+async def flag_urgent(
+    request_id: int,
+    payload: UrgentFlag,
+    http_request: HTTPRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role(Role.citizen)),
+):
+    # Only the resident who sent it. Anyone else gets the same 404 as for a
+    # request that doesn't exist.
+    request = (
+        await db.execute(
+            select(Request).where(Request.id == request_id, Request.citizen_id == user.id)
+        )
+    ).scalar_one_or_none()
+    if request is None:
+        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Not found")
+    if request.status not in OPEN:
+        raise HTTPException(status_code=http_status.HTTP_409_CONFLICT, detail="This request is already finished")
+    if request.urgent_flagged_at is not None:
+        raise HTTPException(status_code=http_status.HTTP_409_CONFLICT, detail="You already marked this as urgent")
+
+    request.urgent_flagged_at = datetime.now(timezone.utc)
+    request.urgent_reason = payload.reason
+
+    # The reason stays on the request only, not in the audit log.
+    ip = http_request.client.host if http_request.client else None
+    await write_audit(
+        db,
+        actor_id=user.id,
+        action="request.flagged_urgent",
+        object_type="request",
+        object_id=str(request.id),
+        detail=None,
+        ip_address=ip,
+    )
+    if request.assigned_staff_id:
+        await notify(
+            db,
+            user_id=request.assigned_staff_id,
+            message="A resident marked this request as urgent",
             request_id=request.id,
             reference_number=request.reference_number,
         )

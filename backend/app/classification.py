@@ -25,7 +25,7 @@ from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.inference import classifier
 from app.models.category import Category
-from app.models.enums import RequestStatus
+from app.models.enums import RequestStatus, Urgency
 from app.models.request import Request
 from app.models.routing_rule import RoutingRule
 from app.models.status_history import StatusHistoryEntry
@@ -103,8 +103,14 @@ async def classify_and_route(request_id: int) -> None:
         # Delta a2. The lower of the two confidences decides, because being sure
         # of the category but not the urgency is still not safe to route alone.
         confidence = min(prediction.category_confidence, prediction.urgency_confidence)
+        # A low rating sends a request to the bottom of the queue, so it needs a
+        # stricter bar before it skips a person.
+        unsure_low = (
+            prediction.urgency == Urgency.low
+            and prediction.urgency_confidence < settings.low_urgency_min_confidence
+        )
         handler = None
-        if confidence >= settings.confidence_threshold and category_id:
+        if confidence >= settings.confidence_threshold and not unsure_low and category_id:
             handler = await handler_for(db, category_id)
 
         if handler is None:

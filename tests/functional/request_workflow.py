@@ -23,6 +23,7 @@ ENV = dict(
 ADMIN = (ENV["SEED_ADMIN_EMAIL"].strip(), ENV["SEED_ADMIN_PASSWORD"].strip())
 DEMO_PW = ENV["SEED_DEMO_PASSWORD"].strip()
 THRESHOLD = 0.70
+LOW_URGENCY_MIN = 0.85
 STAMP = str(int(time.time()))
 results = []
 TERMS_VERSION = "2026-10-01"
@@ -154,11 +155,12 @@ check("model version recorded", all("xlm-roberta-base-2026-09-22-r2321" in d["mo
 gate_ok, route_ok = True, True
 for d in done:
     low = min(d["category_confidence"], d["urgency_confidence"])
-    want = "routed" if low >= THRESHOLD else "under_review"
+    unsure_low = d["predicted_urgency"] == "low" and d["urgency_confidence"] < LOW_URGENCY_MIN
+    want = "routed" if low >= THRESHOLD and not unsure_low else "under_review"
     gate_ok &= d["status"] == want
     if d["status"] == "routed":
         route_ok &= (d["assigned_staff"] or {}).get("id") == rules[d["predicted_category"]["slug"]]
-check("routed only when the lower confidence reaches 0.70, else review", gate_ok, True)
+check("routed only when the lower confidence reaches 0.70 (0.85 for a low urgency), else review", gate_ok, True)
 check("routed requests go to the staff member holding that category's rule", route_ok, True)
 print("   outcomes:", [(d["predicted_category"]["slug"], d["predicted_urgency"],
                        round(min(d["category_confidence"], d["urgency_confidence"]), 2), d["status"]) for d in done])
@@ -203,9 +205,71 @@ check("staff can't list accounts", ramon.call("GET", "/api/admin/users")[0], 403
 # --- staff queue order ----------------------------------------------------------------------
 area("Staff work queue")
 rank = {"high": 0, "medium": 1, "low": 2, None: 3}
-items = ramon.call("GET", "/api/requests?limit=100")[1]["items"]
-keys = [(i["status"] == "resolved", rank[i["urgency"]], i["created_at"]) for i in items]
-check("queue lists highest urgency first, oldest first within a level", keys == sorted(keys), True)
+OPEN = ("submitted", "under_review", "routed", "in_progress")
+
+
+def queue_key(i):
+    flagged = 0 if i["urgent_flagged_at"] and i["status"] in OPEN else 1
+    # A request left waiting sorts one level higher; the label itself stays.
+    return (flagged, i["status"] == "resolved", rank[i["urgency"]] - (1 if i["aged"] else 0), i["created_at"])
+
+
+def queue_ordered(c):
+    items = c.call("GET", "/api/requests?limit=100")[1]["items"]
+    keys = [queue_key(i) for i in items]
+    return keys == sorted(keys)
+
+
+check("queue lists highest urgency first, oldest first within a level", queue_ordered(ramon), True)
+
+# --- urgency safeguards --------------------------------------------------------------------
+area("Urgency safeguards")
+routed_id = next((d["id"] for d in done if d["status"] == "routed"), None)
+reason = "May matanda po kaming kasama na hindi makalakad"
+check("staff can't use the resident's urgent flag",
+      ramon.call("PUT", f"/api/requests/{rid}/urgent-flag", {"reason": reason})[0], 403)
+check("another resident can't flag it (404)",
+      other.call("PUT", f"/api/requests/{rid}/urgent-flag", {"reason": reason})[0], 404)
+s, _ = other.call("POST", "/api/requests", {"description": "May sirang poste ng ilaw sa kanto ng Purok 5 namin"})
+planted = [r for r in other.call("GET", "/api/requests")[1]["items"]][0]["id"]
+check("a reason that looks like stored ciphertext is accepted and encrypted",
+      other.call("PUT", f"/api/requests/{planted}/urgent-flag", {"reason": "gabai:enc:1:AAAAAAAAAAAA"})[0], 200)
+check("the staff queue still loads after it", admin.call("GET", "/api/requests?limit=100")[0], 200)
+check("the reason reads back as typed", admin.call("GET", f"/api/requests/{planted}")[1]["urgent_reason"], "gabai:enc:1:AAAAAAAAAAAA")
+check("a reason under 10 characters is refused",
+      maria.call("PUT", f"/api/requests/{rid}/urgent-flag", {"reason": "bilis"})[0], 422)
+notes_before = None
+if done[0]["status"] == "routed":
+    handler = ramon if rules[done[0]["predicted_category"]["slug"]] == RAMON else divina
+    notes_before = handler.call("GET", "/api/notifications")[1]["total"]
+s, b = maria.call("PUT", f"/api/requests/{rid}/urgent-flag", {"reason": reason})
+check("resident marks own request urgent", (s, b["urgent_flagged_at"] is not None, b["urgent_reason"]), (200, True, reason))
+check("the urgency label is unchanged", b["urgency"], done[0]["urgency"])
+check("marking it twice is refused", maria.call("PUT", f"/api/requests/{rid}/urgent-flag", {"reason": reason})[0], 409)
+if notes_before is not None:
+    check("the assigned staff member is notified", handler.call("GET", "/api/notifications")[1]["total"] - notes_before, 1)
+check("the reason is stored encrypted",
+      psql(f"select left(urgent_reason, 10) from requests where id={rid}"), "gabai:enc:")
+check("the audit row has no reason text",
+      psql(f"select coalesce(detail::text,'null') from audit_log_entries where action='request.flagged_urgent' and object_id='{rid}'"), "null")
+check("flagged requests come first in the staff queue", queue_ordered(admin), True)
+review = admin.call("GET", "/api/review-queue?limit=100")[1]["items"]
+flags = [0 if i["urgent_flagged_at"] else 1 for i in review]
+check("flagged requests come first in For review", flags == sorted(flags), True)
+
+# Waiting time: make one open request look untouched for three days. Status
+# history refuses edits, so the suite lifts that protection for this one update,
+# inside one transaction. Local test database only; never point this at the
+# live server.
+aged_one = next((d for d in done[1:] if d["status"] in ("routed", "under_review") and d["id"] != routed_id), None)
+if aged_one:
+    psql(f"update requests set final_urgency='low' where id={aged_one['id']}")
+    psql("begin; alter table status_history_entries disable trigger status_history_entries_no_rewrite; "
+         f"update status_history_entries set created_at = now() - interval '3 days' where request_id={aged_one['id']}; "
+         "alter table status_history_entries enable trigger status_history_entries_no_rewrite; commit;")
+    s, b = admin.call("GET", f"/api/requests/{aged_one['id']}")
+    check("a low request untouched for 48 hours is marked as waiting", (b["urgency"], b["aged"]), ("low", True))
+    check("waiting raises its place in the queue, not its label", queue_ordered(admin), True)
 
 # --- status changes and notifications ----------------------------------------------------------
 area("Status updates and notifications")
