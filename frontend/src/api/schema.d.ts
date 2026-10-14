@@ -942,7 +942,8 @@ export interface paths {
          * Possible duplicates of this report
          * @description Staff and admins, within their scope. Open, unlinked reports from the
          *     72 hours before this one, in the same category (and place, when both
-         *     have one), with at least 30% of their distinct words in common. Staff
+         *     have one), with at least 30% of their distinct words in common, and
+         *     at least as far along as this one, since only those can take it. Staff
          *     decide; nothing is linked automatically.
          */
         get: {

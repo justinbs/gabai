@@ -421,6 +421,8 @@ function SameProblem({ request, onChanged }: { request: ServiceRequest; onChange
   const likely = others.filter((r) => r.likely);
   const unlikely = others.filter((r) => !r.likely);
   const shown = showUnlikely ? others : likely;
+  const linkHere = others.length > 0 && (likely.length > 0 || suggestions.length === 0);
+  const linkEarlier = suggestions.length > 0 && likely.length === 0;
 
   return (
     <section className="border-t-2 border-ink pt-5">
@@ -442,7 +444,7 @@ function SameProblem({ request, onChanged }: { request: ServiceRequest; onChange
         </p>
       )}
 
-      {open && others.length > 0 && suggestions.length === 0 && (
+      {open && linkHere && (
         <div className="mt-4">
           {likely.length > 0 && (
             <>
@@ -497,7 +499,7 @@ function SameProblem({ request, onChanged }: { request: ServiceRequest; onChange
         </div>
       )}
 
-      {open && suggestions.length > 0 && (
+      {open && linkEarlier && (
         <div className="mt-6">
           <h3 className="font-bold">An earlier report may be the same problem</h3>
           <p className="text-muted">
@@ -776,7 +778,11 @@ function StaffActions({
             <Textarea
               name="note"
               label="Note"
-              hint="Optional, will be sent to the resident"
+              hint={
+                request.linked_count > 0
+                  ? "Optional, sent to everyone who reported this"
+                  : "Optional, will be sent to the resident"
+              }
               rows={3}
               maxLength={2000}
               value={note}

@@ -21,7 +21,7 @@ ADMIN = (ENV["SEED_ADMIN_EMAIL"].strip(), ENV["SEED_ADMIN_PASSWORD"].strip())
 DEMO_PW = ENV["SEED_DEMO_PASSWORD"].strip()
 STAMP = str(int(time.time()))
 results = []
-TERMS_VERSION = "2026-10-01"
+TERMS_VERSION = "2026-10-14"
 
 
 class Client:
@@ -149,7 +149,7 @@ check("approving twice is also 409", s, 409)
 # --- staff and admin accounts are never subject to approval ----------------------
 admin = Client()
 admin.login(*ADMIN)
-sid = next(u["id"] for u in admin.call("GET", "/api/admin/users?role=staff&limit=100")[1]["items"] if u["email"] == "ramon.delgado@example.com")
+sid = next(u["id"] for u in admin.call("GET", "/api/admin/users?role=staff&q=ramon.delgado@example.com&limit=100")[1]["items"] if u["email"] == "ramon.delgado@example.com")
 check("staff account isn't a registration", staff.call("PATCH", f"/api/registrations/{sid}", {"approval_status": "rejected"})[0], 404)
 s, b = admin.call("POST", "/api/admin/users", {"email": f"newstaff.{STAMP}@example.com", "password": "initial-pass-78", "full_name": "New Staff", "role": "staff"})
 check("admin-created account is approved", (s, b["approval_status"]), (201, "approved"))

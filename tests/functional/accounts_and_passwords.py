@@ -20,7 +20,7 @@ ENV = dict(
 ADMIN_EMAIL, ADMIN_PW = ENV["SEED_ADMIN_EMAIL"].strip(), ENV["SEED_ADMIN_PASSWORD"].strip()
 STAMP = str(int(time.time()))
 results = []
-TERMS_VERSION = "2026-10-01"
+TERMS_VERSION = "2026-10-14"
 
 
 class Client:

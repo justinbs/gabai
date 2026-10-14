@@ -479,7 +479,8 @@ async def list_duplicate_suggestions(
             .options(selectinload(DuplicateSuggestion.candidate))
         )
     ).scalars().all()
-    return rows
+    # A report further along than the candidate can't be linked to it.
+    return [s for s in rows if dup.rank(s.candidate.status) >= dup.rank(request.status)]
 
 
 @router.get("/{request_id}/same-problem", response_model=list[SameProblemReport])

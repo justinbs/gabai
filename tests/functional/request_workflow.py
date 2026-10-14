@@ -28,7 +28,7 @@ THRESHOLD = 0.70
 LOW_URGENCY_MIN = 0.85
 STAMP = str(int(time.time()))
 results = []
-TERMS_VERSION = "2026-10-01"
+TERMS_VERSION = "2026-10-14"
 areas = {}
 AREA = "?"
 
@@ -402,6 +402,17 @@ sug3 = admin.call("GET", f"/api/requests/{d3['id']}/duplicate-suggestions")[1]
 check("the third report suggests both earlier ones",
       {d1["id"], d2["id"]} <= {s["candidate"]["id"] for s in sug3}, True)
 check("a resident can't see suggestions", maria.call("GET", f"/api/requests/{d3['id']}/duplicate-suggestions")[0], 403)
+# An earlier report still waiting for review can't take a report already routed,
+# so it isn't offered. Local test database: statuses set back afterwards.
+was1 = psql(f"select status from requests where id={d1['id']}")
+was2 = psql(f"select status from requests where id={d2['id']}")
+psql(f"update requests set status='under_review' where id={d1['id']}")
+psql(f"update requests set status='routed' where id={d2['id']}")
+check("an earlier report behind this one isn't offered to link it to",
+      d1["id"] in [x["candidate"]["id"] for x in admin.call("GET", f"/api/requests/{d2['id']}/duplicate-suggestions")[1]],
+      False)
+psql(f"update requests set status='{was1}' where id={d1['id']}")
+psql(f"update requests set status='{was2}' where id={d2['id']}")
 to_d2 = next(s for s in sug3 if s["candidate"]["id"] == d2["id"])
 check("staff mark one as not a duplicate",
       admin.call("PATCH", f"/api/requests/{d3['id']}/duplicate-suggestions/{to_d2['id']}", {"decision": "dismissed"})[0], 204)
@@ -485,6 +496,16 @@ same = admin.call("GET", f"/api/requests/{d1['id']}/same-problem")[1]
 fresh = [r for r in same if r["likely"] and r["id"] != d3["id"]]
 check("the main report lists the new reports as likely the same", len(fresh) >= 2, True)
 check("a report already linked isn't listed", d2["id"] in [r["id"] for r in same], False)
+# One flood can be sorted into several categories. A matching report in another
+# category is still listed as likely, and is linked with the rest below.
+other_cat = next(c["id"] for c in admin.call("GET", "/api/categories")[1]
+                 if c["id"] != d1["category"]["id"] and c["is_active"])
+moved = fresh[1]
+admin.call("PATCH", f"/api/requests/{moved['id']}/classification", {"final_category_id": other_cat, "final_urgency": "medium"})
+again = {r["id"]: r for r in admin.call("GET", f"/api/requests/{d1['id']}/same-problem")[1]}
+check("a matching report in another category is still listed as likely",
+      (admin.call("GET", f"/api/requests/{moved['id']}")[1]["category"]["id"] != d1["category"]["id"],
+       again.get(moved["id"], {}).get("likely")), (True, True))
 held = fresh[-1]
 # As if its classification had failed and it never left submitted.
 psql(f"update requests set status='submitted' where id={held['id']}")

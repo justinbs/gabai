@@ -12,9 +12,9 @@ same functions through the browser.
 | `functional/accounts_and_passwords.py` | Sign-up, name and password rules, admin-created accounts, temporary passwords, admin reset, admin name edits, the sign-in limit | 50 |
 | `functional/resident_approval.py` | Purok or street at sign-up, pending accounts, staff approval with how they checked, turning down, approving on an ID seen before the email is confirmed | 39 |
 | `functional/email_links.py` | Email confirmation and password reset links | 29 |
-| `functional/request_workflow.py` | Submission, classification and routing, attachments, access control, status updates, notifications, reclassification, requests left unclassified, administrator functions, routing to deactivated accounts, urgency safeguards, duplicate reports, linking many at once and surges, encryption at rest | 147 |
+| `functional/request_workflow.py` | Submission, classification and routing, attachments, access control, status updates, notifications, reclassification, requests left unclassified, administrator functions, routing to deactivated accounts, urgency safeguards, duplicate reports, linking many at once and surges, encryption at rest | 149 |
 | `functional/terms_site_categories.py` | Terms acceptance, site settings and logo, category management, puroks and streets | 70 |
-| `functional/database_protections.py` | Append-only logs, retention, backup and restore, migration rollback | 37 |
+| `functional/database_protections.py` | Append-only logs, retention, backup and restore, migration rollback | 38 |
 
 ## Setup on a fresh clone
 
@@ -77,7 +77,7 @@ record, send each one to a dated file, for example
   with the current model five are. A few checks run only when the model routes
   a particular request (the assigned staff member can open it, the handler is
   notified of an urgent flag, a request can be made to look long-waiting), so
-  the total can be a little under 147. It switches routing to a test account
+  the total can be a little under 149. It switches routing to a test account
   and back; if it stops partway, check Routing. Once places are listed under
   Site settings, its submissions use the first one.
 - `terms_site_categories.py` adds a test purok and switches it off at the end.
