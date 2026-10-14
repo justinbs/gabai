@@ -297,6 +297,15 @@ export const markNotificationRead = async (
   }
 };
 
+// How much is waiting, for the menu. One row each; only the totals are used.
+export const waitingCounts = async (): Promise<Record<string, number>> => {
+  const [review, signUps] = await Promise.all([
+    http.get<Paginated<RequestSummary>>("/api/review-queue?limit=1"),
+    http.get<Paginated<User>>("/api/registrations?status=pending&limit=1"),
+  ]);
+  return { "/review": review.total, "/sign-ups": signUps.total };
+};
+
 // ------------------------------------------------------- registrations ----
 
 export const listRegistrations = async (

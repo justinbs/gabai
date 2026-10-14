@@ -69,7 +69,8 @@ export function SignUps() {
       <PageHeading title="Sign-ups" />
       <Help>
         <p>Check that each person lives in the barangay, using the purok or street they gave. Choose how you checked before approving.</p>
-        <p>They have to confirm their email before you can approve them. A sign-up you turn down can still be approved later if it was a mistake.</p>
+        <p>They have to confirm their email before you can approve them, unless you saw their ID in person. A sign-up you turn down can still be approved later if it was a mistake.</p>
+        <p>Turn down anyone who never confirmed and never came in, so the count in the menu only shows people still to check.</p>
       </Help>
 
       <div className="mb-5 flex gap-6">

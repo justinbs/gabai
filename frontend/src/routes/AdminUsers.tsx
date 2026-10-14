@@ -17,6 +17,7 @@ export function AdminUsers() {
   const { state, reload } = useAsync(() => api.listUsers(), []);
   const [message, setMessage] = useState("");
   const [refusal, setRefusal] = useState("");
+  const [search, setSearch] = useState("");
   // Shown once. Leaving the page loses it, and that's the point.
   const [issued, setIssued] = useState<{ name: string; password: string } | null>(null);
   const issuedRef = useRef<HTMLDivElement>(null);
@@ -86,11 +87,25 @@ export function AdminUsers() {
       )}
       {state.status === "ready" && (
         <>
+          {state.data.length > 0 && (
+            <div className="mb-4 max-w-md">
+              <Input
+                id="account-search"
+                label="Find an account"
+                hint="Name or email"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+          )}
           {state.data.length === 0 ? (
             <EmptyState title="No accounts" description="Add someone below" />
+          ) : matching(state.data, search).length === 0 ? (
+            <p className="mb-6 text-muted">No account matches {search.trim()}</p>
           ) : (
             <UserTable
-              users={state.data}
+              users={matching(state.data, search)}
+              activeAdminCount={state.data.filter((u) => u.role === "admin" && u.is_active).length}
               onChanged={report}
               onReset={(name, password) => {
                 setMessage("");
@@ -106,12 +121,21 @@ export function AdminUsers() {
   );
 }
 
+function matching(users: User[], search: string): User[] {
+  const needle = search.trim().toLowerCase();
+  if (!needle) return users;
+  return users.filter((u) => u.full_name.toLowerCase().includes(needle) || u.email.toLowerCase().includes(needle));
+}
+
 function UserTable({
   users,
+  activeAdminCount,
   onChanged,
   onReset,
 }: {
   users: User[];
+  // From every account, not just the ones the search shows.
+  activeAdminCount: number;
   onChanged: (message: string, ok: boolean) => void;
   onReset: (name: string, password: string) => void;
 }) {
@@ -133,11 +157,6 @@ function UserTable({
       setBusy(undefined);
     }
   };
-
-  // Client-side heuristic only, computed from the list we just fetched,
-  // just so the button can warn before clicking. The server has final say
-  // (409) regardless, using its own live count at the moment of the request.
-  const activeAdminCount = users.filter((u) => u.role === "admin" && u.is_active).length;
 
   const change = async (
     user: User,
