@@ -17,6 +17,7 @@ class RequestStatus(str, enum.Enum):
     in_progress = "in_progress"
     resolved = "resolved"
     closed = "closed"
+    referred = "referred"
 
 
 urgency_enum = SAEnum(Urgency, name="urgency")

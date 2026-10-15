@@ -29,6 +29,7 @@ export function StaffQueue() {
         <p>Open a request to move it along: in progress, then resolved, then closed. A note you add is sent to the resident. Resolved requests stay at the bottom until you close them.</p>
         <p>If the category or urgency is wrong, correct it on the request. It moves to the person who handles the new category.</p>
         <p>When several residents report the same problem, link the newer reports to the first one on its page. They leave the queue and follow it.</p>
+        <p>If a concern belongs to another agency, use "Refer to another agency" on its page. It moves to Referred.</p>
       </Help>
 
       {surges.state.status === "ready" && surges.state.data.length > 0 && (

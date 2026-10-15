@@ -32,6 +32,7 @@ def _load_options():
         selectinload(Request.location),
         selectinload(Request.duplicate_of),
         selectinload(Request.linked_reports),
+        selectinload(Request.referred_agency),
     )
 
 

@@ -13,7 +13,8 @@ import type { RequestSummary, ServiceRequest } from "../api/types";
 type Sliceable = Pick<
   ServiceRequest | RequestSummary,
   "status" | "assigned_staff"
->;
+> &
+  Partial<Pick<ServiceRequest | RequestSummary, "referred_agency">>;
 
 export function citizenStatus(request: Sliceable): string {
   switch (request.status) {
@@ -27,6 +28,10 @@ export function citizenStatus(request: Sliceable): string {
         : "Sent to the right office";
     case "under_review":
       return "Being checked";
+    case "referred":
+      return request.referred_agency
+        ? `Referred to ${request.referred_agency.name}`
+        : "Referred";
     case "in_progress":
       return "Being worked on";
     // Resolved and closed are different records but mean the same thing to a

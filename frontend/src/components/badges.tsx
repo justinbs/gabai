@@ -21,6 +21,7 @@ const STATUS_TEXT: Record<RequestStatus, string> = {
   in_progress: "text-ink",
   resolved: "text-ink",
   closed: "text-muted",
+  referred: "text-warn",
 };
 
 export function UrgencyBadge({ urgency }: { urgency: Urgency | null }) {

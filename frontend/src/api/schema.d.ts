@@ -2538,6 +2538,299 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/requests/{request_id}/referral": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: components["parameters"]["RequestId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Refer a concern to another agency
+         * @description Staff and admins. For a request that isn't started yet (submitted,
+         *     under review or routed) and isn't linked. Clears the handler, tells the
+         *     resident whom to contact, writes `request.referred`. No data is sent to
+         *     the agency.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    request_id: components["parameters"]["RequestId"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ReferralCreate"];
+                };
+            };
+            responses: {
+                /** @description Referred. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Request"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description Not referrable in its current state */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Unknown or switched-off agency. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        post?: never;
+        /**
+         * Take a referral back
+         * @description Re-runs routing. Writes `request.referral_removed`.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    request_id: components["parameters"]["RequestId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Taken back. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Request"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description Not referred. */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agencies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Active agencies (staff and admin)
+         * @description Returns a list of all active referral agencies ordered by sort sequence.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description A list of active agencies. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Agency"][];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/agencies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every agency, including switched-off ones
+         * @description Administrator access only. Returns all registered agencies regardless of active state.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description A complete list of all agencies. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Agency"][];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        /**
+         * Add an agency (audit agency.created)
+         * @description Administrator access only. Adds a new referral agency to the platform database tracking system.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AgencyCreate"];
+                };
+            };
+            responses: {
+                /** @description Agency created successfully. */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Agency"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                /** @description Conflict. An agency with this exact name already exists. */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Validation error. Name field is missing, empty, or un-parsable. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/agencies/{agency_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The numeric database identification integer of the targeted agency. */
+                agency_id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit contact details or switch off (audit agency.updated)
+         * @description Administrator access only. Updates targeted agency parameters or updates its global activation state flags.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description The numeric database identification integer of the targeted agency. */
+                    agency_id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AgencyUpdate"];
+                };
+            };
+            responses: {
+                /** @description Agency parameters modified successfully. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Agency"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description Conflict. The modification creates a duplicate unique constraint entry name. */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Validation error. Provided parameter formats are invalid. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2613,7 +2906,7 @@ export interface components {
          *     `routed`: `in_progress` → `resolved` → `closed`.
          * @enum {string}
          */
-        RequestStatus: "submitted" | "classified" | "routed" | "under_review" | "in_progress" | "resolved" | "closed";
+        RequestStatus: "submitted" | "classified" | "routed" | "under_review" | "in_progress" | "resolved" | "closed" | "referred";
         User: {
             /**
              * Format: uuid
@@ -2920,6 +3213,8 @@ export interface components {
             duplicate_of: components["schemas"]["RequestRef"] | null;
             /** @description How many other reports follow this one. */
             linked_count: number;
+            /** @description The external entity handling the concern if status is 'referred'. */
+            referred_agency: components["schemas"]["Agency"] | null;
         };
         /**
          * @description Nullable fields are always present in the response, carrying `null` when
@@ -3012,6 +3307,15 @@ export interface components {
             attachments: components["schemas"]["Attachment"][];
             /** @description Oldest first. Drives the citizen-facing status timeline. */
             status_history: components["schemas"]["StatusHistoryEntry"][];
+            /** @description The external entity handling the concern if status is 'referred'. */
+            referred_agency: components["schemas"]["Agency"] | null;
+            /**
+             * Format: date-time
+             * @description Timestamp recording when the referral action was executed.
+             */
+            referred_at: string | null;
+            /** @description Optional contextual note left by staff for the resident. */
+            referral_note: string | null;
         };
         StatusUpdate: {
             /**
@@ -3100,6 +3404,34 @@ export interface components {
             is_read: boolean;
             /** Format: date-time */
             created_at: string;
+        };
+        Agency: {
+            id: number;
+            name: string;
+            phone?: string | null;
+            hours?: string | null;
+            website?: string | null;
+            notes?: string | null;
+            is_active: boolean;
+            sort_order: number;
+        };
+        AgencyCreate: {
+            name: string;
+            /** @default 0 */
+            sort_order: number;
+        };
+        AgencyUpdate: {
+            name?: string;
+            phone?: string | null;
+            hours?: string | null;
+            website?: string | null;
+            notes?: string | null;
+            is_active?: boolean;
+            sort_order?: number;
+        };
+        ReferralCreate: {
+            agency_id: number;
+            note?: string | null;
         };
     };
     responses: {

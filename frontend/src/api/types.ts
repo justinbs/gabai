@@ -28,6 +28,8 @@ export type LinkReportsResult = S["LinkReportsResult"];
 export type SiteSettingsUpdate = S["SiteSettingsUpdate"];
 export type ThemePreset = S["ThemePreset"];
 export type CategoryUpdate = S["CategoryUpdate"];
+export type Agency = S["Agency"];
+export type AgencyUpdate = S["AgencyUpdate"];
 
 // Named ServiceRequest because `Request` is a DOM global, and shadowing it
 // produces genuinely confusing type errors.
@@ -50,6 +52,7 @@ export const STAFF_STATUS_LABELS: Record<RequestStatus, string> = {
   in_progress: "In progress",
   resolved: "Resolved",
   closed: "Closed",
+  referred: "Referred",
 };
 
 export const VERIFICATION_LABELS: Record<VerificationMethod, string> = {
@@ -67,6 +70,7 @@ export const ROLE_LABELS: Record<Role, string> = {
 // Audit actions are stored as slugs and read by people. The slug stays in the
 // data, the label is what the screen shows.
 export const AUDIT_ACTION_LABELS: Record<string, string> = {
+  "attachment.uploaded": "File attached",
   "request.auto_routed": "Routed automatically",
   "request.reclassified": "Category corrected",
   "request.submitted": "Request submitted",
@@ -95,6 +99,10 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   "location.created": "Place added",
   "location.updated": "Place changed",
   "retention.applied": "Old personal data removed",
+  "request.referred": "Referred to another agency",
+  "request.referral_removed": "Referral taken back",
+  "agency.created": "Agency added",
+  "agency.updated": "Agency changed",
 };
 
 export const URGENCY_LABELS: Record<Urgency, string> = {

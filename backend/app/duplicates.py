@@ -39,6 +39,7 @@ LEGAL_TRANSITIONS: dict[RequestStatus, RequestStatus] = {
     RequestStatus.routed: RequestStatus.in_progress,
     RequestStatus.in_progress: RequestStatus.resolved,
     RequestStatus.resolved: RequestStatus.closed,
+    RequestStatus.referred: RequestStatus.closed,
 }
 # How far along a report is. Everything before routing counts as 0.
 RANK = {RequestStatus.routed: 1, RequestStatus.in_progress: 2, RequestStatus.resolved: 3, RequestStatus.closed: 4}
@@ -123,6 +124,8 @@ async def link(
         raise HTTPException(status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY, detail="A report can't be linked to itself")
     if main.status == RequestStatus.submitted:
         raise _conflict(f"{main.reference_number} isn't sorted yet. Label it in For review first")
+    if RequestStatus.referred in (child.status, main.status):
+        raise _conflict("A referred report can't be linked")
     if child.duplicate_of_id is not None:
         raise _conflict("This report is already linked")
     if main.duplicate_of_id is not None:

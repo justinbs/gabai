@@ -1616,6 +1616,134 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /api/requests/{request_id}/referral:
+    parameters: [{ $ref: "#/components/parameters/RequestId" }]
+    put:
+      tags: [requests]
+      summary: Refer a concern to another agency
+      description: |
+        Staff and admins. For a request that isn't started yet (submitted,
+        under review or routed) and isn't linked. Clears the handler, tells the
+        resident whom to contact, writes `request.referred`. No data is sent to
+        the agency.
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/ReferralCreate" } } } }
+      responses:
+        "200": { description: Referred., content: { application/json: { schema: { $ref: "#/components/schemas/Request" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { description: Not referrable in its current state, or linked. }
+        "422": { description: Unknown or switched-off agency. }
+    delete:
+      tags: [requests]
+      summary: Take a referral back
+      description: Re-runs routing. Writes `request.referral_removed`.
+      responses:
+        "200": { description: Taken back., content: { application/json: { schema: { $ref: "#/components/schemas/Request" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { description: Not referred. }
+
+  /api/agencies:
+    get:
+      tags: [agencies]
+      summary: Active agencies (staff and admin)
+      description: Returns a list of all active referral agencies ordered by sort sequence.
+      responses:
+        "200":
+          description: A list of active agencies.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Agency"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/admin/agencies:
+    get:
+      tags: [admin]
+      summary: Every agency, including switched-off ones
+      description: Administrator access only. Returns all registered agencies regardless of active state.
+      responses:
+        "200":
+          description: A complete list of all agencies.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Agency"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [admin]
+      summary: Add an agency (audit agency.created)
+      description: Administrator access only. Adds a new referral agency to the platform database tracking system.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgencyCreate"
+      responses:
+        "201":
+          description: Agency created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agency"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Conflict. An agency with this exact name already exists.
+        "422":
+          description: Validation error. Name field is missing, empty, or un-parsable.
+
+  /api/admin/agencies/{agency_id}:
+    parameters:
+      - name: agency_id
+        in: path
+        required: true
+        description: The numeric database identification integer of the targeted agency.
+        schema:
+          type: integer
+    patch:
+      tags: [admin]
+      summary: Edit contact details or switch off (audit agency.updated)
+      description: Administrator access only. Updates targeted agency parameters or updates its global activation state flags.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgencyUpdate"
+      responses:
+        "200":
+          description: Agency parameters modified successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agency"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Conflict. The modification creates a duplicate unique constraint entry name.
+        "422":
+          description: Validation error. Provided parameter formats are invalid.
+
 components:
   securitySchemes:
     cookieAuth:
@@ -1804,6 +1932,7 @@ components:
         - in_progress
         - resolved
         - closed
+        - referred
       description: |
         `submitted` on creation. Then `routed` when both confidence scores clear
         the threshold (and a low urgency clears the stricter 0.85), or
@@ -2300,6 +2429,7 @@ components:
         - location
         - duplicate_of
         - linked_count
+        - referred_agency
       properties:
         id:
           type: integer
@@ -2375,6 +2505,11 @@ components:
         linked_count:
           type: integer
           description: How many other reports follow this one.
+        referred_agency:
+          oneOf:
+            - $ref: "#/components/schemas/Agency"
+            - type: "null"
+          description: The external entity handling the concern if status is 'referred'.
 
     Request:
       type: object
@@ -2413,6 +2548,9 @@ components:
         - linked_count
         - attachments
         - status_history
+        - referred_agency
+        - referred_at
+        - referral_note
       properties:
         id:
           type: integer
@@ -2549,6 +2687,19 @@ components:
           description: Oldest first. Drives the citizen-facing status timeline.
           items:
             $ref: "#/components/schemas/StatusHistoryEntry"
+        referred_agency:
+          oneOf:
+            - $ref: "#/components/schemas/Agency"
+            - type: "null"
+          description: The external entity handling the concern if status is 'referred'.
+        referred_at:
+          type: [string, "null"]
+          format: date-time
+          description: Timestamp recording when the referral action was executed.
+        referral_note:
+          type: [string, "null"]
+          maxLength: 500
+          description: Optional contextual note left by staff for the resident.
 
     StatusUpdate:
       type: object
@@ -2706,3 +2857,41 @@ components:
         created_at:
           type: string
           format: date-time
+
+    Agency:
+      type: object
+      required: [id, name, is_active, sort_order]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        phone: { type: string, nullable: true }
+        hours: { type: string, nullable: true }
+        website: { type: string, nullable: true }
+        notes: { type: string, nullable: true }
+        is_active: { type: boolean }
+        sort_order: { type: integer }
+
+    AgencyCreate:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        sort_order: { type: integer, default: 0 }
+
+    AgencyUpdate:
+      type: object
+      properties:
+        name: { type: string }
+        phone: { type: string, nullable: true }
+        hours: { type: string, nullable: true }
+        website: { type: string, nullable: true }
+        notes: { type: string, nullable: true }
+        is_active: { type: boolean }
+        sort_order: { type: integer }
+
+    ReferralCreate:
+      type: object
+      required: [agency_id]
+      properties:
+        agency_id: { type: integer }
+        note: { type: string, nullable: true }

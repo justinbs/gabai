@@ -18,6 +18,7 @@ const LINKS = {
     { to: "/queue", label: "Queue" },
     { to: "/review", label: "For review" },
     { to: "/sign-ups", label: "Sign-ups" },
+    { to: "/referred", label: "Referred" },
   ],
   admin: [
     { to: "/queue", label: "Queue" },
@@ -27,6 +28,7 @@ const LINKS = {
     { to: "/admin/routing", label: "Routing" },
     { to: "/admin/audit", label: "Audit log" },
     { to: "/admin/site", label: "Site settings" },
+    { to: "/referred", label: "Referred" },
   ],
 };
 

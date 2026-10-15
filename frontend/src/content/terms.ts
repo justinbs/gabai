@@ -58,7 +58,8 @@ export function termsOfUse(site: Site): LegalDoc {
       {
         heading: "How your requests are handled",
         paragraphs: [
-          "The barangay decides what action to take on each request and when. Sending a request through GABAI doesn't guarantee a particular result or time. You can still raise any concern in person at the barangay office.",
+          "The barangay decides what action to take on each request and when. ...(existing text)...",
+          "Some concerns belong to another agency, such as the power or water provider. When that happens, staff mark your request as Referred and tell you whom to contact. GABAI does not send your request to that agency, and you contact them yourself.",
         ],
       },
       {
@@ -139,6 +140,7 @@ export function privacyNotice(site: Site): LegalDoc {
         ],
         paragraphs: [
           "We don't sell or share your data with anyone else, except these services that run the system for the barangay: DigitalOcean, which hosts the server in Singapore; Resend, a company in the United States, which sends our emails; and Google Drive, where daily backup copies are kept in an account used only for GABAI. These services may store data outside the Philippines. We would also disclose data when the law requires it.",
+          "When a request is referred to another agency, you are shown only that agency's name and contact details. Your request is not shared with the agency.",
         ],
       },
       {

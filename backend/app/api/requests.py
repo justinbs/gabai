@@ -44,6 +44,9 @@ from app.schemas.request import (
 )
 from app.scoping import request_scope_filter as _scope_filter
 from app.users import current_active_user, require_role
+from app.models.referral_agency import ReferralAgency
+from app.schemas.request import ReferralCreate
+from app.models.request import RequestStatus
 
 router = APIRouter(prefix="/api/requests", tags=["requests"])
 
@@ -67,6 +70,7 @@ def _load_options():
         selectinload(Request.location),
         selectinload(Request.duplicate_of),
         selectinload(Request.linked_reports),
+        selectinload(Request.referred_agency),
     )
 
 
@@ -366,6 +370,11 @@ async def set_classification(
             status_code=http_status.HTTP_409_CONFLICT,
             detail="Request is finished and cannot be relabelled.",
         )
+    if request.status == RequestStatus.referred:
+        raise HTTPException(
+            status_code=http_status.HTTP_409_CONFLICT,
+            detail="This request is referred. Take it back first",
+        )
     if request.duplicate_of_id is not None:
         raise HTTPException(
             status_code=http_status.HTTP_409_CONFLICT,
@@ -613,3 +622,77 @@ async def unlink_duplicate(
     await dup.unlink(db, child, user.id, http_request.client.host if http_request.client else None)
     await db.commit()
     return await _reload(db, child.id)
+
+REFERRABLE = (RequestStatus.submitted, RequestStatus.under_review, RequestStatus.routed)
+
+@router.put("/{request_id}/referral", response_model=RequestRead)
+async def refer_request(
+    request_id: int,
+    payload: ReferralCreate,
+    http_request: HTTPRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role(Role.staff, Role.admin)),
+):
+    # Locked so a late classification can't overwrite the referral.
+    request = await _in_scope(db, user, request_id, lock=True)
+    if request.status not in REFERRABLE:
+        raise HTTPException(status_code=http_status.HTTP_409_CONFLICT,
+                            detail="Only a request that hasn't been started can be referred")
+    if request.duplicate_of_id is not None or request.linked_count > 0:
+        raise HTTPException(status_code=http_status.HTTP_409_CONFLICT,
+                            detail="Linked reports can't be referred. Remove the links first")
+    agency = await db.get(ReferralAgency, payload.agency_id)
+    if agency is None or not agency.is_active:
+        raise HTTPException(status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            detail="Pick an agency from the list")
+
+    note = (payload.note or "").strip() or None
+    from_status = request.status
+    request.status = RequestStatus.referred
+    request.referred_agency_id = agency.id
+    request.referred_at = datetime.now(timezone.utc)
+    request.referral_note = note
+    request.assigned_staff_id = None
+
+    db.add(StatusHistoryEntry(request_id=request.id, from_status=from_status,
+                              to_status=RequestStatus.referred, actor_id=user.id, note=note))
+    await write_audit(db, actor_id=user.id, action="request.referred", object_type="request",
+                      object_id=str(request.id), detail={"agency_id": agency.id},
+                      ip_address=http_request.client.host if http_request.client else None)
+    await notify(db, user_id=request.citizen_id,
+                 message=f"This concern belongs to {agency.name}. Open it to see how to reach them",
+                 request_id=request.id, reference_number=request.reference_number)
+    await db.commit()
+    return await _reload(db, request.id)
+
+
+@router.delete("/{request_id}/referral", response_model=RequestRead)
+async def take_back_referral(
+    request_id: int,
+    http_request: HTTPRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role(Role.staff, Role.admin)),
+):
+    request = await _in_scope(db, user, request_id, lock=True)
+    if request.status != RequestStatus.referred:
+        raise HTTPException(status_code=http_status.HTTP_409_CONFLICT, detail="This request isn't referred")
+
+    category_id = request.final_category_id or request.predicted_category_id
+    handler_id = await handler_for(db, category_id) if category_id else None
+    request.status = RequestStatus.routed if handler_id else RequestStatus.under_review
+    request.assigned_staff_id = handler_id
+    request.referred_agency_id = None
+    request.referred_at = None
+    request.referral_note = None
+
+    db.add(StatusHistoryEntry(request_id=request.id, from_status=RequestStatus.referred,
+                              to_status=request.status, actor_id=user.id,
+                              note="Taken back by the barangay"))
+    await write_audit(db, actor_id=user.id, action="request.referral_removed", object_type="request",
+                      object_id=str(request.id), detail=None,
+                      ip_address=http_request.client.host if http_request.client else None)
+    await notify(db, user_id=request.citizen_id,
+                 message="The barangay will handle your request after all",
+                 request_id=request.id, reference_number=request.reference_number)
+    await db.commit()
+    return await _reload(db, request.id)

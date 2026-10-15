@@ -356,6 +356,45 @@ check("resident told the request moved", maria.call("GET", "/api/notifications")
 check("reclassification audited", psql(
     f"select count(*) from audit_log_entries where action='request.reclassified' and object_id='{target['id']}'"), "1")
 
+# --- referrals --------------------------------------------------------------------------
+area("Referrals")
+agencies = admin.call("GET", "/api/admin/agencies")[1]
+meralco = next(a for a in agencies if a["name"] == "Meralco")
+check("staff can list active agencies", ramon.call("GET", "/api/agencies")[0], 200)
+check("a resident can't list agencies", maria.call("GET", "/api/agencies")[0], 403)
+check("staff can't edit agencies", ramon.call("PATCH", f"/api/admin/agencies/{meralco['id']}", {"phone": "1"})[0], 403)
+s, a = admin.call("PATCH", f"/api/admin/agencies/{meralco['id']}", {"phone": "0917 000 0000", "website": "https://example.com"})
+check("admin saves contact details", (s, a["phone"]), (200, "0917 000 0000"))
+check("a website that isn't http(s) is refused",
+      admin.call("PATCH", f"/api/admin/agencies/{meralco['id']}", {"website": "javascript:alert(1)"})[0], 422)
+
+ref = wait_classified(maria, maria.call("POST", "/api/requests", {"description": texts[1]})[1]["id"])
+check("a resident can't refer", maria.call("PUT", f"/api/requests/{ref['id']}/referral", {"agency_id": meralco["id"]})[0], 403)
+before = maria.call("GET", "/api/notifications")[1]["total"]
+s, r = admin.call("PUT", f"/api/requests/{ref['id']}/referral", {"agency_id": meralco["id"], "note": "Meralco po ang may hawak"})
+check("admin refers it", (s, r["status"], r["assigned_staff"], (r["referred_agency"] or {}).get("name")), (200, "referred", None, "Meralco"))
+check("the resident is notified once", maria.call("GET", "/api/notifications")[1]["total"] - before, 1)
+s, mine = maria.call("GET", f"/api/requests/{ref['id']}")
+check("the resident sees the agency and its phone", (mine["referred_agency"]["phone"], mine["referral_note"]), ("0917 000 0000", "Meralco po ang may hawak"))
+check("referring twice is refused", admin.call("PUT", f"/api/requests/{ref['id']}/referral", {"agency_id": meralco["id"]})[0], 409)
+check("it can't be set in progress", admin.call("PATCH", f"/api/requests/{ref['id']}/status", {"to_status": "in_progress"})[0], 409)
+check("it can't be relabelled while referred",
+      admin.call("PATCH", f"/api/requests/{ref['id']}/classification", {"final_category_id": cats["utilities"], "final_urgency": "high"})[0], 409)
+check("the resident can't flag it urgent", maria.call("PUT", f"/api/requests/{ref['id']}/urgent-flag", {"reason": "kailangan na po ito"})[0], 409)
+check("the referral is audited", int(psql(f"select count(*) from audit_log_entries where action='request.referred' and object_id='{ref['id']}'")), 1)
+check("the note is stored encrypted", psql(f"select left(referral_note, 10) from requests where id={ref['id']}"), "gabai:enc:")
+s, back = admin.call("DELETE", f"/api/requests/{ref['id']}/referral")
+check("taking it back re-routes it", (s, back["status"] in ("routed", "under_review"), back["referred_agency"]), (200, True, None))
+check("taking back an unreferred request is refused", admin.call("DELETE", f"/api/requests/{ref['id']}/referral")[0], 409)
+admin.call("PUT", f"/api/requests/{ref['id']}/referral", {"agency_id": meralco["id"]})
+check("a referred request can be closed", admin.call("PATCH", f"/api/requests/{ref['id']}/status", {"to_status": "closed"})[0], 200)
+
+admin.call("PATCH", f"/api/admin/agencies/{meralco['id']}", {"is_active": False})
+spare = wait_classified(maria, maria.call("POST", "/api/requests", {"description": texts[1]})[1]["id"])
+check("a switched-off agency can't be picked",
+      admin.call("PUT", f"/api/requests/{spare['id']}/referral", {"agency_id": meralco["id"]})[0], 422)
+admin.call("PATCH", f"/api/admin/agencies/{meralco['id']}", {"is_active": True})
+
 # --- requests whose classification never ran ---------------------------------------------------
 area("Requests left unclassified")
 
