@@ -25,10 +25,15 @@ from app.models.enums import RequestStatus, Urgency
 from app.models.request import Request
 from app.models.status_history import StatusHistoryEntry
 from app.models.user import Role, User
-from app.queue_order import OPEN, aged_urgency_rank, flagged_first
+from app.queue_order import OPEN, aged_urgency_rank, flagged_first, mark_seen
 from app.schemas.request import (
     DuplicateLink,
     DuplicateSuggestionRead,
+    LinkReports,
+    RequestRef,
+    LinkReportsResult,
+    SameProblemReport,
+    SkippedReport,
     PaginatedRequests,
     RequestCreate,
     RequestRead,
@@ -85,20 +90,13 @@ async def submit_request(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role(Role.citizen)),
 ):
-    # Once the admin lists any places, residents pick where the problem is.
-    places_listed = (
-        await db.execute(select(sqlfunc.count()).select_from(Location).where(Location.is_active.is_(True)))
-    ).scalar_one()
+    # Optional: a resident may report somewhere that isn't listed.
     if payload.location_id is not None:
         location = await db.get(Location, payload.location_id)
         if location is None or not location.is_active:
             raise HTTPException(
                 status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Pick a place from the list"
             )
-    elif places_listed:
-        raise HTTPException(
-            status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Say where the problem is"
-        )
 
     request = Request(
         reference_number=f"TEMP-{uuid.uuid4().hex[:8]}",
@@ -245,6 +243,7 @@ async def update_status(
 
     from_status = request.status
     request.status = to_status
+    mark_seen(request)
     if to_status in (RequestStatus.resolved, RequestStatus.closed) and request.resolved_at is None:
         request.resolved_at = datetime.now(timezone.utc)
 
@@ -270,7 +269,7 @@ async def update_status(
     )
 
     # Linked reports move too. Each resident hears once, even with several reports.
-    reports = await dup.follow_status(db, request, to_status, user.id)
+    reports = await dup.follow_status(db, request, to_status, user.id, payload.note)
     message = STATUS_MESSAGES.get(to_status)
     if message:
         for report in reports:
@@ -316,6 +315,8 @@ async def flag_urgent(
         pinned = await db.get(Request, request.duplicate_of_id)
         if pinned.urgent_flagged_at is None:
             pinned.urgent_flagged_at = request.urgent_flagged_at
+        # Pinned again, since this is news to staff.
+        pinned.urgent_seen_at = None
 
     # The reason stays on the request only, not in the audit log.
     ip = http_request.client.host if http_request.client else None
@@ -393,6 +394,7 @@ async def set_classification(
 
     request.final_category_id = payload.final_category_id
     request.final_urgency = payload.final_urgency
+    mark_seen(request)
 
     handler_id = await handler_for(db, payload.final_category_id)
     # Only claim routed when somebody actually owns it. Writing routed with no
@@ -486,7 +488,71 @@ async def list_duplicate_suggestions(
             .options(selectinload(DuplicateSuggestion.candidate))
         )
     ).scalars().all()
-    return rows
+    # A report further along than the candidate can't be linked to it.
+    return [s for s in rows if dup.rank(s.candidate.status) >= dup.rank(request.status)]
+
+
+@router.get("/{request_id}/same-problem", response_model=list[SameProblemReport])
+async def list_same_problem(
+    request_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role(Role.staff, Role.admin)),
+):
+    main = await _in_scope(db, user, request_id)
+    return [
+        SameProblemReport(
+            id=r.id,
+            reference_number=r.reference_number,
+            description=r.description,
+            status=r.status,
+            created_at=r.created_at,
+            score=round(score, 3),
+            likely=likely,
+        )
+        for r, score, likely in await dup.same_problem(db, main, _scope_filter(user))
+    ]
+
+
+@router.post("/{request_id}/linked-reports", response_model=LinkReportsResult)
+async def link_reports(
+    request_id: int,
+    payload: LinkReports,
+    http_request: HTTPRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role(Role.staff, Role.admin)),
+):
+    main = await _in_scope(db, user, request_id)
+    ids = sorted(set(payload.request_ids) | {main.id})
+    # Lock every row, lowest id first, so two staff linking at once can't deadlock.
+    await db.execute(select(Request.id).where(Request.id.in_(ids)).order_by(Request.id).with_for_update())
+    await db.refresh(main)
+    query = select(Request).where(Request.id.in_(set(payload.request_ids)), Request.id != main.id)
+    scope = _scope_filter(user)
+    if scope is not None:
+        query = query.where(scope)
+    children = sorted((await db.execute(query)).scalars().all(), key=lambda r: r.created_at)
+    ip = http_request.client.host if http_request.client else None
+    linked, skipped = await dup.link_many(db, main, children, user.id, ip)
+    # Asked for but not visible to this staff member, or gone.
+    found = {r.id for r in children}
+    missing = sorted(set(payload.request_ids) - found - {main.id})
+    refs = dict(
+        (await db.execute(select(Request.id, Request.reference_number).where(Request.id.in_(missing)))).all()
+    ) if missing else {}
+
+    not_same_ids = set(payload.not_same) - set(payload.request_ids) - {main.id}
+    if not_same_ids:
+        others = select(Request).where(Request.id.in_(not_same_ids))
+        if scope is not None:
+            others = others.where(scope)
+        await dup.mark_not_same(db, main, list((await db.execute(others)).scalars().all()), user.id, ip)
+
+    await db.commit()
+    return LinkReportsResult(
+        linked=[RequestRef(id=r.id, reference_number=r.reference_number) for r in linked],
+        skipped=[SkippedReport(id=r.id, reference_number=r.reference_number, reason=reason) for r, reason in skipped]
+        + [SkippedReport(id=i, reference_number=refs.get(i, f"#{i}"), reason="Not found") for i in missing],
+    )
 
 
 @router.patch("/{request_id}/duplicate-suggestions/{suggestion_id}", status_code=204)

@@ -58,9 +58,9 @@ VALUES
  ('33333333-3333-3333-3333-333333333333','rejected.old@x.test','h',true,false,true,'Rejected Long Ago','citizen','rejected','Purok 3',NULL),
  ('44444444-4444-4444-4444-444444444444','deact.new@x.test','h',false,false,true,'Deactivated Recently','citizen','approved','Purok 4',now() - interval '5 days'),
  ('55555555-5555-5555-5555-555555555555','staff.old@x.test','h',false,false,true,'Staff Deactivated Long Ago','staff','approved',NULL,{OLD});
-INSERT INTO requests (id,reference_number,citizen_id,description,status,created_at,updated_at,resolved_at)
-VALUES (1,'GAB-2025-00001','11111111-1111-1111-1111-111111111111','may butas sa harap ng bahay ko sa Purok 1','resolved',{OLD},{OLD},{OLD}),
-       (2,'GAB-2026-00002','11111111-1111-1111-1111-111111111111','bagong reklamo, bukas pa','in_progress',now(),now(),NULL);
+INSERT INTO requests (id,reference_number,citizen_id,description,status,created_at,updated_at,resolved_at,urgent_flagged_at,urgent_reason)
+VALUES (1,'GAB-2025-00001','11111111-1111-1111-1111-111111111111','may butas sa harap ng bahay ko sa Purok 1','resolved',{OLD},{OLD},{OLD},{OLD},'delikado sa mga bata'),
+       (2,'GAB-2026-00002','11111111-1111-1111-1111-111111111111','bagong reklamo, bukas pa','in_progress',now(),now(),NULL,NULL,NULL);
 INSERT INTO status_history_entries (request_id,from_status,to_status,note,created_at)
 VALUES (1,'in_progress','resolved','Naayos na po, salamat kay Mang Jose',{OLD}),
        (2,NULL,'submitted',NULL,now());
@@ -109,6 +109,7 @@ check("apply exits cleanly", code, 0)
 print("   apply said:", out.splitlines()[-1] if out else out)
 check("old resolved request redacted", psql("select description, redacted_at is not null from requests where id=1")[1],
       "[Removed after the retention period]|t")
+check("the resident's urgent reason is removed too", psql("select urgent_reason is null from requests where id=1")[1], "t")
 check("live request untouched", psql("select description, redacted_at is null from requests where id=2")[1],
       "bagong reklamo, bukas pa|t")
 check("old request keeps reference, status, category fields",

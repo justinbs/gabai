@@ -1,4 +1,7 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
+
+import * as api from "../api/client";
 
 import { FOCUS_LINK } from "./ui";
 import { useSession } from "../session-context";
@@ -29,12 +32,27 @@ const LINKS = {
   ],
 };
 
+// Checked on every page change and every minute.
+function useWaitingCounts(enabled: boolean) {
+  const { pathname } = useLocation();
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (!enabled) return;
+    const load = () => api.waitingCounts().then(setCounts).catch(() => setCounts({}));
+    load();
+    const timer = window.setInterval(load, 60_000);
+    return () => window.clearInterval(timer);
+  }, [enabled, pathname]);
+  return counts;
+}
+
 export function AppShell() {
   const { user, signOut } = useSession();
-  if (!user) return null;
   // Nothing else works while waiting for approval or on a temporary password,
   // so don't offer it.
-  const pending = user.approval_status !== "approved" || user.must_change_password;
+  const pending = !user || user.approval_status !== "approved" || user.must_change_password;
+  const counts = useWaitingCounts(!pending && user?.role !== "citizen");
+  if (!user) return null;
 
   return (
     <div className="flex min-h-screen flex-col bg-white">
@@ -56,11 +74,17 @@ export function AppShell() {
                   <li key={link.to}>
                     <NavLink
                       to={link.to}
+                      aria-label={counts[link.to] ? `${link.label}, ${counts[link.to]} waiting` : undefined}
                       className={({ isActive }) =>
                         `${FOCUS_LINK} ${isActive ? "font-bold" : "text-link underline"}`
                       }
                     >
                       {link.label}
+                      {counts[link.to] > 0 && (
+                        <span className="ml-1.5 inline-block rounded-full bg-danger px-2 text-[14px] font-bold text-white no-underline">
+                          {counts[link.to]}
+                        </span>
+                      )}
                     </NavLink>
                   </li>
                 ))}

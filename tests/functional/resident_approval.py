@@ -21,7 +21,7 @@ ADMIN = (ENV["SEED_ADMIN_EMAIL"].strip(), ENV["SEED_ADMIN_PASSWORD"].strip())
 DEMO_PW = ENV["SEED_DEMO_PASSWORD"].strip()
 STAMP = str(int(time.time()))
 results = []
-TERMS_VERSION = "2026-10-15"
+TERMS_VERSION = "2026-10-14"
 
 
 class Client:
@@ -123,8 +123,8 @@ check("resident sees turned down", b["approval_status"], "rejected")
 check("turned down still can't reach data", res.call("GET", "/api/requests")[0], 403)
 s, b = staff.call("GET", "/api/registrations?status=rejected")
 check("it shows under turned down", any(u["id"] == new["id"] for u in b["items"]), True)
-s, b = staff.call("PATCH", f"/api/registrations/{new['id']}", {"approval_status": "approved", "verification_method": "id_in_person"})
-check("unconfirmed email can't be approved", (s, b.get("detail")), (409, "Their email isn't confirmed yet"))
+s, b = staff.call("PATCH", f"/api/registrations/{new['id']}", {"approval_status": "approved", "verification_method": "personally_known"})
+check("unconfirmed email can't be approved without an ID seen", (s, "confirmed" in b.get("detail", "")), (409, True))
 # The email flow has its own suite. Here, confirm it directly and carry on.
 psql(f"update users set is_verified=true where id='{new['id']}'")
 s, b = staff.call("PATCH", f"/api/registrations/{new['id']}", {"approval_status": "approved"})
@@ -149,7 +149,7 @@ check("approving twice is also 409", s, 409)
 # --- staff and admin accounts are never subject to approval ----------------------
 admin = Client()
 admin.login(*ADMIN)
-sid = next(u["id"] for u in admin.call("GET", "/api/admin/users?role=staff&limit=100")[1]["items"] if u["email"] == "ramon.delgado@example.com")
+sid = next(u["id"] for u in admin.call("GET", "/api/admin/users?role=staff&q=ramon.delgado@example.com&limit=100")[1]["items"] if u["email"] == "ramon.delgado@example.com")
 check("staff account isn't a registration", staff.call("PATCH", f"/api/registrations/{sid}", {"approval_status": "rejected"})[0], 404)
 s, b = admin.call("POST", "/api/admin/users", {"email": f"newstaff.{STAMP}@example.com", "password": "initial-pass-78", "full_name": "New Staff", "role": "staff"})
 check("admin-created account is approved", (s, b["approval_status"]), (201, "approved"))
@@ -163,5 +163,13 @@ detail = psql(f"select detail::text from audit_log_entries where object_id='{new
 check("approval audit records only the method", detail, '{"method": "id_in_person"}')
 rej = psql(f"select coalesce(detail::text,'null') from audit_log_entries where object_id='{new['id']}' and action='user.rejected'")
 check("turning down records no method", rej, "null")
+
+# --- a mistyped email ------------------------------------------------------------
+# An ID seen in person is enough, so a resident whose email never arrives can
+# still be approved.
+typo = f"typo.{STAMP}@gmial.com"
+s, t = anon.call("POST", "/api/auth/register", {"email": typo, "password": "kalsada-butas-9", "full_name": "Pedro Typo", "residence": "Purok 1"})
+s, b = staff.call("PATCH", f"/api/registrations/{t['id']}", {"approval_status": "approved", "verification_method": "id_in_person"})
+check("an ID seen in person approves before the email is confirmed", (s, b["approval_status"], b["is_verified"]), (200, "approved", False))
 
 print(f"\n{sum(results)}/{len(results)} passed")

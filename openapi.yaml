@@ -613,7 +613,8 @@ paths:
       description: |
         Staff and admins, within their scope. Open, unlinked reports from the
         72 hours before this one, in the same category (and place, when both
-        have one), with at least 30% of their distinct words in common. Staff
+        have one), with at least 30% of their distinct words in common, and
+        at least as far along as this one, since only those can take it. Staff
         decide; nothing is linked automatically.
       responses:
         "200":
@@ -630,6 +631,71 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+
+  /api/requests/{request_id}/same-problem:
+    parameters:
+      - $ref: "#/components/parameters/RequestId"
+    get:
+      tags: [requests]
+      summary: Other reports that could be linked to this one
+      description: |
+        Staff and admins, within their scope. For an open main report: open,
+        unlinked reports from the 72 hours either side, not further along and
+        with no reports of their own linked, whose place matches when both have
+        one. Listed when 30% or more of distinct words match (`likely`, ticked
+        at the start, whatever category the model gave them), or when in the
+        same category, or the same place within the hour (unticked). Pairs
+        staff marked as not the same are left out.
+      responses:
+        "200":
+          description: Most alike first. Empty for a linked or finished report.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SameProblemReport"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/requests/{request_id}/linked-reports:
+    parameters:
+      - $ref: "#/components/parameters/RequestId"
+    post:
+      tags: [requests]
+      summary: Link several reports to this one at once
+      description: |
+        Staff and admins. Each listed report is linked as with
+        `PUT /api/requests/{id}/duplicate-of`, in one transaction. A report
+        that can't be linked is skipped with the reason instead of failing the
+        rest, and one not visible to the caller is skipped as not found. Each
+        resident gets one notice, however many of their reports were linked.
+        One audit row, `request.linked`, per report.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LinkReports"
+      responses:
+        "200":
+          description: What was linked and what was skipped.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinkReportsResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
 
   /api/requests/{request_id}/duplicate-suggestions/{suggestion_id}:
     parameters:
@@ -669,10 +735,12 @@ paths:
         Staff and admins. This report takes the main report's labels and
         handler and is brought up to its status through the allowed steps, one
         history row each. It then leaves the queues and follows every later
-        status change. One level only. Refused when the main report is itself
-        linked or closed, when this report has reports linked to it, or when
-        this report is further along than the main one. Writes an audit row,
-        `request.linked`, and notifies the resident.
+        status change, with the staff note. One level only. A report still
+        being sorted goes to review first, so the classifier leaves it alone.
+        Refused when the main report is itself linked, closed or not sorted
+        yet, when this report has reports linked to it, or when this report is
+        further along than the main one. Writes an audit row, `request.linked`,
+        and notifies the resident.
       requestBody:
         required: true
         content:
@@ -700,8 +768,10 @@ paths:
       tags: [requests]
       summary: Undo a link
       description: |
-        While the main report is open. The report keeps its current labels and
-        status and returns to the queues. Writes an audit row, `request.unlinked`.
+        At any time. The report keeps its labels and status and returns to the
+        queues. If the link had carried it to resolved or closed, it goes back
+        to For review with no handler and the resident is told. Writes an audit
+        row, `request.unlinked`.
       responses:
         "200":
           description: Unlinked.
@@ -716,7 +786,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          description: Not linked, or the main report is finished.
+          description: Not linked.
 
   /api/request-surges:
     get:
@@ -724,7 +794,8 @@ paths:
       summary: Many reports about one problem in the last hour
       description: |
         Staff and admins, within their scope. Five or more unlinked reports in
-        one category (and place, when listed) within the last hour.
+        one category (and place, when listed) within the last hour, with the
+        report to link the others to.
       responses:
         "200":
           description: Current surges.
@@ -2157,9 +2228,9 @@ components:
         location_id:
           type: [integer, "null"]
           description: |
-            Where the problem is, from `GET /api/locations`. Required once the
-            admin has listed any place; 422 if missing then, or if the place is
-            switched off.
+            Where the problem is, from `GET /api/locations`. Optional: the form
+            asks once places are listed, with "Not on the list", which sends
+            null. 422 if the place is switched off.
 
     Location:
       type: object
@@ -2252,9 +2323,73 @@ components:
               type: string
               format: date-time
 
+    SameProblemReport:
+      type: object
+      required: [id, reference_number, description, status, created_at, score, likely]
+      properties:
+        id:
+          type: integer
+        reference_number:
+          type: string
+        description:
+          type: string
+        status:
+          $ref: "#/components/schemas/RequestStatus"
+        created_at:
+          type: string
+          format: date-time
+        score:
+          type: number
+          format: float
+          description: Share of distinct words in common with the main report.
+        likely:
+          type: boolean
+          description: Score of 0.3 or more, any category. Ticked at the start on the screen.
+
+    LinkReports:
+      type: object
+      required: [request_ids]
+      properties:
+        request_ids:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items:
+            type: integer
+        not_same:
+          type: array
+          maxItems: 200
+          items:
+            type: integer
+          description: |
+            Reports listed as likely but unticked. Recorded as not the same
+            problem, with an audit row `request.duplicate_dismissed` each, so
+            they aren't listed against this report again.
+
+    LinkReportsResult:
+      type: object
+      required: [linked, skipped]
+      properties:
+        linked:
+          type: array
+          items:
+            $ref: "#/components/schemas/RequestRef"
+        skipped:
+          type: array
+          items:
+            type: object
+            required: [id, reference_number, reason]
+            properties:
+              id:
+                type: integer
+              reference_number:
+                type: string
+              reason:
+                type: string
+
     Surge:
       type: object
-      required: [category, location, count, since]
+      required: [category, location, count, since, main]
       properties:
         category:
           $ref: "#/components/schemas/Category"
@@ -2267,6 +2402,11 @@ components:
         since:
           type: string
           format: date-time
+        main:
+          description: The report to open and link the others to, the one furthest along and then the oldest. Null while all are still being sorted.
+          oneOf:
+            - $ref: "#/components/schemas/RequestRef"
+            - type: "null"
 
     RequestSummary:
       type: object
@@ -2283,6 +2423,7 @@ components:
         - assigned_staff
         - created_at
         - urgent_flagged_at
+        - urgent_pinned
         - waiting_since
         - aged
         - location
@@ -2334,9 +2475,14 @@ components:
           type: [string, "null"]
           format: date-time
           description: |
-            When the resident marked it urgent. Set once; pins the request to the
-            top of the staff queue and For review while it is open. Never changes
-            the urgency label.
+            When the resident marked it urgent. Set once. Never changes the
+            urgency label.
+        urgent_pinned:
+          type: boolean
+          description: |
+            Marked urgent, still open, and no staff action since: sorted to the
+            top of the staff queue and For review. A status change or relabel
+            ends it. A linked report marked urgent pins its main report again.
         waiting_since:
           type: string
           format: date-time
@@ -2392,6 +2538,7 @@ components:
         - updated_at
         - resolved_at
         - urgent_flagged_at
+        - urgent_pinned
         - urgent_reason
         - waiting_since
         - aged
@@ -2492,9 +2639,14 @@ components:
           type: [string, "null"]
           format: date-time
           description: |
-            When the resident marked it urgent. Set once; pins the request to the
-            top of the staff queue and For review while it is open. Never changes
-            the urgency label.
+            When the resident marked it urgent. Set once. Never changes the
+            urgency label.
+        urgent_pinned:
+          type: boolean
+          description: |
+            Marked urgent, still open, and no staff action since: sorted to the
+            top of the staff queue and For review. A status change or relabel
+            ends it. A linked report marked urgent pins its main report again.
         waiting_since:
           type: string
           format: date-time
@@ -2596,8 +2748,9 @@ components:
       properties:
         reason:
           type: string
-          minLength: 10
+          minLength: 1
           maxLength: 200
+          description: Not blank once spaces are trimmed.
 
     ReviewDecision:
       type: object

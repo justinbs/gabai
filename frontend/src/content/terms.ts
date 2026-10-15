@@ -1,8 +1,8 @@
 // Terms of Use and Privacy Notice shown at sign-up.
 // If the text changes, update TERMS_VERSION here and in backend/app/terms.py.
 
-export const TERMS_VERSION = "2026-10-15";
-export const TERMS_EFFECTIVE = "15 October 2026";
+export const TERMS_VERSION = "2026-10-14";
+export const TERMS_EFFECTIVE = "14 October 2026";
 
 export type Section = { heading: string; paragraphs?: string[]; items?: string[] };
 export type LegalDoc = { title: string; tagalog: string; summary: string; sections: Section[] };
@@ -41,7 +41,7 @@ export function termsOfUse(site: Site): LegalDoc {
       {
         heading: "Who can use it",
         paragraphs: [
-          "Residents of the barangay can sign up. Staff check your purok or street before your account can be used. Staff and administrator accounts are made by an administrator.",
+          "Residents of the barangay can sign up. Staff check that you live in the barangay, for example by seeing a valid ID, before your account can be used. Staff and administrator accounts are made by an administrator.",
         ],
       },
       {
@@ -104,11 +104,13 @@ export function privacyNotice(site: Site): LegalDoc {
         heading: "What we collect",
         items: [
           "Your name, email address, and purok or street.",
+          "How staff checked that you live in the barangay, for example that they saw a valid ID.",
           "Your password, stored only in a scrambled form that can't be turned back into the password.",
-          "The requests you send: what you write, the photos or files you attach, and when you sent them.",
+          "The requests you send: what you write, the photos or files you attach, where the problem is if you choose a purok or street, and when you sent them.",
+          "If you mark a request urgent, the reason you give.",
           "What happens to each request: its status, the staff member handling it, and staff notes to you.",
           "Messages the system sends you about your requests.",
-          "For actions by staff and administrators, and for accepting these terms: who did it, when, and the internet address it came from.",
+          "For signing in, wrong passwords, sending a request, marking it urgent, accepting these terms, and actions by staff and administrators: who did it, when, and the internet address it came from. The password typed at a wrong sign-in is not kept.",
         ],
       },
       {
@@ -116,6 +118,7 @@ export function privacyNotice(site: Site): LegalDoc {
         items: [
           "To confirm you live in the barangay before your account is used.",
           "To send your request to the right staff member and tell you what happens to it.",
+          "To link reports about the same problem, so everyone who reported it gets the same updates.",
           "To keep a record of who did what, so the handling of every request can be checked.",
           "To keep the system secure and working.",
         ],
@@ -132,6 +135,7 @@ export function privacyNotice(site: Site): LegalDoc {
           "You can see your own account and requests.",
           "Staff see the requests in the categories they handle, requests assigned to them, and requests waiting to be sorted.",
           "Staff and administrators see the purok or street you gave, to check you live in the barangay.",
+          "If other residents report the same problem, staff may link your report to theirs. Other residents never see your report or your name.",
           "Administrators can see every request and account, and the record of actions.",
         ],
         paragraphs: [
@@ -142,17 +146,19 @@ export function privacyNotice(site: Site): LegalDoc {
       {
         heading: "How long we keep it",
         paragraphs: [
-          "The barangay decides how long personal data is kept. Once it sets those periods, the system removes the description, notes and attachments of requests resolved or closed longer ago than that, keeping only the reference number, category and dates for the barangay's reports. It also removes the name, email and purok or street of accounts deactivated or turned down longer ago than that, and the internet addresses in the record of actions. Until the barangay sets the periods, nothing is removed automatically. Backup copies are kept for 14 days.",
+          "The barangay decides how long personal data is kept. Once it sets those periods, the system removes the description, urgent reason, notes and attachments of requests resolved or closed longer ago than that, keeping only the reference number, category and dates for the barangay's reports. It also removes the name, email and purok or street of accounts deactivated or turned down longer ago than that, and the internet addresses in the record of actions and in the record of wrong passwords. Until the barangay sets the periods, nothing is removed automatically. Backup copies are kept for 14 days.",
         ],
       },
       {
         heading: "How we protect it",
         items: [
           "Every connection to GABAI is encrypted.",
+          "Names, the purok or street you live in, request text, urgent reasons, staff notes and attached files are stored encrypted.",
+          "After 5 wrong passwords in 15 minutes, that account can't sign in for 15 minutes.",
           "Each person sees only what their role needs.",
           "The record of actions can't be changed or deleted, even by an administrator. Only the internet addresses in it are cleared after the retention period.",
           "Passwords are never stored as written.",
-          "Backups are made every night.",
+          "Backups are made every night and are encrypted before they're copied off the server.",
         ],
       },
       {
