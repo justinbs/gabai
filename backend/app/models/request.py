@@ -8,6 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 from app.db.types import EncryptedText
 from app.models.enums import RequestStatus, Urgency, request_status_enum, urgency_enum
+from app.models.referral_agency import ReferralAgency
 
 
 class Request(Base):
@@ -68,6 +69,11 @@ class Request(Base):
     # the staff queues; never changes the urgency label.
     urgent_flagged_at: Mapped[datetime | None] = mapped_column()
     urgent_reason: Mapped[str | None] = mapped_column(EncryptedText)
+    # Set while status is `referred`: who the resident should contact instead.
+    referred_agency_id: Mapped[int | None] = mapped_column(ForeignKey("referral_agencies.id"))
+    referred_agency = relationship("ReferralAgency")
+    referred_at: Mapped[datetime | None] = mapped_column()
+    referral_note: Mapped[str | None] = mapped_column(EncryptedText)
 
     status_history = relationship(
         "StatusHistoryEntry",

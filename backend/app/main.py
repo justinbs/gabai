@@ -23,6 +23,7 @@ from app.api.site import router as site_router
 from app.api.admin_categories import router as admin_categories_router
 from app.api.locations import router as locations_router
 from app.api.auth_login import router as login_router
+from app.api.agencies import router as agencies_router
 
 settings = get_settings()
 
@@ -78,6 +79,7 @@ app.include_router(registrations_router)
 app.include_router(site_router)
 app.include_router(admin_categories_router)
 app.include_router(locations_router)
+app.include_router(agencies_router)
 
 
 @app.get("/api/auth/me", response_model=UserRead, tags=["auth"])

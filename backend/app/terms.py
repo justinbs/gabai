@@ -3,4 +3,4 @@
 Must match TERMS_VERSION in frontend/src/content/terms.ts.
 """
 
-TERMS_VERSION = "2026-10-01"
+TERMS_VERSION = "2026-10-15"

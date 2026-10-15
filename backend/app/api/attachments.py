@@ -1,12 +1,13 @@
 import uuid
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status as http_status
+from fastapi import APIRouter, Depends, File, HTTPException, Request as HTTPRequest, UploadFile, status as http_status
 from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import crypto, filetypes
+from app.audit import write_audit
 from app.core.storage import UPLOAD_DIR
 from app.db.session import get_db
 from app.models.attachment import Attachment
@@ -25,6 +26,7 @@ MAX_FILE_BYTES = 5 * 1024 * 1024
 @router.post("", response_model=AttachmentRead, status_code=201)
 async def upload_attachment(
     request_id: int,
+    http_request: HTTPRequest,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(current_active_user),
@@ -68,6 +70,15 @@ async def upload_attachment(
         size_bytes=len(contents),
     )
     db.add(attachment)
+    await write_audit(
+        db,
+        actor_id=user.id,
+        action="attachment.uploaded",
+        object_type="request",
+        object_id=str(request.id),
+        detail={"type": file.content_type, "size_bytes": len(contents)},
+        ip_address=http_request.client.host if http_request.client else None,
+    )
     await db.commit()
     await db.refresh(attachment)
     return attachment

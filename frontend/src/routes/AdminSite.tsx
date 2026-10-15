@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import * as api from "../api/client";
 import { ApiError } from "../api/http";
-import type { Category, Location, ThemePreset } from "../api/types";
+import type { Agency, Category, Location, ThemePreset } from "../api/types";
 import { Button, ErrorState, Input, Loading, PageHeading } from "../components/ui";
 import { THEMES } from "../lib/themes";
 import { useAsync } from "../lib/useAsync";
@@ -39,6 +39,7 @@ export function AdminSite() {
       )}
       <Categories onSaved={say} />
       <Places onSaved={say} />
+      <Agencies onSaved={say} />
     </>
   );
 }
@@ -416,6 +417,121 @@ function PlaceRow({ place, onSaved }: { place: Location; onSaved: (text: string)
       >
         {place.is_active ? "Switch off" : "Switch on"}
       </Button>
+    </form>
+  );
+}
+
+function Agencies({ onSaved }: { onSaved: (text: string) => void }) {
+  const { state, reload } = useAsync(() => api.listAllAgencies(), []);
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const add = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!name.trim()) return;
+    setBusy(true);
+    try {
+      await api.createAgency(name);
+      onSaved(`${name.trim()} added`);
+      setName("");
+      reload();
+    } catch (err) {
+      onSaved(errorText(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Section
+      title="Agencies for referrals"
+      hint="Where staff can refer concerns the barangay doesn't handle. Enter only contact details the barangay confirmed"
+    >
+      <form onSubmit={add} className="mb-6 flex flex-wrap items-end gap-3">
+        <div className="min-w-0 flex-1">
+          <Input id="agency-new" label="Add an agency" value={name} onChange={(e) => setName(e.target.value)} maxLength={100} />
+        </div>
+        <Button type="submit" disabled={busy || !name.trim()}>
+          Add
+        </Button>
+      </form>
+      {state.status === "loading" && <Loading />}
+      {state.status === "error" && <ErrorState description={state.message} onRetry={reload} />}
+      {state.status === "ready" && (
+        <div className="grid gap-6">
+          {state.data.map((a) => (
+            <AgencyRow key={a.id} agency={a} onSaved={(t) => { onSaved(t); reload(); }} />
+          ))}
+        </div>
+      )}
+    </Section>
+  );
+}
+
+function AgencyRow({ agency, onSaved }: { agency: Agency; onSaved: (text: string) => void }) {
+  const [draft, setDraft] = useState({
+    name: agency.name,
+    phone: agency.phone ?? "",
+    hours: agency.hours ?? "",
+    website: agency.website ?? "",
+    notes: agency.notes ?? "",
+  });
+  const [busy, setBusy] = useState(false);
+  const set = (f: keyof typeof draft) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setDraft({ ...draft, [f]: e.target.value });
+
+  const save = async (changes: Parameters<typeof api.updateAgency>[1], done: string) => {
+    setBusy(true);
+    try {
+      await api.updateAgency(agency.id, changes);
+      onSaved(done);
+    } catch (err) {
+      onSaved(errorText(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!draft.name.trim()) {
+          onSaved("An agency needs a name");
+          return;
+        }
+        save(
+          {
+            name: draft.name.trim(),
+            phone: draft.phone.trim() || null,
+            hours: draft.hours.trim() || null,
+            website: draft.website.trim() || null,
+            notes: draft.notes.trim() || null,
+          },
+          `${draft.name.trim()} saved`,
+        );
+      }}
+      className={`grid gap-3 border-l-4 pl-4 ${agency.is_active ? "border-brand" : "border-rule"}`}
+    >
+      <Input id={`ag-name-${agency.id}`} label={agency.is_active ? "Name" : "Name (switched off)"} value={draft.name} onChange={set("name")} maxLength={100} />
+      <Input id={`ag-phone-${agency.id}`} label="Phone" value={draft.phone} onChange={set("phone")} maxLength={50} />
+      <Input id={`ag-hours-${agency.id}`} label="Hours" value={draft.hours} onChange={set("hours")} maxLength={100} />
+      <Input id={`ag-web-${agency.id}`} label="Website" hint="Starts with https://" value={draft.website} onChange={set("website")} maxLength={200} />
+      <Input id={`ag-notes-${agency.id}`} label="Note for residents" value={draft.notes} onChange={set("notes")} maxLength={300} />
+      <div className="flex flex-wrap gap-4">
+        <Button type="submit" disabled={busy}>
+          Save
+        </Button>
+        <Button
+          variant="secondary"
+          disabled={busy}
+          onClick={() =>
+            save({ is_active: !agency.is_active }, `${agency.name} switched ${agency.is_active ? "off" : "on"}`)
+          }
+        >
+          {agency.is_active ? "Switch off" : "Switch on"}
+        </Button>
+      </div>
     </form>
   );
 }

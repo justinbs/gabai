@@ -42,6 +42,9 @@ erDiagram
         timestamptz updated_at
         timestamptz resolved_at
         timestamptz redacted_at
+        int referred_agency_id FK
+        timestamptz referred_at
+        text referral_note
     }
     routing_rules {
         int id PK
@@ -86,6 +89,16 @@ erDiagram
         varchar ip_address
         timestamptz created_at
     }
+    referral_agencies {
+        int id PK
+        varchar name UK
+        varchar phone
+        varchar hours
+        varchar website
+        varchar notes
+        boolean is_active
+        int sort_order
+    }
 
     users ||--o{ requests : "citizen_id"
     users ||--o{ requests : "assigned_staff_id"
@@ -99,3 +112,4 @@ erDiagram
     requests ||--o{ status_history_entries : "request_id"
     users ||--o{ status_history_entries : "actor_id"
     users ||--o{ audit_log_entries : "actor_id"
+    referral_agencies ||--o{ requests : "referred_agency_id"

@@ -21,7 +21,7 @@ ADMIN = (ENV["SEED_ADMIN_EMAIL"].strip(), ENV["SEED_ADMIN_PASSWORD"].strip())
 DEMO_PW = ENV["SEED_DEMO_PASSWORD"].strip()
 STAMP = str(int(time.time()))
 results = []
-TERMS_VERSION = "2026-10-01"
+TERMS_VERSION = "2026-10-15"
 
 
 class Client:

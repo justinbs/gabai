@@ -1,6 +1,8 @@
 import { ApiError, http } from "./http";
 import type {
   AuditLogEntry,
+  Agency,
+  AgencyUpdate,
   Category,
   CategoryUpdate,
   DuplicateSuggestion,
@@ -420,3 +422,20 @@ export const listAllCategories = () => http.get<Category[]>("/api/admin/categori
 // Throws ApiError 409 when it would switch off the last category that's on.
 export const updateCategory = (id: number, changes: CategoryUpdate) =>
   http.patch<Category>(`/api/admin/categories/${id}`, changes);
+
+// ------------------------------------------------------- referrals --------
+
+export const listAgencies = () => http.get<Agency[]>("/api/agencies");
+export const listAllAgencies = () => http.get<Agency[]>("/api/admin/agencies");
+export const createAgency = (name: string) =>
+  http.post<Agency>("/api/admin/agencies", { name: name.trim() });
+export const updateAgency = (id: number, changes: AgencyUpdate) =>
+  http.patch<Agency>(`/api/admin/agencies/${id}`, changes);
+
+export const referRequest = (id: number, agencyId: number, note: string) =>
+  http.put<ServiceRequest>(`/api/requests/${id}/referral`, {
+    agency_id: agencyId,
+    note: note.trim() || null,
+  });
+export const takeBackReferral = (id: number) =>
+  http.del<ServiceRequest>(`/api/requests/${id}/referral`);

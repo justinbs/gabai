@@ -44,7 +44,7 @@ from app.models.user import ApprovalStatus, Role, User
 
 settings = get_settings()
 
-FINISHED = (RequestStatus.resolved, RequestStatus.closed)
+FINISHED = (RequestStatus.resolved, RequestStatus.closed, RequestStatus.referred)
 
 
 async def _redact_requests(db: AsyncSession, now: datetime, days: int) -> dict:
@@ -77,6 +77,11 @@ async def _redact_requests(db: AsyncSession, now: datetime, days: int) -> dict:
         update(Request)
         .where(Request.id.in_(ids))
         .values(description=REDACTED_TEXT, redacted_at=now)
+    )
+    await db.execute(
+        update(Request)
+        .where(Request.id.in_(ids), Request.referral_note.is_not(None))
+        .values(referral_note=REDACTED_TEXT)
     )
     # Files go after the rows are staged but are only removed once the caller
     # commits, see _remove_files.

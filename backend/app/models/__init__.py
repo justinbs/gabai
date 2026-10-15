@@ -5,6 +5,7 @@ from app.models.duplicate import DuplicateSuggestion  # noqa: F401
 from app.models.location import Location  # noqa: F401
 from app.models.enums import RequestStatus, Urgency  # noqa: F401
 from app.models.notification import Notification  # noqa: F401
+from app.models.referral_agency import ReferralAgency  # noqa: F401
 from app.models.request import Request  # noqa: F401
 from app.models.routing_rule import RoutingRule  # noqa: F401
 from app.models.sign_in_failure import SignInFailure  # noqa: F401

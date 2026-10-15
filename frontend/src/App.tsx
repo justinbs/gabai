@@ -19,6 +19,7 @@ import { AdminRouting } from "./routes/AdminRouting";
 import { AdminUsers } from "./routes/AdminUsers";
 import { Register } from "./routes/Register";
 import { Submit } from "./routes/Submit";
+import { Referred } from "./routes/Referred";
 import { SessionProvider } from "./session";
 import { useSession } from "./session-context";
 import type { Role, User } from "./api/types";
@@ -83,6 +84,7 @@ export default function App() {
             <Route path="/queue" element={<StaffQueue />} />
             <Route path="/review" element={<ReviewQueue />} />
             <Route path="/sign-ups" element={<SignUps />} />
+            <Route path="/referred" element={<Referred />} />
           </Route>
 
           <Route element={<Protected roles={ADMIN} />}>

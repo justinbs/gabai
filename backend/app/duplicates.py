@@ -39,6 +39,7 @@ LEGAL_TRANSITIONS: dict[RequestStatus, RequestStatus] = {
     RequestStatus.routed: RequestStatus.in_progress,
     RequestStatus.in_progress: RequestStatus.resolved,
     RequestStatus.resolved: RequestStatus.closed,
+    RequestStatus.referred: RequestStatus.closed,
 }
 # How far along a report is. Everything before routing counts as 0.
 RANK = {RequestStatus.routed: 1, RequestStatus.in_progress: 2, RequestStatus.resolved: 3, RequestStatus.closed: 4}
@@ -122,6 +123,8 @@ async def link(db: AsyncSession, child: Request, main: Request, actor_id: uuid.U
     # The classifier would overwrite a link made while it's still working.
     if RequestStatus.submitted in (child.status, main.status):
         raise _conflict("Still being sorted, try again in a minute")
+    if RequestStatus.referred in (child.status, main.status):
+        raise _conflict("A referred report can't be linked")
     if child.duplicate_of_id is not None:
         raise _conflict("This report is already linked")
     if main.duplicate_of_id is not None:

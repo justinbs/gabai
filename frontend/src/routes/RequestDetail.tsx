@@ -19,6 +19,7 @@ import { citizenStatus, citizenStatusNote } from "../lib/citizenStatus";
 import { STAFF_STATUS_LABELS, URGENCY_LABELS } from "../api/types";
 import { ApiError } from "../api/http";
 import type {
+  Agency,
   Category,
   DuplicateSuggestion,
   RequestStatus,
@@ -95,6 +96,7 @@ function Detail({
       </div>
 
       {!isStaff && <ResidentUpdate request={request} />}
+      {!isStaff && <ReferralBox request={request} />}
       {!isStaff && <UrgentFlag request={request} onChanged={onChanged} />}
       {!isStaff && request.duplicate_of && (
         <p className="mb-5 border-l-4 border-rule py-1 pl-4">
@@ -451,6 +453,7 @@ function SameProblem({ request, onChanged }: { request: ServiceRequest; onChange
 
 function ResidentUpdate({ request }: { request: ServiceRequest }) {
   const note = citizenStatusNote(request);
+  if (request.status === "referred") return null;
 
   const line =
     request.status === "submitted" || request.status === "classified"
@@ -581,6 +584,7 @@ const NEXT_STATUS: Partial<Record<RequestStatus, { to: NextStatus; label: string
   routed: { to: "in_progress", label: "Mark in progress" },
   in_progress: { to: "resolved", label: "Mark resolved" },
   resolved: { to: "closed", label: "Close" },
+  referred: { to: "closed", label: "Close" },
 };
 
 function StaffActions({
@@ -667,12 +671,13 @@ function StaffActions({
         request={request}
         user={user}
         note={note}
-        disabled={finished}
+        disabled={finished || request.status === "referred"}
         onSaved={() => {
           setNote("");
           onChanged();
         }}
       />
+      <Referral request={request} onChanged={onChanged} />
     </section>
   );
 }
@@ -750,7 +755,9 @@ function Reclassify({
           onClick={() => setOpen(true)}
         >
           {disabled
-            ? "Finished, cannot change"
+            ? request.status === "referred"
+              ? "Take the referral back first"
+              : "Finished, cannot change"
             : "Correct the classification"}
         </Button>
       ) : (
@@ -803,6 +810,192 @@ function Reclassify({
               onClick={save}
             >
               {busy ? "Saving" : "Save classification"}
+            </Button>
+            <Button variant="secondary" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ReferralBox({ request }: { request: ServiceRequest }) {
+  const agency = request.referred_agency;
+  if (request.status !== "referred" || !agency) return null;
+  return (
+    <section className="mb-5 border-l-4 border-brand pl-4">
+      <h2 className="text-[24px] font-bold">Please contact {agency.name}</h2>
+      <p className="text-muted">Mangyaring makipag-ugnayan sa {agency.name}</p>
+      <p className="mt-2 text-[19px]">
+        This concern is handled by {agency.name}, not the barangay. The barangay has not sent
+        your report to them.
+      </p>
+      <p className="text-muted">
+        Ang concern na ito ay hawak ng {agency.name}, hindi ng barangay. Hindi ipinadala ng
+        barangay ang inyong report sa kanila.
+      </p>
+      <dl className="mt-3 grid max-w-md grid-cols-[auto_1fr] gap-x-6 gap-y-1">
+        {agency.phone && (
+          <>
+            <dt className="text-muted">Phone</dt>
+            <dd>
+              <a href={`tel:${agency.phone}`} className={`text-link underline ${FOCUS_LINK}`}>
+                {agency.phone}
+              </a>
+            </dd>
+          </>
+        )}
+        {agency.hours && (
+          <>
+            <dt className="text-muted">Hours</dt>
+            <dd>{agency.hours}</dd>
+          </>
+        )}
+        {agency.website && (
+          <>
+            <dt className="text-muted">Website</dt>
+            <dd className="break-all">
+              <a
+                href={agency.website}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`text-link underline ${FOCUS_LINK}`}
+              >
+                {agency.website}
+              </a>
+            </dd>
+          </>
+        )}
+        {agency.notes && (
+          <>
+            <dt className="text-muted">Note</dt>
+            <dd>{agency.notes}</dd>
+          </>
+        )}
+      </dl>
+      {!agency.phone && !agency.website && (
+        <p className="mt-2 text-muted">
+          Ask at the barangay hall for their contact details · Magtanong po sa barangay hall
+        </p>
+      )}
+      {request.referral_note && <p className="mt-3">Staff note: {request.referral_note}</p>}
+      <p className="mt-3 font-bold">
+        In an emergency, call 911 or go to the barangay hall right away.
+        <span className="block font-normal text-muted">
+          Kung emergency, tumawag sa 911 o pumunta agad sa barangay hall.
+        </span>
+      </p>
+    </section>
+  );
+}
+
+const REFERRABLE: RequestStatus[] = ["submitted", "under_review", "routed"];
+
+function Referral({ request, onChanged }: { request: ServiceRequest; onChanged: () => void }) {
+  const { state } = useAsync<Agency[]>(() => api.listAgencies(), []);
+  const [open, setOpen] = useState(false);
+  const [agencyId, setAgencyId] = useState<number | "">("");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState("");
+
+  const agencies = state.status === "ready" ? state.data : [];
+
+  const run = async (work: () => Promise<unknown>, done: string) => {
+    setBusy(true);
+    setResult("");
+    try {
+      await work();
+      setResult(done);
+      onChanged();
+    } catch (err) {
+      setResult(
+        err instanceof ApiError && err.status !== 500 ? err.message : "Didn't save, try again",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (request.status === "referred") {
+    return (
+      <div className="mt-6 border-t border-rule pt-4">
+        <h3 className="font-medium text-ink">Referred to {request.referred_agency?.name}</h3>
+        <p className="mt-1 text-sm text-muted">
+          The resident was told to contact them. Close it when it's settled, or take it back if
+          the barangay should handle it.
+        </p>
+        <Button
+          variant="secondary"
+          className="mt-3"
+          disabled={busy}
+          onClick={() => run(() => api.takeBackReferral(request.id), "Taken back")}
+        >
+          Handle it here instead
+        </Button>
+        <p role="status" aria-live="polite" className={result ? "mt-2 text-sm" : "sr-only"}>
+          {result}
+        </p>
+      </div>
+    );
+  }
+
+  if (!REFERRABLE.includes(request.status) || request.linked_count > 0) return null;
+
+  return (
+    <div className="mt-6 border-t border-rule pt-4">
+      <p role="status" aria-live="polite" className={result ? "mb-3 text-sm" : "sr-only"}>
+        {result}
+      </p>
+      {!open ? (
+        <Button
+          variant="secondary"
+          disabled={state.status !== "ready"}
+          onClick={() => setOpen(true)}
+        >
+          Refer to another agency
+        </Button>
+      ) : (
+        <>
+          <h3 className="font-medium text-ink">Refer to another agency</h3>
+          <p className="mt-1 text-sm text-muted">
+            For concerns the barangay doesn't handle. The resident is told whom to contact.
+            Nothing is sent to the agency.
+          </p>
+          <div className="mt-4 grid gap-4">
+            <Select
+              name="agency"
+              label="Agency"
+              value={agencyId}
+              onChange={(e) => setAgencyId(e.target.value === "" ? "" : Number(e.target.value))}
+            >
+              <option value="">Choose</option>
+              {agencies.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </Select>
+            <Textarea
+              name="referral-note"
+              label="Note"
+              hint="Optional, shown to the resident"
+              rows={3}
+              maxLength={500}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+            />
+          </div>
+          <div className="mt-4 flex gap-3">
+            <Button
+              disabled={busy || agencyId === ""}
+              onClick={() =>
+                run(() => api.referRequest(request.id, Number(agencyId), note), "Referred")
+              }
+            >
+              {busy ? "Saving" : "Refer"}
             </Button>
             <Button variant="secondary" onClick={() => setOpen(false)}>
               Cancel

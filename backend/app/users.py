@@ -57,14 +57,14 @@ async def get_user_manager(user_db: SQLAlchemyUserDatabase = Depends(get_user_db
 
 cookie_transport = CookieTransport(
     cookie_name="gabai_session",
-    cookie_max_age=3600 * 24 * 7,
+    cookie_max_age=3600 * 8,
     cookie_secure=settings.environment != "development",
     cookie_samesite="lax",
 )
 
 
 def get_jwt_strategy() -> JWTStrategy:
-    return JWTStrategy(secret=settings.secret_key, lifetime_seconds=3600 * 24 * 7)
+    return JWTStrategy(secret=settings.secret_key, lifetime_seconds=3600 * 8)
 
 
 auth_backend = AuthenticationBackend(

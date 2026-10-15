@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, field_validator, Field
 
 from app.models.enums import RequestStatus, Urgency
 from app.schemas.attachment import AttachmentRead
@@ -101,6 +101,43 @@ class StatusHistoryEntryRead(BaseModel):
     created_at: datetime
 
 
+class AgencyRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    phone: str | None
+    hours: str | None
+    website: str | None
+    notes: str | None
+    is_active: bool
+    sort_order: int
+
+
+class AgencyCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    sort_order: int = 0
+
+
+class AgencyUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    phone: str | None = Field(default=None, max_length=50)
+    hours: str | None = Field(default=None, max_length=100)
+    website: str | None = Field(default=None, max_length=200)
+    notes: str | None = Field(default=None, max_length=300)
+    is_active: bool | None = None
+    sort_order: int | None = None
+
+    @field_validator("website")
+    @classmethod
+    def web_address(cls, value):
+        # Shown as a link to residents, so only http(s).
+        if value and value.strip() and not value.strip().lower().startswith(("http://", "https://")):
+            raise ValueError("The website must start with http:// or https://")
+        return value
+
+
+
 class RequestRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -133,6 +170,13 @@ class RequestRead(BaseModel):
     linked_count: int
     attachments: list[AttachmentRead]
     status_history: list[StatusHistoryEntryRead]
+    referred_agency: AgencyRead | None = None
+    referred_at: datetime | None = None 
+    referral_note: str | None = None 
+
+class ReferralCreate(BaseModel):
+    agency_id: int
+    note: str | None = Field(default=None, max_length=500)
 
 
 class RequestSummary(BaseModel):
@@ -154,6 +198,7 @@ class RequestSummary(BaseModel):
     location: LocationRead | None
     duplicate_of: RequestRef | None
     linked_count: int
+    referred_agency: AgencyRead | None = None
 
 
 class PaginatedRequests(BaseModel):
