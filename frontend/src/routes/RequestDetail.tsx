@@ -23,6 +23,7 @@ import type {
   Category,
   DuplicateSuggestion,
   RequestStatus,
+  SameProblemReport,
   ServiceRequest,
   Urgency,
   User,
@@ -127,6 +128,12 @@ function Detail({
                 <dt className="text-muted">Submitted</dt>
                 <dd className="text-ink">{fullDate(request.created_at)}</dd>
               </div>
+              {request.location && (
+                <div>
+                  <dt className="text-muted">Place</dt>
+                  <dd className="text-ink">{request.location.name}</dd>
+                </div>
+              )}
               <div>
                 <dt className="text-muted">Category</dt>
                 <dd className="text-ink">
@@ -251,8 +258,8 @@ function UrgentFlag({ request, onChanged }: { request: ServiceRequest; onChanged
   if (request.urgent_flagged_at) {
     return (
       <p className="mb-5 border-l-4 border-rule py-1 pl-4">
-        You marked this as urgent. Staff see it first.
-        <span className="block text-muted">Minarkahan ninyo itong urgent. Ito ang unang makikita ng staff.</span>
+        You marked this urgent
+        <span className="block text-muted">Minarkahan ninyo itong urgent</span>
       </p>
     );
   }
@@ -270,8 +277,8 @@ function UrgentFlag({ request, onChanged }: { request: ServiceRequest; onChanged
 
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (reason.trim().length < 10) {
-      setError("Say why in at least 10 characters · Sabihin kung bakit, kahit 10 titik");
+    if (!reason.trim()) {
+      setError("Say why it's urgent · Sabihin kung bakit urgent");
       return;
     }
     setBusy(true);
@@ -316,15 +323,34 @@ function UrgentFlag({ request, onChanged }: { request: ServiceRequest; onChanged
 // Linking reports about one problem, so staff act once for everyone who reported it.
 function SameProblem({ request, onChanged }: { request: ServiceRequest; onChanged: () => void }) {
   const [suggestions, setSuggestions] = useState<DuplicateSuggestion[]>([]);
+  const [others, setOthers] = useState<SameProblemReport[]>([]);
+  const [picked, setPicked] = useState<Set<number>>(new Set());
+  const [showUnlikely, setShowUnlikely] = useState(false);
+  const [showManual, setShowManual] = useState(false);
   const [reference, setReference] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const heading = useRef<HTMLHeadingElement>(null);
   const open = OPEN_STATUSES.includes(request.status);
 
   useEffect(() => {
     if (request.duplicate_of || !open) return;
     api.listDuplicateSuggestions(request.id).then(setSuggestions).catch(() => setSuggestions([]));
-  }, [request.id, request.duplicate_of, open]);
+    api
+      .listSameProblem(request.id)
+      .then((rows) => {
+        setOthers(rows);
+        setPicked(new Set(rows.filter((r) => r.likely).map((r) => r.id)));
+        // Opened from the surge notice.
+        if (rows.length > 0 && window.location.hash === "#same-problem") {
+          setTimeout(() => {
+            heading.current?.scrollIntoView({ block: "start" });
+            heading.current?.focus();
+          }, 0);
+        }
+      })
+      .catch(() => setOthers([]));
+  }, [request.id, request.duplicate_of, open, request.linked_count]);
 
   const act = async (work: () => Promise<unknown>, done: string) => {
     setBusy(true);
@@ -340,6 +366,34 @@ function SameProblem({ request, onChanged }: { request: ServiceRequest; onChange
     }
   };
 
+  const linkPicked = async () => {
+    setBusy(true);
+    setMessage("");
+    try {
+      const notSame = others.filter((r) => r.likely && !picked.has(r.id)).map((r) => r.id);
+      const result = await api.linkReports(request.id, [...picked], notSame);
+      setMessage(
+        [
+          `Linked ${result.linked.length} ${result.linked.length === 1 ? "report" : "reports"}`,
+          ...result.skipped.map((s) => `Not linked, ${s.reference_number}: ${s.reason}`),
+        ].join("\n"),
+      );
+      onChanged();
+    } catch (err) {
+      setMessage(err instanceof ApiError && err.status !== 500 ? err.message : "Didn't save, try again");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggle = (id: number) =>
+    setPicked((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
   if (request.duplicate_of) {
     return (
       <section className="border-t-2 border-ink pt-5">
@@ -349,7 +403,7 @@ function SameProblem({ request, onChanged }: { request: ServiceRequest; onChange
           <Link to={`/requests/${request.duplicate_of.id}`} className={`font-bold text-link underline ${FOCUS_LINK}`}>
             {request.duplicate_of.reference_number}
           </Link>
-          . Update that one; this report and its resident follow it.
+          . Update that one instead
         </p>
         <Button
           variant="secondary"
@@ -366,9 +420,17 @@ function SameProblem({ request, onChanged }: { request: ServiceRequest; onChange
 
   if (!open && request.linked_count === 0) return null;
 
+  const likely = others.filter((r) => r.likely);
+  const unlikely = others.filter((r) => !r.likely);
+  const shown = showUnlikely ? others : likely;
+  const linkHere = others.length > 0 && (likely.length > 0 || suggestions.length === 0);
+  const linkEarlier = suggestions.length > 0 && likely.length === 0;
+
   return (
     <section className="border-t-2 border-ink pt-5">
-      <h2 className="text-[24px] font-bold">Same problem</h2>
+      <h2 id="same-problem" ref={heading} tabIndex={-1} className="text-[24px] font-bold focus:outline-none">
+        Same problem
+      </h2>
       {request.linked_count > 0 && (
         <p className="mt-2">
           {request.linked_count} other {request.linked_count === 1 ? "report follows" : "reports follow"} this one:{" "}
@@ -380,13 +442,78 @@ function SameProblem({ request, onChanged }: { request: ServiceRequest; onChange
               </Link>
             </span>
           ))}
-          . Status changes here reach them too.
+
         </p>
       )}
 
-      {open && suggestions.length > 0 && (
+      {open && linkHere && (
         <div className="mt-4">
-          <h3 className="font-bold">Possible duplicates</h3>
+          {likely.length > 0 && (
+            <>
+              <h3 className="font-bold">
+                {likely.length} other {likely.length === 1 ? "report looks" : "reports look"} like the same problem
+              </h3>
+              <p className="text-muted">Untick any that aren't the same problem</p>
+            </>
+          )}
+          {showUnlikely && likely.length === 0 && (
+            <p className="text-muted">Tick any that are the same problem</p>
+          )}
+          {shown.length > 0 && (
+            <ul className="mt-2 space-y-3">
+              {shown.map((r) => (
+                <li key={r.id} className="flex items-start gap-3">
+                  <input
+                    id={`same-${r.id}`}
+                    type="checkbox"
+                    checked={picked.has(r.id)}
+                    onChange={() => toggle(r.id)}
+                    className="mt-1 h-6 w-6 shrink-0 accent-brand"
+                  />
+                  <label htmlFor={`same-${r.id}`}>
+                    <span className="font-bold">{r.reference_number}</span>
+                    <span className="text-muted"> · {timeAgo(r.created_at)}</span>
+                    <span className="block line-clamp-2">{r.description}</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          )}
+          {unlikely.length > 0 && !showUnlikely && (
+            <button
+              type="button"
+              onClick={() => setShowUnlikely(true)}
+              className={`mt-3 text-link underline ${FOCUS_LINK}`}
+            >
+              Show {unlikely.length} other open {unlikely.length === 1 ? "report" : "reports"} in the same category or place
+            </button>
+          )}
+          {picked.size > 0 && (
+            <div className="mt-3 flex flex-wrap gap-3">
+              <Button disabled={busy} onClick={linkPicked}>
+                Link {picked.size} {picked.size === 1 ? "report" : "reports"} to this one
+              </Button>
+              <Button variant="secondary" disabled={busy} onClick={() => setPicked(new Set())}>
+                Untick all
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {open && linkEarlier && (
+        <div className="mt-6">
+          <h3 className="font-bold">An earlier report may be the same problem</h3>
+          <p className="text-muted">
+            Link this one to it, or{" "}
+            <Link
+              to={`/requests/${suggestions[0].candidate.id}#same-problem`}
+              className={`text-link underline ${FOCUS_LINK}`}
+            >
+              open {suggestions[0].candidate.reference_number}
+            </Link>{" "}
+            to link every report about it at once
+          </p>
           <ul className="mt-2 space-y-3">
             {suggestions.map((s) => (
               <li key={s.id} className="border-l-4 border-rule pl-3">
@@ -405,7 +532,7 @@ function SameProblem({ request, onChanged }: { request: ServiceRequest; onChange
                       )
                     }
                   >
-                    Link
+                    Link this report to it
                   </Button>
                   <Button
                     variant="secondary"
@@ -421,7 +548,16 @@ function SameProblem({ request, onChanged }: { request: ServiceRequest; onChange
         </div>
       )}
 
-      {open && request.linked_count === 0 && (
+      {open && request.linked_count === 0 && !showManual && (
+        <button
+          type="button"
+          onClick={() => setShowManual(true)}
+          className={`mt-4 block text-link underline ${FOCUS_LINK}`}
+        >
+          Link to a report that isn't listed
+        </button>
+      )}
+      {open && request.linked_count === 0 && showManual && (
         <form
           className="mt-4 flex flex-wrap items-end gap-3"
           onSubmit={(e) => {
@@ -431,7 +567,7 @@ function SameProblem({ request, onChanged }: { request: ServiceRequest; onChange
         >
           <div>
             <label htmlFor="link-reference" className="block font-bold">
-              Link to another report about the same problem
+              Reference number of the main report
             </label>
             <input
               id="link-reference"
@@ -446,7 +582,7 @@ function SameProblem({ request, onChanged }: { request: ServiceRequest; onChange
           </Button>
         </form>
       )}
-      <p role="status" className={message ? "mt-3 font-bold" : "sr-only"}>{message}</p>
+      <p role="status" className={message ? "mt-3 whitespace-pre-line font-bold" : "sr-only"}>{message}</p>
     </section>
   );
 }
@@ -646,7 +782,11 @@ function StaffActions({
             <Textarea
               name="note"
               label="Note"
-              hint="Optional, will be sent to the resident"
+              hint={
+                request.linked_count > 0
+                  ? "Optional, sent to everyone who reported this"
+                  : "Optional, will be sent to the resident"
+              }
               rows={3}
               maxLength={2000}
               value={note}
@@ -698,8 +838,8 @@ function Reclassify({
   const { state } = useAsync<Category[]>(() => api.getCategories(), []);
   const unlabelled = request.status === "under_review" || request.status === "submitted";
   const [open, setOpen] = useState(unlabelled);
-  const [categoryId, setCategoryId] = useState<number | "">("");
-  const [urgency, setUrgency] = useState<Urgency | "">("");
+  const [categoryId, setCategoryId] = useState<number | "">(request.category?.id ?? "");
+  const [urgency, setUrgency] = useState<Urgency | "">(request.urgency ?? "");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState("");
 
@@ -707,7 +847,10 @@ function Reclassify({
 
   const save = async () => {
     const category = categories.find((c) => c.id === categoryId);
-    if (!category || urgency === "") return;
+    if (!category || urgency === "") {
+      setResult("Choose a category and urgency");
+      return;
+    }
 
     const previousHandler = request.assigned_staff?.id;
     setBusy(true);
@@ -775,7 +918,7 @@ function Reclassify({
             <Select
               name="category"
               label="Category"
-              value={categoryId}
+              value={categories.some((c) => c.id === categoryId) ? categoryId : ""}
               disabled={state.status !== "ready"}
               onChange={(e) =>
                 setCategoryId(e.target.value === "" ? "" : Number(e.target.value))

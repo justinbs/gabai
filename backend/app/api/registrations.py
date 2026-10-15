@@ -5,10 +5,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request as HTTPReq
 from sqlalchemy import func as sqlfunc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import mail
 from app.audit import write_audit
 from app.core.config import get_settings
 from app.db.session import get_db
-from app.models.user import ApprovalStatus, Role, User
+from app.models.user import ApprovalStatus, Role, User, VerificationMethod
 from app.schemas.user import PaginatedUsers, RegistrationDecision, UserRead
 from app.users import require_role
 
@@ -61,14 +62,17 @@ async def decide_registration(
         )
 
     decision = ApprovalStatus(payload.approval_status)
+    # An ID seen in person is enough on its own, so a mistyped email doesn't
+    # keep a resident out. Password reset still needs a confirmed email.
     if (
         decision == ApprovalStatus.approved
         and settings.require_verified_email
         and not target.is_verified
+        and payload.verification_method != VerificationMethod.id_in_person
     ):
         raise HTTPException(
             status_code=http_status.HTTP_409_CONFLICT,
-            detail="Their email isn't confirmed yet",
+            detail="Their email isn't confirmed yet, approve once it is or once you've seen their ID",
         )
     if target.approval_status != decision:
         target.approval_status = decision
@@ -87,4 +91,8 @@ async def decide_registration(
         )
         await db.commit()
         await db.refresh(target)
+        # Only to a confirmed address; a mistyped one would reach a stranger.
+        if approving and target.is_verified:
+            login = f"{settings.public_url.rstrip('/')}/login"
+            mail.send_later(target.email, *mail.approved_email(target.full_name, login))
     return target

@@ -9,9 +9,10 @@ choose, not the code's, so the default is to keep everything.
 
 This redacts rather than deletes. A finished request keeps its category,
 urgency, status, reference number and timestamps, which is what reporting and
-the audit trail need, and loses the resident's own words, the staff notes and
-the attachments. A removed account keeps its id, so every log entry that names
-it still points at a row, and loses its name, email and residence. No foreign key
+the audit trail need, and loses the resident's own words, the urgent reason, the
+staff notes and the attachments. A removed account keeps its id, so every log
+entry that names it still points at a row, and loses its name, email and
+residence. No foreign key
 is broken and neither log loses an entry: the append-only triggers allow exactly
 the two changes made here.
 
@@ -76,7 +77,7 @@ async def _redact_requests(db: AsyncSession, now: datetime, days: int) -> dict:
     await db.execute(
         update(Request)
         .where(Request.id.in_(ids))
-        .values(description=REDACTED_TEXT, redacted_at=now)
+        .values(description=REDACTED_TEXT, urgent_reason=None, redacted_at=now)
     )
     await db.execute(
         update(Request)

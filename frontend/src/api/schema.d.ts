@@ -942,7 +942,8 @@ export interface paths {
          * Possible duplicates of this report
          * @description Staff and admins, within their scope. Open, unlinked reports from the
          *     72 hours before this one, in the same category (and place, when both
-         *     have one), with at least 30% of their distinct words in common. Staff
+         *     have one), with at least 30% of their distinct words in common, and
+         *     at least as far along as this one, since only those can take it. Staff
          *     decide; nothing is linked automatically.
          */
         get: {
@@ -972,6 +973,114 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/requests/{request_id}/same-problem": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: components["parameters"]["RequestId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Other reports that could be linked to this one
+         * @description Staff and admins, within their scope. For an open main report: open,
+         *     unlinked reports from the 72 hours either side, not further along and
+         *     with no reports of their own linked, whose place matches when both have
+         *     one. Listed when 30% or more of distinct words match (`likely`, ticked
+         *     at the start, whatever category the model gave them), or when in the
+         *     same category, or the same place within the hour (unticked). Pairs
+         *     staff marked as not the same are left out.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    request_id: components["parameters"]["RequestId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Most alike first. Empty for a linked or finished report. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SameProblemReport"][];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/requests/{request_id}/linked-reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: components["parameters"]["RequestId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Link several reports to this one at once
+         * @description Staff and admins. Each listed report is linked as with
+         *     `PUT /api/requests/{id}/duplicate-of`, in one transaction. A report
+         *     that can't be linked is skipped with the reason instead of failing the
+         *     rest, and one not visible to the caller is skipped as not found. Each
+         *     resident gets one notice, however many of their reports were linked.
+         *     One audit row, `request.linked`, per report.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    request_id: components["parameters"]["RequestId"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["LinkReports"];
+                };
+            };
+            responses: {
+                /** @description What was linked and what was skipped. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LinkReportsResult"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                422: components["responses"]["ValidationError"];
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -1043,10 +1152,12 @@ export interface paths {
          * @description Staff and admins. This report takes the main report's labels and
          *     handler and is brought up to its status through the allowed steps, one
          *     history row each. It then leaves the queues and follows every later
-         *     status change. One level only. Refused when the main report is itself
-         *     linked or closed, when this report has reports linked to it, or when
-         *     this report is further along than the main one. Writes an audit row,
-         *     `request.linked`, and notifies the resident.
+         *     status change, with the staff note. One level only. A report still
+         *     being sorted goes to review first, so the classifier leaves it alone.
+         *     Refused when the main report is itself linked, closed or not sorted
+         *     yet, when this report has reports linked to it, or when this report is
+         *     further along than the main one. Writes an audit row, `request.linked`,
+         *     and notifies the resident.
          */
         put: {
             parameters: {
@@ -1100,8 +1211,10 @@ export interface paths {
         post?: never;
         /**
          * Undo a link
-         * @description While the main report is open. The report keeps its current labels and
-         *     status and returns to the queues. Writes an audit row, `request.unlinked`.
+         * @description At any time. The report keeps its labels and status and returns to the
+         *     queues. If the link had carried it to resolved or closed, it goes back
+         *     to For review with no handler and the resident is told. Writes an audit
+         *     row, `request.unlinked`.
          */
         delete: {
             parameters: {
@@ -1126,7 +1239,7 @@ export interface paths {
                 401: components["responses"]["Unauthorized"];
                 403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
-                /** @description Not linked, or the main report is finished. */
+                /** @description Not linked. */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -1150,7 +1263,8 @@ export interface paths {
         /**
          * Many reports about one problem in the last hour
          * @description Staff and admins, within their scope. Five or more unlinked reports in
-         *     one category (and place, when listed) within the last hour.
+         *     one category (and place, when listed) within the last hour, with the
+         *     report to link the others to.
          */
         get: {
             parameters: {
@@ -2956,9 +3070,9 @@ export interface components {
             /** @description Free text in Filipino, English, or a mix. */
             description: string;
             /**
-             * @description Where the problem is, from `GET /api/locations`. Required once the
-             *     admin has listed any place; 422 if missing then, or if the place is
-             *     switched off.
+             * @description Where the problem is, from `GET /api/locations`. Optional: the form
+             *     asks once places are listed, with "Not on the list", which sends
+             *     null. 422 if the place is switched off.
              */
             location_id?: number | null;
         };
@@ -3007,12 +3121,46 @@ export interface components {
                 created_at: string;
             };
         };
+        SameProblemReport: {
+            id: number;
+            reference_number: string;
+            description: string;
+            status: components["schemas"]["RequestStatus"];
+            /** Format: date-time */
+            created_at: string;
+            /**
+             * Format: float
+             * @description Share of distinct words in common with the main report.
+             */
+            score: number;
+            /** @description Score of 0.3 or more, any category. Ticked at the start on the screen. */
+            likely: boolean;
+        };
+        LinkReports: {
+            request_ids: number[];
+            /**
+             * @description Reports listed as likely but unticked. Recorded as not the same
+             *     problem, with an audit row `request.duplicate_dismissed` each, so
+             *     they aren't listed against this report again.
+             */
+            not_same?: number[];
+        };
+        LinkReportsResult: {
+            linked: components["schemas"]["RequestRef"][];
+            skipped: {
+                id: number;
+                reference_number: string;
+                reason: string;
+            }[];
+        };
         Surge: {
             category: components["schemas"]["Category"];
             location: components["schemas"]["Location"] | null;
             count: number;
             /** Format: date-time */
             since: string;
+            /** @description The report to open and link the others to, the one furthest along and then the oldest. Null while all are still being sorted. */
+            main: components["schemas"]["RequestRef"] | null;
         };
         /** @description List rows. Enough for the staff queue without loading history. */
         RequestSummary: {
@@ -3039,11 +3187,16 @@ export interface components {
             created_at: string;
             /**
              * Format: date-time
-             * @description When the resident marked it urgent. Set once; pins the request to the
-             *     top of the staff queue and For review while it is open. Never changes
-             *     the urgency label.
+             * @description When the resident marked it urgent. Set once. Never changes the
+             *     urgency label.
              */
             urgent_flagged_at: string | null;
+            /**
+             * @description Marked urgent, still open, and no staff action since: sorted to the
+             *     top of the staff queue and For review. A status change or relabel
+             *     ends it. A linked report marked urgent pins its main report again.
+             */
+            urgent_pinned: boolean;
             /**
              * Format: date-time
              * @description The last status change, or when it was submitted.
@@ -3121,11 +3274,16 @@ export interface components {
             resolved_at: string | null;
             /**
              * Format: date-time
-             * @description When the resident marked it urgent. Set once; pins the request to the
-             *     top of the staff queue and For review while it is open. Never changes
-             *     the urgency label.
+             * @description When the resident marked it urgent. Set once. Never changes the
+             *     urgency label.
              */
             urgent_flagged_at: string | null;
+            /**
+             * @description Marked urgent, still open, and no staff action since: sorted to the
+             *     top of the staff queue and For review. A status change or relabel
+             *     ends it. A linked report marked urgent pins its main report again.
+             */
+            urgent_pinned: boolean;
             /**
              * Format: date-time
              * @description The last status change, or when it was submitted.
@@ -3183,6 +3341,7 @@ export interface components {
             created_at: string;
         };
         UrgentFlag: {
+            /** @description Not blank once spaces are trimmed. */
             reason: string;
         };
         ReviewDecision: {

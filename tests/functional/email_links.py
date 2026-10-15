@@ -75,7 +75,7 @@ async def settle():
 async def login(c, email, pw):
     r = await c.post("/api/auth/login", data={"username": email, "password": pw})
     if r.status_code == 204:
-        await c.post("/api/auth/terms", json={"version": "2026-10-15"})
+        await c.post("/api/auth/terms", json={"version": "2026-10-14"})
     return r.status_code
 
 
@@ -84,7 +84,7 @@ async def main():
     async with client() as anon, client() as res, client() as staff, client() as admin:
         # --- sign-up sends the confirmation email --------------------------------
         r = await anon.post("/api/auth/register", json={
-            "email": email, "password": "kalsada-butas-9", "full_name": "Juan Dela Cruz", "residence": "Purok 2", "terms_version": "2026-10-15"})
+            "email": email, "password": "kalsada-butas-9", "full_name": "Juan Dela Cruz", "residence": "Purok 2", "terms_version": "2026-10-14"})
         await settle()
         check("sign-up works and starts unconfirmed", (r.status_code, r.json()["is_verified"]), (201, False))
         sent = mails_to(email)
@@ -102,12 +102,11 @@ async def main():
         check("resend inside two minutes is still 202", r.status_code, 202)
         check("but no second email", len(mails_to(email)), 1)
 
-        # --- staff can't approve until it's confirmed -----------------------------
+        # --- staff can't approve until it's confirmed, unless they saw an ID ------
         await login(staff, "ramon.delgado@example.com", DEMO_PW)
         uid = psql(f"select id from users where email='{email}'")
-        r = await staff.patch(f"/api/registrations/{uid}", json={"approval_status": "approved", "verification_method": "id_in_person"})
-        check("approve before confirming is 409", (r.status_code, r.json().get("detail")),
-              (409, "Their email isn't confirmed yet"))
+        r = await staff.patch(f"/api/registrations/{uid}", json={"approval_status": "approved", "verification_method": "personally_known"})
+        check("approve before confirming is 409", (r.status_code, "confirmed" in r.json().get("detail", "")), (409, True))
         r = await staff.get("/api/registrations?limit=100")
         row = next((u for u in r.json()["items"] if u["id"] == uid), None)
         check("sign-ups list shows it unconfirmed", row and row["is_verified"], False)
@@ -129,7 +128,7 @@ async def main():
         check("unknown address still 202", r.status_code, 202)
         unconfirmed = f"pedro.{STAMP}@example.com"
         await anon.post("/api/auth/register", json={
-            "email": unconfirmed, "password": "kalsada-butas-9", "full_name": "Pedro Test", "residence": "Purok 4", "terms_version": "2026-10-15"})
+            "email": unconfirmed, "password": "kalsada-butas-9", "full_name": "Pedro Test", "residence": "Purok 4", "terms_version": "2026-10-14"})
         await settle()
         after_signup = len(inbox)
         r = await anon.post("/api/auth/forgot-password", json={"email": unconfirmed})

@@ -5,11 +5,13 @@ from fastapi_users import BaseUserManager, FastAPIUsers, UUIDIDMixin
 from fastapi_users.exceptions import InvalidPasswordException
 from fastapi_users.authentication import AuthenticationBackend, CookieTransport, JWTStrategy
 from fastapi_users_db_sqlalchemy import SQLAlchemyUserDatabase
+from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import mail, passwords
 from app.core.config import get_settings
 from app.db.session import get_db
+from app.models.sign_in_failure import SignInFailure
 from app.models.user import ApprovalStatus, Role, User
 from app.terms import TERMS_VERSION
 
@@ -44,6 +46,10 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         # They chose this one, so any temporary password is gone.
         if user.must_change_password:
             await self.user_db.update(user, {"must_change_password": False})
+        # A new password also lifts a sign-in lock.
+        session = self.user_db.session
+        await session.execute(delete(SignInFailure).where(SignInFailure.user_id == user.id))
+        await session.commit()
 
     async def validate_password(self, password: str, user) -> None:
         reason = passwords.problem(password, getattr(user, "email", None))

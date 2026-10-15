@@ -20,7 +20,7 @@ ENV = dict(
 ADMIN_EMAIL, ADMIN_PW = ENV["SEED_ADMIN_EMAIL"].strip(), ENV["SEED_ADMIN_PASSWORD"].strip()
 STAMP = str(int(time.time()))
 results = []
-TERMS_VERSION = "2026-10-15"
+TERMS_VERSION = "2026-10-14"
 
 
 class Client:
@@ -193,6 +193,13 @@ check("a successful sign-in starts the count again",
 for n in range(30):
     Client().login(f"nobody.{STAMP}.{n}@example.com", "whatever-123")
 check("thirty failures from one address lock that address", Client().login(staff_email, "tulay-sira-44"), 429)
+psql("delete from sign_in_failures")
+for n in range(5):
+    Client().login(staff_email, f"mali-{n}-password")
+locked = Client().login(staff_email, "tulay-sira-44")
+s, reset, _ = admin.call("POST", f"/api/admin/users/{staff['id']}/password")
+check("an admin password reset lifts the lock", (locked, s, Client().login(staff_email, reset["temporary_password"])),
+      (429, 200, 204))
 psql("delete from sign_in_failures")
 
 print(f"\n{sum(results)}/{len(results)} passed")

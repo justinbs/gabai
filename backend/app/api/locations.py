@@ -15,7 +15,7 @@ from app.db.session import get_db
 from app.models.category import Category
 from app.models.location import Location
 from app.models.user import Role, User
-from app.schemas.request import LocationCreate, LocationRead, LocationUpdate, Surge
+from app.schemas.request import LocationCreate, LocationRead, LocationUpdate, RequestRef, Surge
 from app.scoping import request_scope_filter
 from app.users import current_active_user, require_role
 
@@ -117,5 +117,6 @@ async def list_surges(
     for row in await duplicates.surges(db, request_scope_filter(user)):
         category = await db.get(Category, row["category_id"])
         location = await db.get(Location, row["location_id"]) if row["location_id"] else None
-        surges.append(Surge(category=category, location=location, count=row["count"], since=row["since"]))
+        main = RequestRef.model_validate(row["main"]) if row["main"] else None
+        surges.append(Surge(category=category, location=location, count=row["count"], since=row["since"], main=main))
     return surges

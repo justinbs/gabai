@@ -33,11 +33,22 @@ def _last_touched():
 
 
 def flagged_first():
-    # A resident's urgent flag counts while the request is still open.
+    # A resident's urgent flag counts until staff first act on the request.
     return case(
-        ((Request.urgent_flagged_at.is_not(None)) & (Request.status.in_(OPEN)), 0),
+        (
+            (Request.urgent_flagged_at.is_not(None))
+            & (Request.urgent_seen_at.is_(None))
+            & (Request.status.in_(OPEN)),
+            0,
+        ),
         else_=1,
     )
+
+
+def mark_seen(request: Request) -> None:
+    # Staff acted, so the urgent flag has been read.
+    if request.urgent_flagged_at is not None and request.urgent_seen_at is None:
+        request.urgent_seen_at = datetime.now(timezone.utc)
 
 
 def aged_urgency_rank(now: datetime | None = None):

@@ -73,6 +73,7 @@ export function RequestTable({
                   )}
                 </td>
                 <td className="py-3 pr-4 align-top">
+                  {item.location && <span className="block text-[15px] font-bold">{item.location.name}</span>}
                   <span className="line-clamp-2">{item.description}</span>
                 </td>
                 <td className="py-3 pr-4 align-top text-muted">
