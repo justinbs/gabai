@@ -1,0 +1,32 @@
+{
+  "label": "round3-release",
+  "areas": {
+    "Confidentiality": [
+      31,
+      0
+    ],
+    "Integrity": [
+      19,
+      0
+    ],
+    "Non-repudiation": [
+      9,
+      0
+    ],
+    "Accountability": [
+      10,
+      0
+    ],
+    "Authenticity": [
+      10,
+      1
+    ]
+  },
+  "failures": [
+    "[Authenticity] a session cookie stops working after sign-out"
+  ],
+  "audit_coverage": [
+    9,
+    9
+  ]
+}

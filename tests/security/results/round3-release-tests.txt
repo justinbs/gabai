@@ -1,0 +1,109 @@
+
+== Confidentiality ==
+Coverage: 47 non-public endpoints tested with no session
+PASS  every non-public endpoint refuses a request with no session
+Coverage: 31 staff/admin endpoints tested as a resident
+PASS  a resident is refused on every staff or admin endpoint
+Coverage: 18 admin endpoints tested as staff
+PASS  staff are refused on every admin endpoint
+PASS  staff can't submit requests (resident only)
+PASS  another resident gets 404 for my request
+PASS  another resident's list excludes it
+PASS  another resident can't download my attachment
+PASS  another resident can't upload to my request
+PASS  another resident can't flag my request urgent
+PASS  request text is encrypted in the database
+PASS  resident name is encrypted in the database
+PASS  uploaded file is encrypted on disk
+PASS  no password hash in any user response
+PASS  login: unknown email and wrong password look identical
+PASS  forgot-password answers 202 for unknown and known emails
+PASS  a bad id gives 422, not a server error
+PASS  malformed JSON gives 422 and no stack trace
+PASS  session cookie is HttpOnly and SameSite=Lax
+
+== Integrity ==
+PASS  mass assignment: sign-up can't set role, approval or verified
+PASS  mass assignment: sign-up can't make a superuser
+PASS  weak password refused at sign-up
+PASS  outdated terms version refused at sign-up
+PASS  SQL injection in user search is harmless
+PASS  SQL injection in audit filter returns nothing
+PASS  injection text is stored as plain text and returned unchanged
+PASS  responses are JSON, so the browser never renders the text as HTML
+PASS  users table still exists after the injection attempt
+PASS  description over 5000 characters refused
+PASS  executable refused
+PASS  text file declared as PNG refused
+PASS  PDF declared as PNG refused
+PASS  file over 5 MB refused
+PASS  hostile file name can't escape the upload folder
+PASS  a resident can't change status
+PASS  an illegal status jump is refused
+PASS  staff can't promote an account to admin
+PASS  CORS: a foreign origin is not allowed
+
+== Non-repudiation ==
+PASS  create account: one audit row, with actor and IP
+PASS  reset password: one audit row, with actor and IP
+PASS  deactivate account: one audit row, with actor and IP
+PASS  relabel a request: one audit row, with actor and IP
+PASS  change request status: one audit row, with actor and IP
+PASS  resident marks request urgent: one audit row, with actor and IP
+PASS  submit a request: one audit row, with actor and IP
+PASS  change site details: one audit row, with actor and IP
+PASS  attach a file to a request: one audit row, with actor and IP
+Audit coverage: 9/9 state-changing actions left a complete audit row
+
+== Accountability ==
+PASS  no endpoint can change the audit log (POST)
+PASS  no endpoint can change the audit log (PUT)
+PASS  no endpoint can change the audit log (PATCH)
+PASS  no endpoint can change the audit log (DELETE)
+PASS  staff can't read the audit log
+PASS  a resident can't read the audit log
+PASS  the database refuses to edit an audit row
+PASS  the database refuses to delete an audit row
+PASS  audit actor is the real caller (not forgeable)
+PASS  admin actions always name an actor
+
+== Authenticity ==
+PASS  control: a real session cookie works
+PASS  JWT with a tampered signature is refused
+PASS  JWT with a changed user id is refused
+PASS  JWT with alg=none is refused
+PASS  JWT signed with the wrong key is refused
+PASS  a garbage cookie is refused
+PASS  a deactivated account's session stops working
+PASS  five wrong passwords are refused
+PASS  the sixth try is locked out even with the right password
+PASS  a pending (unapproved) resident can't reach data
+FAIL  a session cookie stops working after sign-out: got 200, want 401
+
+== Confidentiality ==
+PASS  live: HTTPS works with a valid certificate
+PASS  live: strict-transport-security header present
+PASS  live: content-security-policy header present
+PASS  live: x-content-type-options header present
+PASS  live: x-frame-options header present
+PASS  live: referrer-policy header present
+PASS  live: permissions-policy header present
+PASS  live: cross-origin-opener-policy header present
+PASS  live: Server header hidden
+PASS  live: http redirects to https
+PASS  live: API responses are no-store
+PASS  live: API spec not exposed
+PASS  live: Swagger UI not exposed
+
+== Summary by ISO 25010 security area ==
+| Area | Checks | Passed | Failed | Pass rate |
+|---|---|---|---|---|
+| Confidentiality | 31 | 31 | 0 | 100.0% |
+| Integrity | 19 | 19 | 0 | 100.0% |
+| Non-repudiation | 9 | 9 | 0 | 100.0% |
+| Accountability | 10 | 10 | 0 | 100.0% |
+| Authenticity | 11 | 10 | 1 | 90.9% |
+| Total | 80 | 79 | 1 | 98.8% |
+
+Failed checks:
+  - [Authenticity] a session cookie stops working after sign-out
