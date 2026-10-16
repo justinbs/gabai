@@ -20,7 +20,7 @@ ENV = dict(
 )
 ADMIN = (ENV["SEED_ADMIN_EMAIL"].strip(), ENV["SEED_ADMIN_PASSWORD"].strip())
 DEMO_PW = ENV["SEED_DEMO_PASSWORD"].strip()
-VERSION = "2026-10-14"
+VERSION = "2026-10-16"
 STAMP = str(int(time.time()))
 results, areas, AREA = [], {}, "?"
 

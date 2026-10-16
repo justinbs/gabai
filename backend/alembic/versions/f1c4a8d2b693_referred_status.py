@@ -1,7 +1,7 @@
 """referred status, and the agencies a concern can be referred to
 
 Revision ID: f1c4a8d2b693
-Revises: a2c6e8f0b394
+Revises: b5d8f2a4c716
 Create Date: 2026-10-15 09:00:00.000000
 
 """
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 revision: str = 'f1c4a8d2b693'
-down_revision: str | None = 'a2c6e8f0b394'
+down_revision: str | None = 'b5d8f2a4c716'
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

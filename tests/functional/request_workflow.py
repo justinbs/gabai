@@ -28,7 +28,7 @@ THRESHOLD = 0.70
 LOW_URGENCY_MIN = 0.85
 STAMP = str(int(time.time()))
 results = []
-TERMS_VERSION = "2026-10-14"
+TERMS_VERSION = "2026-10-16"
 areas = {}
 AREA = "?"
 
