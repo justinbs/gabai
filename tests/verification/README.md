@@ -155,70 +155,14 @@ Expected output: `gabai:enc:`.
 
 ## B. Performance after encryption
 
-**Before you start**
+**Justin runs this on the laptop, in the morning when the site is quiet. It asks for the two test accounts and tells you what to do at each step.**
 
-- Run in the morning, when residents are least likely to be using the site. Tell the group first.
-- Open DigitalOcean > the droplet > Graphs, so CPU and memory can be read during each run.
-- Use the staff and resident test accounts from the 4 October runs (both past the terms screen).
-- Make the test photo (2 MB, no location data):
-- `python tests/load/make_test_photo.py test-photo-2mb.jpg`
-
-**Type the test accounts once (Git Bash, repo root; passwords are not shown or saved)**
-
-- `read -p "Staff email: " SE; read -s -p "Staff password: " SP; echo`
-- `read -p "Resident email: " RE; read -s -p "Resident password: " RP; echo`
-
-**Check both passwords once; each line must print 204. A wrong password repeated by k6 would lock the account and this laptop's address for 15 minutes**
-
-- `curl -s -o /dev/null -w "%{http_code} " https://gabai.help/api/auth/login --data-urlencode "username=$SE" --data-urlencode "password=$SP"`
-- `curl -s -o /dev/null -w "%{http_code} " https://gabai.help/api/auth/login --data-urlencode "username=$RE" --data-urlencode "password=$RP"`
-
-**Run 1: load test, the same script as on 4 October (classification time is compared from this run)**
-
-- `k6 run -e BASE=https://gabai.help -e STAFF_EMAIL=$SE -e STAFF_PASSWORD=$SP -e RESIDENT_EMAIL=$RE -e RESIDENT_PASSWORD=$RP tests/load/load_test.js 2>&1 | tee paper/evidence/k6/k6-load-final.txt`
-- Then, as staff, close the 10 requests marked LOAD TEST before the next run (they also start a surge notice).
-
-**Run 2: load test with the 2 MB photo on each of the 10 submissions**
-
-- `k6 run -e BASE=https://gabai.help -e STAFF_EMAIL=$SE -e STAFF_PASSWORD=$SP -e RESIDENT_EMAIL=$RE -e RESIDENT_PASSWORD=$RP -e PHOTO=test-photo-2mb.jpg tests/load/load_test.js 2>&1 | tee paper/evidence/k6/k6-load-photo-final.txt`
-- Then close those 10 LOAD TEST requests too.
-
-**Run 3: stress test, 20 then 40 then 60 sessions**
-
-- `k6 run -e BASE=https://gabai.help -e STAFF_EMAIL=$SE -e STAFF_PASSWORD=$SP tests/load/stress_test.js 2>&1 | tee paper/evidence/k6/k6-stress-final.txt`
-
-**After the runs**
-
-- Screenshot the CPU and memory graphs covering the three runs into paper/evidence/k6/.
-- `unset SP RP; rm test-photo-2mb.jpg`
+- `cd ~/Desktop/Personal/GABAI`
+- `bash tests/load/run_final_load.sh`
 
 ## C. Restore drill
 
-**1. Make a fresh backup while nobody is using the site (Git Bash on the laptop, repo root)**
+**Justin runs this on the laptop, with Docker Desktop running and nobody using the site. It tells you which two files to download from Google Drive and waits for you.**
 
-- `ssh gabai "docker exec -i gabai-db psql -U gabai -d gabai -At" < tests/restore/counts.sql > counts-before.txt`
-- `ssh gabai "cd /srv/gabai && scripts/backup.sh && rclone sync backups gdrive:gabai-backups"`
-- `ssh gabai "docker exec -i gabai-db psql -U gabai -d gabai -At" < tests/restore/counts.sql > drill-counts-production.txt`
-- `diff counts-before.txt drill-counts-production.txt && echo "Nothing changed during the backup: use this one"`
-- If diff prints anything, someone used the site during the backup: repeat step 1.
-
-**2. Download the backup from Google Drive (not from the server)**
-
-- Sign in to the GABAI backups Google account, open gabai-backups, and download the newest db-<time>.dump.age and uploads-<time>.tar.gz.age (same <time>) into, for example, ~/Downloads/drill/.
-
-**3. Put the data key in this terminal only (never in a file)**
-
-- If you have an offline copy:  read -s -p "DATA_KEYS: " DATA_KEYS; echo; export DATA_KEYS
-- If not, from the server:  export DATA_KEYS="$(ssh gabai "grep ^DATA_KEYS= /srv/gabai/.env | cut -d= -f2-")"
-- Write in the results which of the two you used.
-
-**4. Run the drill (Docker Desktop running)**
-
-- `tests/restore/restore_drill.sh ~/Downloads/drill/db-<time>.dump.age ~/Downloads/drill/uploads-<time>.tar.gz.age <path to the offline age key file> drill-counts-production.txt`
-- It stops at R7 to ask for an administrator email and password, then compares one photo downloaded from gabai.help with the same photo from the restored copy.
-- The log is saved to tests/restore/results/restore-drill-<date>.txt. The restored database, its Docker volume and the decrypted files are deleted when it ends.
-
-**5. Afterwards**
-
-- `unset DATA_KEYS; rm -rf ~/Downloads/drill counts-before.txt drill-counts-production.txt`
-- Put the age key file back where it is kept offline.
+- `cd ~/Desktop/Personal/GABAI`
+- `bash tests/restore/run_drill.sh`

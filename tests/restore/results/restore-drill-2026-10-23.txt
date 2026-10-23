@@ -1,0 +1,78 @@
+GABAI restore drill, 2026-10-23 15:04 +0800, on Justin
+Repo commit: 997e04f
+
+== R1 Backup files (downloaded from Google Drive by hand)
+97072 /c/Users/justi/Downloads/drill/db-20261023T070050Z.dump.age
+27191958 /c/Users/justi/Downloads/drill/uploads-20261023T070050Z.tar.gz.age
+Backup made 20261023T070050Z; age 0 hours
+RESULT R1: PASS
+
+== R2 Decrypt both files with the offline private key
+dump 96856 bytes; uploads archive holds 25 files
+RESULT R2: PASS
+
+== R3 Empty PostgreSQL 16 database and full pg_restore
+pg_restore finished with no errors in 1 s
+RESULT R3: PASS
+
+== R4 Row counts against production at backup time
+alembic_version 1                             alembic_version 1                             same
+attachments 25                                attachments 25                                same
+audit_log_entries 432                         audit_log_entries 432                         same
+categories 7                                  categories 7                                  same
+duplicate_suggestions 90                      duplicate_suggestions 90                      same
+locations 0                                   locations 0                                   same
+notifications 75                              notifications 75                              same
+referral_agencies 4                           referral_agencies 4                           same
+requests 73                                   requests 73                                   same
+routing_rules 84                              routing_rules 84                              same
+sign_in_failures 1                            sign_in_failures 1                            same
+site_settings 1                               site_settings 1                               same
+status_history_entries 299                    status_history_entries 299                    same
+users 37                                      users 37                                      same
+newest_audit_entry 432                        newest_audit_entry 432                        same
+migration f1c4a8d2b693                        migration f1c4a8d2b693                        same
+RESULT R4: PASS
+
+== R5 Migration revision and append-only audit log
+restored revision f1c4a8d2b693; repo head f1c4a8d2b693
+refused as expected: update -> ERROR:  audit_log_entries is append-only: UPDATE refused
+refused as expected: delete -> ERROR:  audit_log_entries is append-only: DELETE refused
+RESULT R5: PASS
+
+== R6 Start the application against the restored database
+application answering on http://127.0.0.1:8100
+RESULT R6: PASS
+
+== R7 Every encrypted value and file reads back
+users.full_name: 37 values, 37 encrypted, 37 decrypted
+users.residence: 11 values, 11 encrypted, 11 decrypted
+requests.description: 73 values, 73 encrypted, 73 decrypted
+requests.urgent_reason: 0 values, 0 encrypted, 0 decrypted
+requests.referral_note: 0 values, 0 encrypted, 0 decrypted
+status_history_entries.note: 101 values, 101 encrypted, 101 decrypted
+attachments.filename: 25 values, 25 encrypted, 25 decrypted
+attachments: 25 rows, 0 files missing, 25 decrypted and match their type
+newest attachment: request 73, attachment 25, sha256 a44142b14ff88711bd3d7a7ef302f7d7fee4beca1b1ee79f7203b1e4ca3bbce2
+RESULT PASS
+
+Now sign in with your administrator account. The same attachment is downloaded
+from gabai.help and from the restored copy and the checksums are compared.
+Administrator email: Password (not shown): 
+live: request GAB-2026-00073 opened, description readable: True, attachment sha256 a44142b14ff88711bd3d7a7ef302f7d7fee4beca1b1ee79f7203b1e4ca3bbce2
+restored: request GAB-2026-00073 opened, description readable: True, attachment sha256 a44142b14ff88711bd3d7a7ef302f7d7fee4beca1b1ee79f7203b1e4ca3bbce2
+RESULT PASS - checksums equal
+RESULT R7: PASS
+
+== R8 Negative checks
+without DATA_KEYS: the application refuses to start (DATA_KEYS is not set)
+with a wrong DATA_KEYS: encrypted data cannot be read (RESULT FAIL (272 unreadable or missing))
+with a wrong age key: the backup does not decrypt (no identity matched)
+RESULT R8: PASS
+
+== R9 Time and data-loss window
+From decryption to a running copy whose data all reads back (R2 to R7, before the sign-in): 0 min 19 s
+Backup age at the start of the drill: 0 hours (changes after the backup would be lost)
+
+All steps passed. Log: /c/Users/justi/Desktop/Personal/GABAI/tests/restore/results/restore-drill-2026-10-23.txt
+Cleaned up: drill database and its volume removed, decrypted files deleted.
