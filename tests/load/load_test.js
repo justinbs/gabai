@@ -6,13 +6,20 @@
 // Use a staff account and an approved resident account made for testing, both
 // already past the terms screen. The "browse" scenario only reads. The "submit"
 // scenario creates 10 requests marked LOAD TEST; staff close them afterwards.
+// With -e PHOTO=path/to/photo.jpg each of those requests also uploads that photo
+// and downloads it again, so storing and reading an encrypted file is timed.
+// Make the photo with tests/load/make_test_photo.py (2 MB, no location data).
+// Classification time is only comparable with 4 Oct in the run without PHOTO.
 
 import http from "k6/http";
 import { check, sleep } from "k6";
 import { Trend } from "k6/metrics";
+import crypto from "k6/crypto";
 
 const BASE = __ENV.BASE || "https://gabai.help";
 const classification = new Trend("classification_seconds");
+const photo = __ENV.PHOTO ? open(__ENV.PHOTO, "b") : null;
+const photoHash = photo ? crypto.sha256(photo, "hex") : null;
 
 export const options = {
   noCookiesReset: true,
@@ -66,6 +73,14 @@ export function submit() {
   if (!check(res, { "request accepted": (r) => r.status === 201 })) return;
   const id = res.json("id");
   const started = Date.now();
+  if (photo) {
+    const up = http.post(`${BASE}/api/requests/${id}/attachments`,
+      { file: http.file(photo, "photo.jpg", "image/jpeg") }, { tags: { name: "photo upload" } });
+    if (check(up, { "photo stored": (r) => r.status === 201 })) {
+      const down = http.get(`${BASE}/api/requests/${id}/attachments/${up.json("id")}`, { tags: { name: "photo download" }, responseType: "binary" });
+      check(down, { "photo returned unchanged (same SHA-256)": (r) => r.status === 200 && crypto.sha256(r.body, "hex") === photoHash });
+    }
+  }
   for (let i = 0; i < 30; i++) {
     sleep(0.5);
     const r = http.get(`${BASE}/api/requests/${id}`, { tags: { name: "request detail" } });
