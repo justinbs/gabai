@@ -6,7 +6,7 @@ blank result columns.
 
 ## A. Browser workflows
 
-Environments: Chrome (Windows laptop); Edge (Windows laptop); Firefox (Windows laptop); Safari (macOS) (not available: no Mac); Safari (iPhone 13) (Jean's phone); Chrome (Android, Poco F6) (Daniel's phone).
+Environments: Chrome (Windows laptop); Edge (Windows laptop); Firefox (Windows laptop); Safari (macOS) (not available: no Mac); Safari (iPhone 13) (iPhone 13 with Safari); Chrome (Android, Poco F6) (Poco F6 with Chrome).
 
 ### V-01 Sign-up with purok or street and terms acceptance (Resident)
 
@@ -155,14 +155,14 @@ Expected output: `gabai:enc:`.
 
 ## B. Performance after encryption
 
-**Justin runs this on the laptop, in the morning when the site is quiet. It asks for the two test accounts and tells you what to do at each step.**
+**Done on 23 October 2026. Run on the project laptop, in the morning when the site is quiet. It asks for the two test accounts and tells you what to do at each step.**
 
 - `cd ~/Desktop/Personal/GABAI`
 - `bash tests/load/run_final_load.sh`
 
 ## C. Restore drill
 
-**Justin runs this on the laptop, with Docker Desktop running and nobody using the site. It tells you which two files to download from Google Drive and waits for you.**
+**Done on 23 October 2026. Run on the project laptop, with Docker Desktop running and nobody using the site. It tells you which two files to download from Google Drive and waits for you.**
 
 - `cd ~/Desktop/Personal/GABAI`
 - `bash tests/restore/run_drill.sh`

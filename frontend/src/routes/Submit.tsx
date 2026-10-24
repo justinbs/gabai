@@ -19,7 +19,10 @@ export function Submit() {
   const fileInput = useRef<HTMLInputElement>(null);
   const [text, setText] = useState("");
   const [uploads, setUploads] = useState<File[]>([]);
-  const [preparing, setPreparing] = useState(false);
+  // Picks still being prepared. Each pick adds to the list, so a phone user can
+  // choose photos and a PDF one after the other.
+  const [preparingCount, setPreparingCount] = useState(0);
+  const preparing = preparingCount > 0;
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState("");
@@ -29,7 +32,6 @@ export function Submit() {
   const [retried, setRetried] = useState(false);
   // Files the server couldn't open. Sending them again won't help.
   const [unreadable, setUnreadable] = useState<string[]>([]);
-  const latestPick = useRef(0);
   // Puroks or streets, if the barangay has listed any. Empty means don't ask.
   // "none" is "Not on the list".
   const [places, setPlaces] = useState<Location[]>([]);
@@ -51,8 +53,8 @@ export function Submit() {
     return () => window.removeEventListener("beforeunload", warn);
   }, [busy]);
 
+  // A bad pick is refused on its own; files already chosen stay.
   const reject = (message: string) => {
-    setUploads([]);
     if (fileInput.current) fileInput.current.value = "";
     setError(message);
   };
@@ -60,29 +62,34 @@ export function Submit() {
   const pick = async (list: FileList | null) => {
     if (!list) return;
     const chosen = Array.from(list);
-    // Only the latest pick counts if the person picks again while one is running.
-    const pickId = ++latestPick.current;
+    // Cleared so the next pick, even of the same file, always registers.
+    if (fileInput.current) fileInput.current.value = "";
 
     const wrongType = chosen.find((f) => !api.ALLOWED_TYPES.includes(f.type));
     if (wrongType) {
-      setPreparing(false);
       reject(`${wrongType.name} isn't a photo or PDF · hindi ito larawan o PDF`);
       return;
     }
     // Shrink photos first, so a large phone photo isn't refused for its size.
     setError(undefined);
-    setPreparing(true);
+    setPreparingCount((n) => n + 1);
     const prepared: File[] = [];
-    for (const file of chosen) prepared.push(await shrinkPhoto(file));
-    if (pickId !== latestPick.current) return;
-    setPreparing(false);
+    try {
+      for (const file of chosen) prepared.push(await shrinkPhoto(file));
+    } finally {
+      setPreparingCount((n) => n - 1);
+    }
 
     const tooBig = prepared.find((f) => f.size > api.MAX_FILE_BYTES);
     if (tooBig) {
       reject(`${tooBig.name} is over 5 MB · lampas 5 MB ang ${tooBig.name}`);
       return;
     }
-    setUploads(prepared);
+    // The same file picked twice is kept once.
+    setUploads((current) => [
+      ...current,
+      ...prepared.filter((f) => !current.some((c) => c.name === f.name && c.size === f.size)),
+    ]);
   };
 
   // Sends the files one at a time. Returns the ones worth trying again.
@@ -310,7 +317,7 @@ export function Submit() {
             Photos · Mga larawan
           </label>
           <p id="photos-hint" className="mt-1 text-muted">
-            Optional, PDFs up to 5 MB · Opsyonal, hanggang 5 MB ang PDF
+            Optional, PDFs up to 5 MB, pick again to add more · Opsyonal, hanggang 5 MB ang PDF, pumili ulit para magdagdag
           </p>
           <input
             ref={fileInput}
@@ -320,14 +327,23 @@ export function Submit() {
             multiple
             accept={api.ALLOWED_TYPES.join(",")}
             aria-describedby="photos-hint"
+            disabled={busy}
             onChange={(e) => pick(e.target.files)}
             className={`mt-2 block w-full border-2 border-ink p-2 text-[17px] file:mr-3 file:border-0 file:bg-wash file:px-3 file:py-1.5 file:font-bold ${FOCUS_LINK}`}
           />
           {uploads.length > 0 && (
             <ul className="mt-2">
-              {uploads.map((f, i) => (
-                <li key={i} className="text-muted">
-                  {f.name} ({Math.round(f.size / 1024)} KB)
+              {uploads.map((f) => (
+                <li key={`${f.name}-${f.size}`} className="text-muted">
+                  {f.name} ({Math.round(f.size / 1024)} KB){" "}
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => setUploads((current) => current.filter((c) => c !== f))}
+                    className={`text-link underline ${FOCUS_LINK}`}
+                  >
+                    Remove · Alisin
+                  </button>
                 </li>
               ))}
             </ul>
