@@ -19,7 +19,7 @@ stamp() { date '+%H:%M:%S'; }
 # k6 saves its summary even when a limit is crossed; with no summary, k6 itself failed.
 ran() {
     grep -q "http_req_duration" "$1" && return 0
-    echo "k6 did not run properly (see the lines above). Nothing more was run; send Claude the file $1."
+    echo "k6 did not run properly (see the lines above). Nothing more was run; send the file $1 to the group."
     exit 1
 }
 

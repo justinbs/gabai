@@ -62,5 +62,5 @@ rm -rf "$DRILL" counts-before.txt drill-counts-production.txt
 if [ "$status" = 0 ]; then
     say "Drill passed. The log is in tests/restore/results/. The downloaded backup files were deleted."
 else
-    say "Drill stopped at a FAIL (see the line above). Send Claude the log in tests/restore/results/."
+    say "Drill stopped at a FAIL (see the line above). Keep the log in tests/restore/results/ and check the failed step."
 fi
