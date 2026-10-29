@@ -6,7 +6,7 @@ blank result columns.
 
 ## A. Browser workflows
 
-Environments: Chrome (Windows laptop); Edge (Windows laptop); Firefox (Windows laptop); Safari (macOS) (not available: no Mac); Safari (iPhone 13) (iPhone 13 with Safari); Chrome (Android, Poco F6) (Poco F6 with Chrome).
+Environments: Chrome (Windows laptop); Edge (Windows laptop); Firefox (Windows laptop); Safari (macOS) (borrowed Mac, 24 October 2026); Safari (iPhone 13) (iPhone 13 with Safari); Chrome (Android, Poco F6) (Poco F6 with Chrome).
 
 ### V-01 Sign-up with purok or street and terms acceptance (Resident)
 

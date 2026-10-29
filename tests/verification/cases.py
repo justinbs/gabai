@@ -2,7 +2,7 @@
 
 ENVIRONMENTS = [
     ("Chrome", "Windows laptop"), ("Edge", "Windows laptop"), ("Firefox", "Windows laptop"),
-    ("Safari (macOS)", "not available: no Mac"), ("Safari (iPhone 13)", "iPhone 13 with Safari"),
+    ("Safari (macOS)", "borrowed Mac, 24 October 2026"), ("Safari (iPhone 13)", "iPhone 13 with Safari"),
     ("Chrome (Android, Poco F6)", "Poco F6 with Chrome"),
 ]
 DESKTOP = ["Chrome", "Edge", "Firefox"]
